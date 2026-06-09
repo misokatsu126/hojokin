@@ -136,14 +136,20 @@ export async function runJgrantsSync(opts?: { keywords?: string[] }): Promise<Co
     : (["愛知県", "名古屋市", "弥富市", "岐阜県", "岐阜市"] as string[]);
 
   const seen = new Set<string>();
+  let kwTried = 0;
+  let kwFailed = 0;
+  let lastError = "";
   try {
     for (const kw of keywords) {
       if (!kw || kw.length < 2) continue;
+      kwTried++;
       let items: JgrantsListItem[] = [];
       try {
         items = await jgrantsSearch(kw);
       } catch (e) {
-        // 個別キーワードの失敗はスキップして継続
+        // 個別キーワードの失敗はスキップして継続（全滅時は後でok:falseに）
+        kwFailed++;
+        lastError = (e as Error).message;
         continue;
       }
       for (const it of items) {
@@ -202,6 +208,12 @@ export async function runJgrantsSync(opts?: { keywords?: string[] }): Promise<Co
   } catch (e) {
     summary.ok = false;
     summary.error = (e as Error).message;
+  }
+
+  // 全キーワードで取得に失敗した場合は ok:false（外部到達不可・API障害を可視化）
+  if (summary.ok && kwTried > 0 && kwFailed === kwTried) {
+    summary.ok = false;
+    summary.error = `Jグランツへの取得に全て失敗しました（${lastError || "ネットワーク不可"}）`;
   }
 
   if (site) {
