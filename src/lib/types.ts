@@ -3,6 +3,14 @@ import type {
   MatchStatus,
   ApplicationStatus,
   AlertType,
+  SourceType,
+  TrustLevel,
+  SourcePriority,
+  CrawlFrequency,
+  DetectionType,
+  DiscoveredStatus,
+  VerificationStatus,
+  ReviewStatus,
 } from "./constants";
 
 export type Grant = {
@@ -170,4 +178,145 @@ export type NlSearchResponse = {
   relaxed_search_suggestions: string[];
   summary: string;
   engine: "ai" | "rule";
+};
+
+// =============================================================
+// 自動探索レーダー用の型
+// =============================================================
+
+// 監視対象サイト（情報源）
+export type SourceSite = {
+  id: string;
+  name: string;
+  source_type: SourceType;
+  trust_level: TrustLevel;
+  url: string | null;
+  region: string | null;
+  priority: SourcePriority;
+  crawl_frequency: CrawlFrequency;
+  is_active: boolean;
+  last_checked_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+export type SourceSiteInput = Omit<SourceSite, "id" | "created_at" | "updated_at">;
+
+// 巡回ログ（将来の自動巡回用）
+export type SourceFetchLog = {
+  id: string;
+  source_site_id: string | null;
+  fetched_at: string;
+  status: "success" | "error" | "skipped";
+  http_status: number | null;
+  error_message: string | null;
+  detected_count: number;
+  created_at: string;
+};
+
+// 自動/手動で検知した補助金候補
+export type DiscoveredItem = {
+  id: string;
+  source_site_id: string | null;
+  title: string | null;
+  url: string | null;
+  detected_at: string;
+  raw_text: string | null;
+  raw_html: string | null;
+  pdf_url: string | null;
+  detection_type: DetectionType;
+  status: DiscoveredStatus;
+  source_category: SourceType | null;
+  trust_level: TrustLevel | null;
+  original_source_url: string | null;
+  official_url: string | null;
+  official_pdf_url: string | null;
+  official_source_confirmed: boolean;
+  source_warning: string | null;
+  last_verified_at: string | null;
+  verification_status: VerificationStatus;
+  duplicate_of: string | null;
+  created_at: string;
+  updated_at: string;
+};
+export type DiscoveredItemInput = Omit<
+  DiscoveredItem,
+  "id" | "detected_at" | "created_at" | "updated_at"
+>;
+
+// AI/ルールで抽出・正規化した補助金候補
+export type ExtractedGrantCandidate = {
+  id: string;
+  discovered_item_id: string | null;
+  name: string | null;
+  grant_type: string | null;
+  organizer: string | null;
+  target_regions: string[];
+  target_industries: string[];
+  target_business_types: string[];
+  target_people: string | null;
+  eligible_expenses: string[];
+  subsidy_rate: string | null;
+  max_amount: number | null;
+  min_amount: number | null;
+  application_start_date: string | null;
+  deadline: string | null;
+  application_status: string | null;
+  application_method: string | null;
+  required_documents: string | null;
+  official_url: string | null;
+  official_pdf_url: string | null;
+  notes: string | null;
+  pre_application_ng_risk: boolean;
+  professional_check_recommended: boolean;
+  confidence_score: number;
+  missing_fields: string[];
+  source_category: SourceType | null;
+  trust_level: TrustLevel | null;
+  verification_status: VerificationStatus;
+  created_at: string;
+  updated_at: string;
+};
+export type ExtractedGrantCandidateInput = Omit<
+  ExtractedGrantCandidate,
+  "id" | "created_at" | "updated_at"
+>;
+
+// 人間による確認・承認履歴
+export type ImportReview = {
+  id: string;
+  extracted_grant_candidate_id: string | null;
+  reviewer_name: string | null;
+  review_status: ReviewStatus;
+  review_note: string | null;
+  approved_grant_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// AI/ルール抽出の出力（extracted_grant_candidates への保存前の形）
+export type ExtractionResult = {
+  name: string;
+  grant_type: string | null;
+  organizer: string | null;
+  target_regions: string[];
+  target_industries: string[];
+  target_business_types: string[];
+  target_people: string | null;
+  eligible_expenses: string[];
+  subsidy_rate: string | null;
+  max_amount: number | null;
+  min_amount: number | null;
+  application_start_date: string | null;
+  deadline: string | null;
+  application_status: string | null;
+  application_method: string | null;
+  required_documents: string | null;
+  official_url: string | null;
+  official_pdf_url: string | null;
+  notes: string | null;
+  pre_application_ng_risk: boolean;
+  professional_check_recommended: boolean;
+  confidence_score: number;
+  missing_fields: string[];
 };

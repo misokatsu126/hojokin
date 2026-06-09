@@ -10,6 +10,13 @@ import type {
   AppStatusRow,
   StatusNote,
   MatchResult,
+  SourceSite,
+  SourceSiteInput,
+  DiscoveredItem,
+  DiscoveredItemInput,
+  ExtractedGrantCandidate,
+  ExtractedGrantCandidateInput,
+  ImportReview,
 } from "./types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -211,4 +218,151 @@ export async function logSearch(
     .from("ai_search_logs")
     .insert({ query, interpreted_conditions: interpreted, result_count: resultCount });
   if (error) console.warn("[ai_search_logs] insert failed:", error.message);
+}
+
+// =============================================================
+// 自動探索レーダー：情報源・検知候補・AI抽出候補・確認履歴
+// =============================================================
+
+// ---------------- source_sites ----------------
+export async function fetchSourceSites(): Promise<SourceSite[]> {
+  const { data, error } = await supabase
+    .from("source_sites")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SourceSite[];
+}
+
+export async function createSourceSite(input: SourceSiteInput): Promise<SourceSite> {
+  const { data, error } = await supabase.from("source_sites").insert(input).select().single();
+  if (error) throw error;
+  return data as SourceSite;
+}
+
+export async function updateSourceSite(
+  id: string,
+  input: Partial<SourceSiteInput>
+): Promise<SourceSite> {
+  const { data, error } = await supabase
+    .from("source_sites")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SourceSite;
+}
+
+export async function deleteSourceSite(id: string): Promise<void> {
+  const { error } = await supabase.from("source_sites").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------- discovered_items ----------------
+export async function fetchDiscoveredItems(): Promise<DiscoveredItem[]> {
+  const { data, error } = await supabase
+    .from("discovered_items")
+    .select("*")
+    .order("detected_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as DiscoveredItem[];
+}
+
+export async function fetchDiscoveredItem(id: string): Promise<DiscoveredItem | null> {
+  const { data, error } = await supabase
+    .from("discovered_items")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as DiscoveredItem) ?? null;
+}
+
+export async function createDiscoveredItem(
+  input: DiscoveredItemInput
+): Promise<DiscoveredItem> {
+  const { data, error } = await supabase.from("discovered_items").insert(input).select().single();
+  if (error) throw error;
+  return data as DiscoveredItem;
+}
+
+export async function updateDiscoveredItem(
+  id: string,
+  input: Partial<DiscoveredItemInput>
+): Promise<DiscoveredItem> {
+  const { data, error } = await supabase
+    .from("discovered_items")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as DiscoveredItem;
+}
+
+export async function deleteDiscoveredItem(id: string): Promise<void> {
+  const { error } = await supabase.from("discovered_items").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------- extracted_grant_candidates ----------------
+export async function fetchExtractedCandidates(): Promise<ExtractedGrantCandidate[]> {
+  const { data, error } = await supabase
+    .from("extracted_grant_candidates")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ExtractedGrantCandidate[];
+}
+
+export async function fetchExtractedForItem(
+  discoveredItemId: string
+): Promise<ExtractedGrantCandidate[]> {
+  const { data, error } = await supabase
+    .from("extracted_grant_candidates")
+    .select("*")
+    .eq("discovered_item_id", discoveredItemId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ExtractedGrantCandidate[];
+}
+
+export async function createExtractedCandidate(
+  input: ExtractedGrantCandidateInput
+): Promise<ExtractedGrantCandidate> {
+  const { data, error } = await supabase
+    .from("extracted_grant_candidates")
+    .insert(input)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ExtractedGrantCandidate;
+}
+
+export async function deleteExtractedCandidate(id: string): Promise<void> {
+  const { error } = await supabase.from("extracted_grant_candidates").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------- import_reviews ----------------
+export async function fetchImportReviews(): Promise<ImportReview[]> {
+  const { data, error } = await supabase
+    .from("import_reviews")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ImportReview[];
+}
+
+export async function createImportReview(input: {
+  extracted_grant_candidate_id: string;
+  reviewer_name?: string | null;
+  review_status: string;
+  review_note?: string | null;
+  approved_grant_id?: string | null;
+}): Promise<ImportReview> {
+  const { data, error } = await supabase.from("import_reviews").insert(input).select().single();
+  if (error) throw error;
+  return data as ImportReview;
 }

@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavLink href="/search" label="AI検索" />
               <NavLink href="/profiles" label="事業プロフィール" />
               <NavLink href="/admin" label="補助金登録" />
+              <NavLink href="/radar" label="探索レーダー" />
             </nav>
           </div>
         </header>
