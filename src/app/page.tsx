@@ -13,6 +13,7 @@ import type { Grant, BusinessProfile, GrantMatch, Alert, AppStatusRow } from "@/
 import { deadlineState, daysUntil, formatDate } from "@/lib/utils";
 import { APPLICATION_STATUSES } from "@/lib/constants";
 import { NlSearchBox } from "@/components/NlSearchBox";
+import { AutoCollectSection } from "@/components/AutoCollectSection";
 import { AlertBadge, ScoreBadge, DeadlineBadge } from "@/components/Badges";
 
 export default function DashboardPage() {
@@ -91,6 +92,8 @@ export default function DashboardPage() {
       <div className="mb-6 rounded-lg border bg-white p-4">
         <NlSearchBox />
       </div>
+
+      <AutoCollectSection />
 
       {empty && (
         <div className="mb-6 rounded-lg border border-dashed bg-white p-6 text-sm text-gray-500">

@@ -119,6 +119,223 @@ export const SELECTION_TYPES = ["採択制", "条件達成型", "不明"] as con
 export const PRE_APPLICATION_WARNING_TEXT =
   "この制度は、申請前または交付決定前の契約・発注・支払いが補助対象外になる可能性があります。見積取得は可能でも、契約・発注前に必ず公募要領または専門家へ確認してください。";
 
+// =============================================================
+// 自動探索レーダー（情報源・検知候補・AI抽出候補）の区分定義
+// =============================================================
+
+// 情報源カテゴリ
+export const SOURCE_TYPES = [
+  "official",
+  "semi_official",
+  "aggregator",
+  "professional_article",
+  "news",
+  "unknown",
+] as const;
+export type SourceType = (typeof SOURCE_TYPES)[number];
+
+export const SOURCE_TYPE_LABEL: Record<SourceType, string> = {
+  official: "公式サイト",
+  semi_official: "準公式・公的DB",
+  aggregator: "補助金まとめサイト",
+  professional_article: "士業・コンサル記事",
+  news: "ニュース・PR",
+  unknown: "不明",
+};
+
+// 情報源カテゴリ → 3層構造の説明
+export const SOURCE_TYPE_TIER: Record<SourceType, string> = {
+  official: "第1層：一次情報（最も信頼できる）",
+  semi_official: "第2層：準公式・公的支援情報",
+  aggregator: "第3層：二次情報（発見用レーダー）",
+  professional_article: "第3層：二次情報（発見用レーダー）",
+  news: "第3層：二次情報（発見用レーダー）",
+  unknown: "信頼度不明",
+};
+
+// 二次情報（民間まとめ・記事・ニュース）かどうか
+export const SECONDARY_SOURCE_TYPES: SourceType[] = [
+  "aggregator",
+  "professional_article",
+  "news",
+  "unknown",
+];
+
+// 信頼度スコア
+export const TRUST_LEVELS = ["A", "B", "C", "D", "E"] as const;
+export type TrustLevel = (typeof TRUST_LEVELS)[number];
+
+export const TRUST_LEVEL_LABEL: Record<TrustLevel, string> = {
+  A: "信頼度A：公式情報",
+  B: "信頼度B：準公式情報",
+  C: "信頼度C：民間まとめサイト由来",
+  D: "信頼度D：記事・PR由来",
+  E: "信頼度E：未確認",
+};
+
+export const TRUST_LEVEL_COLORS: Record<TrustLevel, string> = {
+  A: "bg-green-100 text-green-800 border-green-200",
+  B: "bg-teal-100 text-teal-800 border-teal-200",
+  C: "bg-amber-100 text-amber-800 border-amber-200",
+  D: "bg-orange-100 text-orange-800 border-orange-200",
+  E: "bg-gray-100 text-gray-500 border-gray-200",
+};
+
+// 情報源カテゴリごとの既定の信頼度
+export const SOURCE_TYPE_DEFAULT_TRUST: Record<SourceType, TrustLevel> = {
+  official: "A",
+  semi_official: "B",
+  aggregator: "C",
+  professional_article: "D",
+  news: "D",
+  unknown: "E",
+};
+
+export const SOURCE_PRIORITIES = ["high", "medium", "low"] as const;
+export type SourcePriority = (typeof SOURCE_PRIORITIES)[number];
+export const SOURCE_PRIORITY_LABEL: Record<SourcePriority, string> = {
+  high: "高",
+  medium: "中",
+  low: "低",
+};
+
+export const CRAWL_FREQUENCIES = ["daily", "weekly", "monthly"] as const;
+export type CrawlFrequency = (typeof CRAWL_FREQUENCIES)[number];
+export const CRAWL_FREQUENCY_LABEL: Record<CrawlFrequency, string> = {
+  daily: "毎日",
+  weekly: "毎週",
+  monthly: "毎月",
+};
+
+// 検知種別
+export const DETECTION_TYPES = [
+  "new",
+  "updated",
+  "deadline_changed",
+  "pdf_added",
+  "closed",
+  "unknown",
+] as const;
+export type DetectionType = (typeof DETECTION_TYPES)[number];
+export const DETECTION_TYPE_LABEL: Record<DetectionType, string> = {
+  new: "新着",
+  updated: "更新",
+  deadline_changed: "締切変更",
+  pdf_added: "公募要領PDF追加",
+  closed: "受付終了",
+  unknown: "不明",
+};
+
+// 検知候補（discovered_items）のステータス
+export const DISCOVERED_STATUSES = [
+  "unreviewed",
+  "candidate",
+  "imported",
+  "ignored",
+  "rejected",
+] as const;
+export type DiscoveredStatus = (typeof DISCOVERED_STATUSES)[number];
+export const DISCOVERED_STATUS_LABEL: Record<DiscoveredStatus, string> = {
+  unreviewed: "未確認",
+  candidate: "確認候補",
+  imported: "本登録済み",
+  ignored: "無視",
+  rejected: "却下",
+};
+export const DISCOVERED_STATUS_COLORS: Record<DiscoveredStatus, string> = {
+  unreviewed: "bg-sky-100 text-sky-800",
+  candidate: "bg-blue-100 text-blue-800",
+  imported: "bg-green-100 text-green-800",
+  ignored: "bg-gray-100 text-gray-500",
+  rejected: "bg-red-100 text-red-700",
+};
+
+// 公式情報の確認状態
+export const VERIFICATION_STATUSES = [
+  "unverified",
+  "official_found",
+  "needs_review",
+  "verified",
+  "rejected",
+] as const;
+export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
+export const VERIFICATION_STATUS_LABEL: Record<VerificationStatus, string> = {
+  unverified: "公式未確認",
+  official_found: "公式URL確認済み",
+  needs_review: "要確認",
+  verified: "確認完了",
+  rejected: "却下",
+};
+export const VERIFICATION_STATUS_COLORS: Record<VerificationStatus, string> = {
+  unverified: "bg-gray-100 text-gray-500",
+  official_found: "bg-teal-100 text-teal-800",
+  needs_review: "bg-amber-100 text-amber-800",
+  verified: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-700",
+};
+
+// 人間による確認（import_reviews）のステータス
+export const REVIEW_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+  "needs_more_info",
+] as const;
+export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
+export const REVIEW_STATUS_LABEL: Record<ReviewStatus, string> = {
+  pending: "確認待ち",
+  approved: "承認・本登録",
+  rejected: "却下",
+  needs_more_info: "要追加確認",
+};
+
+// 二次情報（民間まとめ・記事・ニュース）由来の候補に表示する注意文
+export const SECONDARY_SOURCE_WARNING_TEXT =
+  "この情報は補助金紹介サイト・まとめサイト・記事等から検知した候補です。内容が古い、条件が省略されている、募集終了済みの可能性があります。必ず公式サイト・公募要領PDFを確認してください。";
+
+// 公式情報が未確認の候補に表示する注意文
+export const OFFICIAL_UNCONFIRMED_WARNING_TEXT =
+  "公式情報未確認：この補助金候補について、公式URLまたは公募要領PDFがまだ確認できていません。申請判断には使用せず、確認候補として扱ってください。";
+
+// =============================================================
+// 自動収集（Jグランツ/公式巡回/J-Net21/RSS）用の区分・設定
+// =============================================================
+
+// 対象種別（事業者向け / 個人向け）
+export const AUDIENCE_TYPES = ["business", "individual", "both", "unknown"] as const;
+export type AudienceType = (typeof AUDIENCE_TYPES)[number];
+
+export const AUDIENCE_TYPE_LABEL: Record<AudienceType, string> = {
+  business: "事業者向け",
+  individual: "個人向け",
+  both: "事業者・個人",
+  unknown: "対象未判定",
+};
+
+export const AUDIENCE_TYPE_COLORS: Record<AudienceType, string> = {
+  business: "bg-blue-100 text-blue-800",
+  individual: "bg-emerald-100 text-emerald-800",
+  both: "bg-violet-100 text-violet-800",
+  unknown: "bg-gray-100 text-gray-500",
+};
+
+// 自動収集の対象地域（愛知県/名古屋市/弥富市/岐阜県/岐阜市）
+export const COLLECT_TARGET_REGIONS = [
+  "愛知県",
+  "名古屋市",
+  "弥富市",
+  "岐阜県",
+  "岐阜市",
+] as const;
+
+// target_area_search 等の地域文字列がこの収集対象に該当するか（全国・空も対象に含める）
+export function regionTextInTarget(areaText: string | null | undefined): boolean {
+  if (!areaText) return true; // 地域指定なし＝全国扱いで拾う
+  if (areaText.includes("全国")) return true;
+  if (areaText.includes("愛知") || areaText.includes("岐阜")) return true;
+  return COLLECT_TARGET_REGIONS.some((r) => areaText.includes(r));
+}
+
 // 法務・士業に関する全体注意文
 export const LEGAL_DISCLAIMER_TEXT =
   "本サービスは補助金・助成金情報の検索・整理・一次判定を目的としたツールです。申請可否や受給を保証するものではありません。実際の申請前には、必ず公式情報・公募要領を確認し、必要に応じて行政書士、社会保険労務士、認定支援機関などの専門家へご相談ください。";

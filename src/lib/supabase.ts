@@ -10,6 +10,14 @@ import type {
   AppStatusRow,
   StatusNote,
   MatchResult,
+  SourceSite,
+  SourceSiteInput,
+  DiscoveredItem,
+  DiscoveredItemInput,
+  ExtractedGrantCandidate,
+  ExtractedGrantCandidateInput,
+  ImportReview,
+  SourceFetchLog,
 } from "./types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -211,4 +219,215 @@ export async function logSearch(
     .from("ai_search_logs")
     .insert({ query, interpreted_conditions: interpreted, result_count: resultCount });
   if (error) console.warn("[ai_search_logs] insert failed:", error.message);
+}
+
+// =============================================================
+// 自動探索レーダー：情報源・検知候補・AI抽出候補・確認履歴
+// =============================================================
+
+// ---------------- source_sites ----------------
+export async function fetchSourceSites(): Promise<SourceSite[]> {
+  const { data, error } = await supabase
+    .from("source_sites")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SourceSite[];
+}
+
+export async function createSourceSite(input: SourceSiteInput): Promise<SourceSite> {
+  const { data, error } = await supabase.from("source_sites").insert(input).select().single();
+  if (error) throw error;
+  return data as SourceSite;
+}
+
+export async function updateSourceSite(
+  id: string,
+  input: Partial<SourceSiteInput>
+): Promise<SourceSite> {
+  const { data, error } = await supabase
+    .from("source_sites")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SourceSite;
+}
+
+export async function deleteSourceSite(id: string): Promise<void> {
+  const { error } = await supabase.from("source_sites").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------- discovered_items ----------------
+export async function fetchDiscoveredItems(): Promise<DiscoveredItem[]> {
+  const { data, error } = await supabase
+    .from("discovered_items")
+    .select("*")
+    .order("detected_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as DiscoveredItem[];
+}
+
+export async function fetchDiscoveredItem(id: string): Promise<DiscoveredItem | null> {
+  const { data, error } = await supabase
+    .from("discovered_items")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as DiscoveredItem) ?? null;
+}
+
+export async function createDiscoveredItem(
+  input: DiscoveredItemInput
+): Promise<DiscoveredItem> {
+  const { data, error } = await supabase.from("discovered_items").insert(input).select().single();
+  if (error) throw error;
+  return data as DiscoveredItem;
+}
+
+export async function updateDiscoveredItem(
+  id: string,
+  input: Partial<DiscoveredItemInput>
+): Promise<DiscoveredItem> {
+  const { data, error } = await supabase
+    .from("discovered_items")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as DiscoveredItem;
+}
+
+export async function deleteDiscoveredItem(id: string): Promise<void> {
+  const { error } = await supabase.from("discovered_items").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------- extracted_grant_candidates ----------------
+export async function fetchExtractedCandidates(): Promise<ExtractedGrantCandidate[]> {
+  const { data, error } = await supabase
+    .from("extracted_grant_candidates")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ExtractedGrantCandidate[];
+}
+
+export async function fetchExtractedForItem(
+  discoveredItemId: string
+): Promise<ExtractedGrantCandidate[]> {
+  const { data, error } = await supabase
+    .from("extracted_grant_candidates")
+    .select("*")
+    .eq("discovered_item_id", discoveredItemId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ExtractedGrantCandidate[];
+}
+
+export async function createExtractedCandidate(
+  input: ExtractedGrantCandidateInput
+): Promise<ExtractedGrantCandidate> {
+  const { data, error } = await supabase
+    .from("extracted_grant_candidates")
+    .insert(input)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ExtractedGrantCandidate;
+}
+
+export async function deleteExtractedCandidate(id: string): Promise<void> {
+  const { error } = await supabase.from("extracted_grant_candidates").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------- import_reviews ----------------
+export async function fetchImportReviews(): Promise<ImportReview[]> {
+  const { data, error } = await supabase
+    .from("import_reviews")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ImportReview[];
+}
+
+export async function createImportReview(input: {
+  extracted_grant_candidate_id: string;
+  reviewer_name?: string | null;
+  review_status: string;
+  review_note?: string | null;
+  approved_grant_id?: string | null;
+}): Promise<ImportReview> {
+  const { data, error } = await supabase.from("import_reviews").insert(input).select().single();
+  if (error) throw error;
+  return data as ImportReview;
+}
+
+// ---------------- 自動収集（Jグランツ/巡回/RSS）用 ----------------
+
+export async function fetchSourceSite(id: string): Promise<SourceSite | null> {
+  const { data, error } = await supabase.from("source_sites").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data as SourceSite) ?? null;
+}
+
+// 外部ソースの一意キー（external_id）で discovered_items を upsert（重複防止）
+export async function upsertDiscoveredByExternal(
+  row: Partial<DiscoveredItemInput> & { external_id: string }
+): Promise<{ inserted: boolean }> {
+  // 既存チェック（更新時に detected_at を保持したいので存在確認してから分岐）
+  const { data: existing } = await supabase
+    .from("discovered_items")
+    .select("id")
+    .eq("external_id", row.external_id)
+    .maybeSingle();
+  if (existing) {
+    await supabase.from("discovered_items").update(row).eq("external_id", row.external_id);
+    return { inserted: false };
+  }
+  const { error } = await supabase.from("discovered_items").insert(row);
+  if (error) throw error;
+  return { inserted: true };
+}
+
+// 既知URLの情報源を取得、無ければ作成（Jグランツ等の固定ソース用）
+export async function findOrCreateSourceSite(
+  match: { url: string },
+  defaults: SourceSiteInput
+): Promise<SourceSite> {
+  const { data: found } = await supabase
+    .from("source_sites")
+    .select("*")
+    .eq("url", match.url)
+    .maybeSingle();
+  if (found) return found as SourceSite;
+  const { data, error } = await supabase.from("source_sites").insert(defaults).select().single();
+  if (error) throw error;
+  return data as SourceSite;
+}
+
+export async function createSourceFetchLog(row: {
+  source_site_id: string | null;
+  status: "success" | "error" | "skipped";
+  http_status?: number | null;
+  error_message?: string | null;
+  detected_count?: number;
+}): Promise<void> {
+  const { error } = await supabase.from("source_fetch_logs").insert(row);
+  if (error) console.warn("[source_fetch_logs] insert failed:", error.message);
+}
+
+export async function fetchRecentFetchLogs(limit = 50): Promise<SourceFetchLog[]> {
+  const { data, error } = await supabase
+    .from("source_fetch_logs")
+    .select("*")
+    .order("fetched_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as SourceFetchLog[];
 }
