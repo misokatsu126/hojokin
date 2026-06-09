@@ -25,6 +25,7 @@ import {
 import { TextField, TextArea } from "@/components/Form";
 import { TrustBadge, SourceTypeBadge } from "@/components/Badges";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
+import { HelpBox, ButtonGuide } from "@/components/DiscoveryHelp";
 import { formatDate } from "@/lib/utils";
 import { SAMPLE_SOURCE_SITES, SAMPLE_COLLECT_SOURCES } from "@/lib/samples";
 
@@ -165,12 +166,12 @@ export default function SourcesPage() {
       const d = await callJson("/api/discovery/jgrants/sync");
       setMsg(
         d.ok
-          ? `Jグランツ同期完了：新規${d.inserted}・更新${d.updated}（走査${d.scanned}）。`
-          : `Jグランツ同期に失敗しました（${d.error ?? "不明"}）。ネットワーク制限環境では取得できないことがあります。`
+          ? `Jグランツから最新の補助金を取り込みました（新着 ${d.inserted} 件・更新 ${d.updated} 件／確認した件数 ${d.scanned} 件）。「検知候補」画面で内容を確認できます。`
+          : `Jグランツからの取り込みに失敗しました。時間をおいて再度お試しください。（理由：${d.error ?? "不明"}）`
       );
       await load();
     } catch (e: any) {
-      setMsg(`Jグランツ同期エラー：${e.message}`);
+      setMsg("Jグランツからの取り込みに失敗しました。時間をおいて再度お試しください。");
     } finally {
       setRunning(null);
     }
@@ -184,15 +185,15 @@ export default function SourcesPage() {
       const d = await callJson("/api/discovery/run");
       if (d.ok) {
         const lines = (d.summaries ?? [])
-          .map((s: any) => `・${s.source}: ${s.ok ? `新規${s.inserted}/更新${s.updated}` : `失敗(${s.error ?? "?"})`}`)
+          .map((s: any) => `・${s.source}：${s.ok ? `新着${s.inserted}・更新${s.updated}` : `取り込めず（${s.error ?? "?"}）`}`)
           .join("\n");
-        setMsg(`全収集を実行しました（新規${d.totals.inserted}・更新${d.totals.updated}）。\n${lines}`);
+        setMsg(`全情報源から取り込みました（新着 ${d.totals.inserted} 件・更新 ${d.totals.updated} 件）。\n${lines}`);
       } else {
-        setMsg(`全収集に失敗しました（${d.error ?? "不明"}）。`);
+        setMsg(`全収集に失敗しました。時間をおいて再度お試しください。（理由：${d.error ?? "不明"}）`);
       }
       await load();
     } catch (e: any) {
-      setMsg(`全収集エラー：${e.message}`);
+      setMsg("全収集に失敗しました。時間をおいて再度お試しください。");
     } finally {
       setRunning(null);
     }
@@ -207,12 +208,12 @@ export default function SourcesPage() {
       const d = await callJson(`/api/discovery/${isFeed ? "feed" : "crawl"}?source_id=${s.id}`);
       setMsg(
         d.ok
-          ? `「${s.name}」を${isFeed ? "フィード取得" : "巡回"}：新規${d.inserted}・更新${d.updated}（走査${d.scanned}）。`
-          : `「${s.name}」の取得に失敗（${d.error ?? "不明"}）。robots/JS描画/到達不可の可能性。手動確認に切替を検討してください。`
+          ? `「${s.name}」から取り込みました（新着 ${d.inserted} 件・更新 ${d.updated} 件）。`
+          : `「${s.name}」から取り込めませんでした。サイト側で自動取得できない場合があります。手動での確認・追加をご検討ください。（理由：${d.error ?? "不明"}）`
       );
       await load();
     } catch (e: any) {
-      setMsg(`取得エラー：${e.message}`);
+      setMsg("取り込みに失敗しました。時間をおいて再度お試しください。");
     } finally {
       setRunning(null);
     }
@@ -228,6 +229,24 @@ export default function SourcesPage() {
           {error}（discovery_schema.sql を Supabase で実行済みか確認してください）
         </p>
       )}
+
+      <HelpBox title="この画面でできること">
+        補助金情報を「どこから集めるか（情報源）」を管理する画面です。国のデータベースや自治体の公式ページを登録しておくと、
+        ボタン一つで最新の補助金をまとめて取り込めます。まずは「公式情報源を登録」を1回押すのがおすすめです。
+      </HelpBox>
+
+      <ButtonGuide
+        items={[
+          { label: "公式情報源を登録", desc: "Jグランツ・J-Net21・ミラサポplus・各自治体（愛知/名古屋/弥富/岐阜県/岐阜市/三重県/四日市市）を情報源として一括登録します（最初に1回押せばOK）。" },
+          { label: "Jグランツ同期", desc: "国の補助金データベース（Jグランツ）から、対象地域の最新の補助金を取り込みます。" },
+          { label: "今すぐ全収集", desc: "登録した全情報源から最新情報をまとめて取り込みます（毎朝6時にも自動で実行されます）。" },
+          { label: "サンプル8件を登録", desc: "動作確認用に、見本の情報源を8件登録します（お試し用）。" },
+          { label: "＋ 情報源を追加", desc: "集めたいサイトを手動で1件追加します（名前・URL・種類などを入力）。" },
+          { label: "巡回 / フィード取得", desc: "その情報源のページ（またはRSS）を読みに行き、新しい補助金候補を取り込みます。" },
+          { label: "アクティブ / 停止中", desc: "押すたびに切替。アクティブな情報源だけが「全収集」の対象になります。" },
+          { label: "編集 / 削除", desc: "情報源の内容を直す／一覧から消します。" },
+        ]}
+      />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">情報源管理（監視対象サイト）</h1>

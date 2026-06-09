@@ -28,6 +28,7 @@ import {
   OfficialUnconfirmedWarning,
 } from "@/components/Badges";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
+import { HelpBox, ButtonGuide } from "@/components/DiscoveryHelp";
 import { formatDate } from "@/lib/utils";
 import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags } from "@/lib/discovery";
 import { SAMPLE_DISCOVERED_ITEMS } from "@/lib/samples";
@@ -256,6 +257,23 @@ export default function DiscoveredPage() {
           {error}（discovery_schema.sql を Supabase で実行済みか確認してください）
         </p>
       )}
+
+      <HelpBox title="この画面でできること">
+        集まった補助金の「候補」が並ぶ画面です。各候補は、まだ下書き段階の情報です。中身を確認し、使えそうなものは「AIで抽出」で条件を整理してから、次の確認画面（AI抽出候補）へ進めます。
+        紹介サイトや記事で見つけた補助金は「＋ 手動で候補を追加」から登録できます。
+      </HelpBox>
+
+      <ButtonGuide
+        items={[
+          { label: "AIで抽出 → 候補化", desc: "候補の文章やURLから、補助金の対象・金額・締切などをAI（鍵が無ければ簡易ルール）が読み取って整理します。整理後はAI抽出候補の画面に並びます。" },
+          { label: "本文を貼り付け/編集", desc: "URLからうまく本文が取れないとき、ページの文章を自分で貼り付けて、抽出の精度を上げられます。" },
+          { label: "抽出候補を見る", desc: "整理済みの候補（AI抽出候補）の確認画面へ移動します。" },
+          { label: "無視 / 却下", desc: "今は不要な候補を、一覧で目立たないように分類します（削除ではありません）。" },
+          { label: "削除", desc: "この候補を一覧から完全に消します。" },
+          { label: "＋ 手動で候補を追加", desc: "見つけた補助金のタイトル・URL・本文を貼り付けて、候補として登録します（この時点では正式登録ではありません）。" },
+          { label: "サンプル3件を登録", desc: "動作確認用に、見本の候補を3件登録します（お試し用）。" },
+        ]}
+      />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">自動検知候補（discovered_items）</h1>
