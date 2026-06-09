@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { fetchDiscoveredItems, fetchExtractedCandidates } from "@/lib/supabase";
-import type { DiscoveredItem, ExtractedGrantCandidate } from "@/lib/types";
+import { fetchDiscoveredItems, fetchExtractedCandidates, fetchProfiles } from "@/lib/supabase";
+import type { DiscoveredItem, ExtractedGrantCandidate, BusinessProfile } from "@/lib/types";
 import { AUDIENCE_TYPE_LABEL, AUDIENCE_TYPE_COLORS, type AudienceType } from "@/lib/constants";
 import { TrustBadge, DiscoveredStatusBadge } from "@/components/Badges";
+import { scoreCandidateAgainstProfiles } from "@/lib/discovery";
 import { daysUntil, formatDate } from "@/lib/utils";
 
 type AudienceFilter = "all" | "business" | "individual";
@@ -19,6 +20,7 @@ function matchAudience(a: AudienceType | null | undefined, f: AudienceFilter): b
 export function AutoCollectSection() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [candidates, setCandidates] = useState<ExtractedGrantCandidate[]>([]);
+  const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
   const [filter, setFilter] = useState<AudienceFilter>("all");
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -26,9 +28,10 @@ export function AutoCollectSection() {
   const [unavailable, setUnavailable] = useState(false);
 
   async function load() {
-    const [it, c] = await Promise.all([fetchDiscoveredItems(), fetchExtractedCandidates()]);
+    const [it, c, p] = await Promise.all([fetchDiscoveredItems(), fetchExtractedCandidates(), fetchProfiles()]);
     setItems(it);
     setCandidates(c);
+    setProfiles(p);
   }
   useEffect(() => {
     load()
@@ -42,12 +45,23 @@ export function AutoCollectSection() {
 
   const todayNew = fItems.filter((i) => daysUntil(i.detected_at) === 0 && i.status !== "imported" && i.status !== "rejected");
   const unreviewed = fItems.filter((i) => i.status === "unreviewed");
+
+  // 高相性候補：AI抽出候補を登録済み事業プロフィールと照合し、最高スコア順に。
+  const scored = useMemo(
+    () =>
+      fCands
+        .map((c) => ({ c, ...scoreCandidateAgainstProfiles(c, profiles) }))
+        .sort((a, b) => b.bestScore - a.bestScore),
+    [fCands, profiles]
+  );
+  const highAffinity = scored.filter((s) => s.bestScore >= 70);
+
   const deadlineSoon = fCands
     .filter((c) => {
       const d = daysUntil(c.deadline);
       return d != null && d >= 0 && d <= 30;
     })
-    .sort((a, b) => (daysUntil(a.deadline)! - daysUntil(b.deadline)!));
+    .sort((a, b) => daysUntil(a.deadline)! - daysUntil(b.deadline)!);
 
   async function runAll() {
     setRunning(true);
@@ -57,7 +71,7 @@ export function AutoCollectSection() {
       const d = await r.json();
       setMsg(
         d.ok
-          ? `自動収集を実行しました（新規${d.totals?.inserted ?? 0}・更新${d.totals?.updated ?? 0}）。`
+          ? `自動収集を実行しました（新着 ${d.totals?.inserted ?? 0} 件・更新 ${d.totals?.updated ?? 0} 件）。`
           : `自動収集に失敗しました（${d.error ?? "不明"}）。`
       );
       await load();
@@ -73,7 +87,7 @@ export function AutoCollectSection() {
   return (
     <div className="mb-6 rounded-lg border bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-ink">自動収集の新着（Jグランツ・公式ページ・フィード）</h2>
+        <h2 className="text-sm font-semibold text-ink">自動収集の新着（毎朝6時に自動更新・Jグランツ/J-Net21/ミラサポplus/公式）</h2>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border p-0.5 text-xs">
             {(["all", "business", "individual"] as AudienceFilter[]).map((f) => (
@@ -94,14 +108,15 @@ export function AutoCollectSection() {
 
       {msg && <p className="mb-3 rounded-md border border-green-200 bg-green-50 p-2 text-xs text-green-800">{msg}</p>}
 
-      <div className="mb-3 grid grid-cols-3 gap-3">
+      <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MiniStat label="今日の新着" value={todayNew.length} tone="sky" />
-        <MiniStat label="未確認" value={unreviewed.length} tone="amber" />
+        <MiniStat label="高相性候補" value={highAffinity.length} tone="green" />
         <MiniStat label="締切30日以内" value={deadlineSoon.length} tone="red" />
+        <MiniStat label="未確認" value={unreviewed.length} tone="amber" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Col title="今日の新着候補" href="/discovery/items">
+        <Col title="今日見つかった候補" href="/discovery/items">
           {todayNew.length === 0 ? <Empty>本日の新着はありません。</Empty> : todayNew.slice(0, 6).map((i) => (
             <Row key={i.id} href="/discovery/items" title={i.title ?? "（無題）"}>
               <AudienceTag a={i.audience_type} />
@@ -109,10 +124,11 @@ export function AutoCollectSection() {
             </Row>
           ))}
         </Col>
-        <Col title="未確認の候補" href="/discovery/items">
-          {unreviewed.length === 0 ? <Empty>未確認はありません。</Empty> : unreviewed.slice(0, 6).map((i) => (
-            <Row key={i.id} href="/discovery/items" title={i.title ?? "（無題）"}>
-              <DiscoveredStatusBadge status={i.status} />
+        <Col title="高相性候補（事業との相性）" href="/discovery/review">
+          {highAffinity.length === 0 ? <Empty>高相性の候補はありません（事業プロフィール登録で精度UP）。</Empty> : highAffinity.slice(0, 6).map(({ c, bestScore, bestProfile }) => (
+            <Row key={c.id} href="/discovery/review" title={c.name ?? "（名称未抽出）"}>
+              {bestProfile && <span className="shrink-0 text-[10px] text-gray-400">{bestProfile}</span>}
+              <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">{bestScore}</span>
             </Row>
           ))}
         </Col>
@@ -139,7 +155,7 @@ function AudienceTag({ a }: { a: AudienceType | null | undefined }) {
 }
 
 function MiniStat({ label, value, tone }: { label: string; value: number; tone: string }) {
-  const colors: Record<string, string> = { sky: "text-sky-700", amber: "text-amber-700", red: "text-red-700" };
+  const colors: Record<string, string> = { sky: "text-sky-700", amber: "text-amber-700", red: "text-red-700", green: "text-green-700" };
   return (
     <div className="rounded-md border bg-slate-50 p-2 text-center">
       <div className={`text-xl font-bold ${colors[tone]}`}>{value}</div>

@@ -1,0 +1,92 @@
+// =============================================================
+// 通知（設計スタブ）  src/lib/notify.ts
+// メール / LINE / Slack 等への実送信は「後で」。ここでは
+//   - 通知チャネル・トリガ条件の型
+//   - 「どの候補を通知すべきか」を選定するロジック（純関数）
+//   - 実送信のための差し込み口（dispatchNotifications：現状は no-op）
+// だけを先に用意する。runtime には未配線（将来 /api/discovery/run の最後で呼ぶ想定）。
+// =============================================================
+
+import type { ExtractedGrantCandidate, BusinessProfile } from "./types";
+import { scoreCandidateAgainstProfiles } from "./discovery";
+import { daysUntil } from "./utils";
+
+export type NotifyChannel = "email" | "line" | "slack" | "calendar";
+
+// 通知の発火条件（仕様の通知条件に対応）
+export type NotifyTrigger =
+  | "high_affinity" // match_score 80点以上
+  | "deadline_soon" // 締切30日以内
+  | "pre_application_ng" // 申請前着手NGの可能性
+  | "professional_check" // 士業確認推奨
+  | "new"; // 新着
+
+export type NotifyConfig = {
+  enabled: boolean;
+  channels: NotifyChannel[]; // 送信先（未設定なら送らない）
+  minScore: number; // 高相性とみなすしきい値（既定80）
+  deadlineDays: number; // 締切何日以内を対象にするか（既定30）
+};
+
+export const DEFAULT_NOTIFY_CONFIG: NotifyConfig = {
+  enabled: false, // 既定OFF（実送信は未実装のため）
+  channels: [],
+  minScore: 80,
+  deadlineDays: 30,
+};
+
+export type NotifyItem = {
+  candidate_id: string;
+  title: string;
+  triggers: NotifyTrigger[];
+  best_score: number;
+  best_profile: string;
+  deadline: string | null;
+  url: string | null;
+};
+
+/**
+ * 通知すべき候補を選定する純関数（送信はしない）。
+ * 高相性 / 締切間近 / 申請前着手NG / 士業確認 のいずれかに該当する候補を返す。
+ */
+export function selectNotifiable(
+  candidates: ExtractedGrantCandidate[],
+  profiles: BusinessProfile[],
+  config: NotifyConfig = DEFAULT_NOTIFY_CONFIG
+): NotifyItem[] {
+  const out: NotifyItem[] = [];
+  for (const c of candidates) {
+    const { bestScore, bestProfile } = scoreCandidateAgainstProfiles(c, profiles);
+    const d = daysUntil(c.deadline);
+    const triggers: NotifyTrigger[] = [];
+    if (bestScore >= config.minScore) triggers.push("high_affinity");
+    if (d != null && d >= 0 && d <= config.deadlineDays) triggers.push("deadline_soon");
+    if (c.pre_application_ng_risk) triggers.push("pre_application_ng");
+    if (c.professional_check_recommended) triggers.push("professional_check");
+    if (triggers.length === 0) continue;
+    out.push({
+      candidate_id: c.id,
+      title: c.name ?? "（名称未抽出）",
+      triggers,
+      best_score: bestScore,
+      best_profile: bestProfile,
+      deadline: c.deadline,
+      url: c.official_url ?? null,
+    });
+  }
+  // 高相性→締切が近い順
+  return out.sort((a, b) => b.best_score - a.best_score || (daysUntil(a.deadline) ?? 9999) - (daysUntil(b.deadline) ?? 9999));
+}
+
+/**
+ * 実送信の差し込み口（設計スタブ）。現状は送信せず、選定結果の件数だけ返す。
+ * 将来：config.channels に応じて email/LINE/Slack/カレンダーへ送信し、
+ *       送信済みは notification_log（discovery_notify_schema.sql）で重複送信を防ぐ。
+ */
+export async function dispatchNotifications(
+  items: NotifyItem[],
+  config: NotifyConfig = DEFAULT_NOTIFY_CONFIG
+): Promise<{ selected: number; sent: number; skipped: number; channels: NotifyChannel[] }> {
+  // 実送信は未実装（後日）。enabled かつ channels 設定時のみ将来送る。
+  return { selected: items.length, sent: 0, skipped: items.length, channels: config.enabled ? config.channels : [] };
+}

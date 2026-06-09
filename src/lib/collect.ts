@@ -866,5 +866,19 @@ export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: {
     (acc, s) => ({ inserted: acc.inserted + s.inserted, updated: acc.updated + s.updated }),
     { inserted: 0, updated: 0 }
   );
+
+  // run全体の実行ログを残す（Cron成否を後から追跡できるよう source_site_id=null で記録）
+  const allFailed = summaries.length > 0 && summaries.every((s) => !s.ok);
+  const summaryLine = summaries.map((s) => `${s.source}:${s.ok ? `${s.inserted}+${s.updated}` : `NG(${s.error ?? "?"})`}`).join(" / ");
+  try {
+    await createSourceFetchLog({
+      source_site_id: null,
+      status: allFailed ? "error" : "success",
+      detected_count: totals.inserted + totals.updated,
+      error_message: `run: ${summaryLine}`.slice(0, 500),
+    });
+  } catch {
+    /* ログ保存失敗は無視 */
+  }
   return { summaries, totals };
 }

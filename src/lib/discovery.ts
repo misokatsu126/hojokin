@@ -4,6 +4,8 @@ import type {
   ExtractionResult,
   ExtractedGrantCandidate,
   GrantInput,
+  Grant,
+  BusinessProfile,
 } from "./types";
 import {
   REGIONS,
@@ -11,6 +13,7 @@ import {
   EXPENSE_CATEGORIES,
   ENTITY_TYPES,
   GRANT_TYPES,
+  PURPOSES,
   SECONDARY_SOURCE_TYPES,
   SOURCE_TYPE_DEFAULT_TRUST,
   SECONDARY_SOURCE_WARNING_TEXT,
@@ -18,6 +21,7 @@ import {
   type SourceType,
   type TrustLevel,
 } from "./constants";
+import { ruleMatch } from "./matching";
 
 // HTML をプレーンテキストに変換（サーバー側のURL取得用・依存ライブラリなし）
 export function htmlToText(html: string): string {
@@ -259,4 +263,38 @@ export function detectDuplicateFlags(
     }
   }
   return { duplicateOfId, isOldYear };
+}
+
+/**
+ * 自動収集したAI抽出候補（extracted_grant_candidates）を、登録済みの事業プロフィールと
+ * ルールベースで照合し、最も相性の良いスコア・事業名・おすすめ度を返す。
+ * （正式登録前でもダッシュボードで「高相性候補」を目立たせるための簡易スコアリング）
+ */
+export function scoreCandidateAgainstProfiles(
+  c: ExtractedGrantCandidate,
+  profiles: BusinessProfile[]
+): { bestScore: number; bestProfile: string; recommendation: string } {
+  if (!profiles || profiles.length === 0) return { bestScore: 0, bestProfile: "", recommendation: "D" };
+  // 候補本文から目的カテゴリを推定（candidateToGrantInput は purposes 空のため補完）
+  const hay = [c.name ?? "", c.notes ?? "", ...(c.target_industries ?? []), ...(c.eligible_expenses ?? [])].join(" ");
+  const purposes = PURPOSES.filter((p) => hay.includes(p));
+  const grant = {
+    ...candidateToGrantInput(c),
+    purposes,
+    id: "",
+    created_at: "",
+    updated_at: "",
+  } as Grant;
+  let bestScore = 0;
+  let bestProfile = "";
+  let recommendation = "D";
+  for (const p of profiles) {
+    const m = ruleMatch(grant, p);
+    if (m.match_score > bestScore) {
+      bestScore = m.match_score;
+      bestProfile = p.name;
+      recommendation = m.recommendation;
+    }
+  }
+  return { bestScore, bestProfile, recommendation };
 }
