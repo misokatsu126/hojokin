@@ -9,7 +9,7 @@ import type {
   ExtractionResult,
 } from "./types";
 import { normalizeMatch, ruleMatch } from "./matching";
-import { ruleExtract } from "./radar";
+import { ruleExtract } from "./discovery";
 
 export function hasOpenAI(): boolean {
   return Boolean(process.env.OPENAI_API_KEY);

@@ -27,9 +27,9 @@ import {
   SecondarySourceWarning,
   OfficialUnconfirmedWarning,
 } from "@/components/Badges";
-import { RadarNav } from "@/components/RadarNav";
+import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { formatDate } from "@/lib/utils";
-import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags } from "@/lib/radar";
+import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags } from "@/lib/discovery";
 import { SAMPLE_DISCOVERED_ITEMS } from "@/lib/samples";
 
 type AddForm = {
@@ -67,6 +67,8 @@ export default function DiscoveredPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [extractingId, setExtractingId] = useState<string | null>(null);
+  const [editTextId, setEditTextId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -161,21 +163,46 @@ export default function DiscoveredPage() {
     setExtractingId(item.id);
     setMsg(null);
     try {
-      const r = await fetch("/api/extract", {
+      const r = await fetch("/api/discovery/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ discovered_item_id: item.id }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "抽出に失敗しました");
-      setMsg(
-        `「${item.title}」を${data.engine === "ai" ? "AI" : "ルールベース"}で抽出しました。AI抽出候補画面で確認できます。`
-      );
+      const engineLabel = data.engine === "ai" ? "AI" : "ルールベース";
+      let m = `「${item.title}」を${engineLabel}で抽出しました（確信度${data.confidence_score}）。AI抽出候補画面で確認できます。`;
+      if (data.fetch_attempted && !data.fetch_succeeded) {
+        m += ` ※URLからの本文取得に失敗（${data.fetch_reason ?? "不明"}）。精度を上げるには、この候補を編集して本文を貼り付けてから再抽出してください。`;
+      } else if (data.fetch_succeeded) {
+        m += " ※URLから本文を取得して抽出しました。";
+      }
+      if (Array.isArray(data.missing_fields) && data.missing_fields.length) {
+        m += ` 未抽出項目：${data.missing_fields.join(" / ")}`;
+      }
+      setMsg(m);
       await load();
     } catch (e: any) {
       alert(`抽出に失敗しました: ${e.message}`);
     } finally {
       setExtractingId(null);
+    }
+  }
+
+  function startEditText(item: DiscoveredItem) {
+    setEditTextId(item.id);
+    setEditText(item.raw_text ?? "");
+  }
+
+  async function saveText(item: DiscoveredItem) {
+    try {
+      await updateDiscoveredItem(item.id, { raw_text: editText || null });
+      setEditTextId(null);
+      setEditText("");
+      setMsg("本文を保存しました。「AIで抽出」を押すと、この本文から抽出します。");
+      await load();
+    } catch (e: any) {
+      alert(`保存に失敗しました: ${e.message}`);
     }
   }
 
@@ -223,10 +250,10 @@ export default function DiscoveredPage() {
 
   return (
     <div>
-      <RadarNav />
+      <DiscoveryNav />
       {error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}（radar_schema.sql を Supabase で実行済みか確認してください）
+          {error}（discovery_schema.sql を Supabase で実行済みか確認してください）
         </p>
       )}
 
@@ -251,6 +278,7 @@ export default function DiscoveredPage() {
           <h2 className="mb-1 text-sm font-semibold text-ink">手動で検知候補を追加</h2>
           <p className="mb-4 text-xs text-gray-400">
             紹介サイトや記事で見つけた補助金のURL・本文を貼り付けて候補化します（本登録ではありません）。
+            本文が空でURLがある場合、抽出時にサーバー側でURL取得を試みます。取得できない場合（アクセス拒否・JS描画など）は、各候補の「本文を貼り付け/編集」から本文を貼ってください。
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -371,6 +399,25 @@ export default function DiscoveredPage() {
                   <OfficialUnconfirmedWarning show={!officialConfirmed} />
                 </div>
 
+                {editTextId === item.id && (
+                  <div className="mb-3 rounded-md border bg-slate-50 p-3">
+                    <p className="mb-1 text-xs text-gray-500">
+                      本文を貼り付け（URL取得が失敗した場合のフォールバック）。保存後に「AIで抽出」してください。
+                    </p>
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={4}
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                      placeholder="ページ本文や記事の抜粋を貼り付け"
+                    />
+                    <div className="mt-2 flex gap-2">
+                      <button onClick={() => saveText(item)} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">本文を保存</button>
+                      <button onClick={() => { setEditTextId(null); setEditText(""); }} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">キャンセル</button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2 text-sm">
                   <button
                     onClick={() => extract(item)}
@@ -379,7 +426,13 @@ export default function DiscoveredPage() {
                   >
                     {extractingId === item.id ? "抽出中…" : "AIで抽出 → 候補化"}
                   </button>
-                  <Link href="/candidates" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">
+                  <button
+                    onClick={() => startEditText(item)}
+                    className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                  >
+                    本文を貼り付け/編集
+                  </button>
+                  <Link href="/discovery/review" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">
                     抽出候補を見る
                   </Link>
                   {item.status !== "ignored" && (

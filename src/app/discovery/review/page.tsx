@@ -11,7 +11,7 @@ import {
   deleteExtractedCandidate,
 } from "@/lib/supabase";
 import type { ExtractedGrantCandidate, DiscoveredItem } from "@/lib/types";
-import { isSecondarySource, candidateToGrantInput } from "@/lib/radar";
+import { isSecondarySource, candidateToGrantInput } from "@/lib/discovery";
 import {
   TrustBadge,
   SourceTypeBadge,
@@ -19,7 +19,7 @@ import {
   SecondarySourceWarning,
   OfficialUnconfirmedWarning,
 } from "@/components/Badges";
-import { RadarNav } from "@/components/RadarNav";
+import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { formatAmount, formatDate } from "@/lib/utils";
 
 export default function CandidatesPage() {
@@ -172,10 +172,10 @@ export default function CandidatesPage() {
 
   return (
     <div>
-      <RadarNav />
+      <DiscoveryNav />
       {error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}（radar_schema.sql を Supabase で実行済みか確認してください）
+          {error}（discovery_schema.sql を Supabase で実行済みか確認してください）
         </p>
       )}
 
@@ -192,7 +192,7 @@ export default function CandidatesPage() {
       {candidates.length === 0 ? (
         <p className="rounded-lg border bg-white p-8 text-center text-gray-400">
           AI抽出候補がまだありません。
-          <Link href="/discovered" className="text-accent hover:underline"> 検知候補画面</Link>
+          <Link href="/discovery/items" className="text-accent hover:underline"> 検知候補画面</Link>
           で「AIで抽出 → 候補化」を実行してください。
         </p>
       ) : (

@@ -19,6 +19,25 @@ import {
   type TrustLevel,
 } from "./constants";
 
+// HTML をプレーンテキストに変換（サーバー側のURL取得用・依存ライブラリなし）
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(script|style|noscript|svg|head)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<br\s*\/?>(?=)/gi, "\n")
+    .replace(/<\/(p|div|li|tr|h[1-6]|section|article)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t　]+/g, " ")
+    .replace(/\n\s*\n\s*\n+/g, "\n\n")
+    .trim();
+}
+
 // 情報源カテゴリから既定の信頼度を導く
 export function deriveTrustLevel(sourceType: SourceType | null | undefined): TrustLevel {
   if (!sourceType) return "E";

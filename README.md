@@ -31,12 +31,12 @@ npm run dev                          # http://localhost:3000
 
 1. [supabase.com](https://supabase.com) でプロジェクトを作成。
 2. **SQL Editor** で `supabase/schema.sql` を実行（9テーブル＋トリガ＋RLSを作成）。
-3. **SQL Editor** で `supabase/radar_schema.sql` を実行（自動探索レーダー用の5テーブルを追加）。`schema.sql` とは独立しており、後から追加実行できます。両ファイルとも**冪等**（何度実行しても安全）です。
+3. **SQL Editor** で `supabase/discovery_schema.sql` を実行（自動探索レーダー用の5テーブルを追加）。`schema.sql` とは独立しており、後から追加実行できます。両ファイルとも**冪等**（何度実行しても安全）です。
 4. （任意）`supabase/seed.sql` を実行するとサンプルデータが入ります。
    - ※ SQLで投入した場合、判定・アラートは未生成です。各補助金の詳細ページで「全事業を再照合」を押すか、アプリ内の「サンプル登録」ボタンを使ってください（後者は登録と同時に自動照合します）。
 5. **Settings > API** の URL と anon key を `.env.local` に設定。
 
-`supabase/schema.sql` は全テーブルのCREATE文、`updated_at` 自動更新トリガ、GINインデックス、MVP用の「全許可」RLSポリシーを含みます。`supabase/radar_schema.sql` は自動探索レーダー用の追加テーブル（`source_sites` / `source_fetch_logs` / `discovered_items` / `extracted_grant_candidates` / `import_reviews`）を同方針で追加します。
+`supabase/schema.sql` は全テーブルのCREATE文、`updated_at` 自動更新トリガ、GINインデックス、MVP用の「全許可」RLSポリシーを含みます。`supabase/discovery_schema.sql` は自動探索レーダー用の追加テーブル（`source_sites` / `source_fetch_logs` / `discovered_items` / `extracted_grant_candidates` / `import_reviews`）を同方針で追加します。
 
 ---
 
@@ -60,10 +60,10 @@ npm run dev                          # http://localhost:3000
 | 事業プロフィール管理 | `/profiles` | 事業の登録・編集・削除。地域/業種/目的/経費/キーワードがそのまま監視条件として照合に使われる。サンプル5件投入ボタンあり |
 | 補助金登録・管理 | `/admin` | 補助金のCRUD。保存すると全事業と自動照合しアラート作成。サンプル6件投入ボタンあり |
 | 自然文AI検索 | `/search` | 自然文検索専用ページ |
-| 探索ダッシュボード | `/radar` | 自動探索レーダーの状況（今日の新着・未確認・AI抽出済み・確認待ち・本登録済み・公式未確認・重複・情報源別最終巡回） |
-| 情報源管理 | `/sources` | 監視対象サイト（情報源）のCRUD。`source_type`（3層）・`trust_level`（A〜E）・優先度・巡回頻度・active切替。サンプル8件投入ボタンあり |
-| 自動検知候補 | `/discovered` | 検知候補（`discovered_items`）の一覧・手動追加・「AIで抽出→候補化」。二次情報/公式未確認の注意表示、重複・過年度の検知 |
-| AI抽出候補の確認 | `/candidates` | AI抽出候補（`extracted_grant_candidates`）の確認・正式登録・要追加確認・却下・重複扱い。公式確認済みのみ正式登録可 |
+| 探索ダッシュボード | `/discovery` | 自動探索レーダーの状況（今日の新着・未確認・AI抽出済み・確認待ち・本登録済み・公式未確認・重複・情報源別最終巡回） |
+| 情報源管理 | `/discovery/sources` | 監視対象サイト（情報源）のCRUD。`source_type`（3層）・`trust_level`（A〜E）・優先度・巡回頻度・active切替。サンプル8件投入ボタンあり |
+| 自動検知候補 | `/discovery/items` | 検知候補（`discovered_items`）の一覧・手動追加・「AIで抽出→候補化」。二次情報/公式未確認の注意表示、重複・過年度の検知 |
+| AI抽出候補の確認 | `/discovery/review` | AI抽出候補（`extracted_grant_candidates`）の確認・正式登録・要追加確認・却下・重複扱い。公式確認済みのみ正式登録可 |
 
 ### 最重要導線
 
@@ -87,7 +87,7 @@ npm run dev                          # http://localhost:3000
 
 判定・アラート・ステータスはすべて「補助金 × 事業プロフィール」単位です。同じ補助金でもカード事業部は高相性、別事業は対象外候補、といった管理ができます。
 
-### 自動探索レーダー用テーブル（`supabase/radar_schema.sql`）
+### 自動探索レーダー用テーブル（`supabase/discovery_schema.sql`）
 
 | テーブル | 説明 |
 | --- | --- |
@@ -146,8 +146,8 @@ npm run dev                          # http://localhost:3000
 source_sites に情報源を登録
   → （将来）巡回で新着・更新を検知
   → discovered_items に「未確認候補」として保存
-  → /api/extract で AI/ルール抽出 → extracted_grant_candidates に保存
-  → /candidates で人間が確認（公式URL・公募要領PDFを確認）
+  → /api/discovery/extract で AI/ルール抽出 → extracted_grant_candidates に保存
+  → /discovery/review で人間が確認（公式URL・公募要領PDFを確認）
   → 公式確認できたものだけ grants に正式登録（createGrant）
   → /api/rematch で全事業プロフィールと自動照合（既存導線を再利用）
   → 高相性なら alerts を作成、application_statuses で進捗管理
@@ -165,18 +165,23 @@ source_sites に情報源を登録
 
 ### 7.5 AI抽出機能（OpenAIキーなしでも動作）
 
-`/discovered` の「AIで抽出 → 候補化」または `/api/extract` で、検知候補の本文・URLから補助金名・種別・実施主体・対象地域/業種/法人種別・対象経費・補助率・上限額・募集開始/締切・募集状態・申請方法・必要書類・公式URL・公募要領PDF・注意点・申請前着手NGの可能性・士業確認推奨・信頼度スコア・**抽出できなかった項目（`missing_fields`）**を抽出します。
+`/discovery/items` の「AIで抽出 → 候補化」または `/api/discovery/extract` で、検知候補の本文・URLから補助金名・種別・実施主体・対象地域/業種/法人種別・対象経費・補助率・上限額・募集開始/締切・募集状態・申請方法・必要書類・公式URL・公募要領PDF・注意点・申請前着手NGの可能性・士業確認推奨・信頼度スコア・**抽出できなかった項目（`missing_fields`）**を抽出します。
 
-- `OPENAI_API_KEY` がある場合はAI抽出、**ない場合は `src/lib/radar.ts` のルールベース抽出**で動作します（本文の正規表現マッチ＋区分辞書）。AI失敗時もルールベースへフォールバックします。
+- `OPENAI_API_KEY` がある場合はAI抽出、**ない場合は `src/lib/discovery.ts` のルールベース抽出**で動作します（本文の正規表現マッチ＋区分辞書）。AI失敗時もルールベースへフォールバックします。
+- **URLからの本文取得**：検知候補に本文が無くURLがある場合、抽出時にサーバー側で `fetch` を試みてHTMLをテキスト化します。アクセス拒否・JS描画・タイムアウト等で取得できない場合は、その旨をUIに表示し、`/discovery/items` の各候補の「本文を貼り付け/編集」から手動でテキストを貼り付けて再抽出する**フォールバック**を用意しています（本格的なクローリング・JS描画レンダリングは将来対応）。
 - 抽出結果はすぐ本登録せず、必ず `extracted_grant_candidates` に保存し、人間の確認を経て `grants` に登録します。
 
 ### 7.6 重複・過年度への対策
 
 検知候補の登録時に、補助金名・公式URLの近さで**重複候補**を検知し（`discovered_items.duplicate_of`）、タイトルの「令和◯年度」「過年度」等の年度表記から**過年度・募集終了の可能性**を検知して記録・表示します（`source_warning`）。
 
-### 7.7 将来の自然文検索拡張
+### 7.7 横断 自然文検索（実装済み）
 
-現在の自然文AI検索は `grants` を対象にしています。将来的に `discovered_items` / `extracted_grant_candidates` も検索対象に加え、結果に「正式登録済み／未確認候補／公式未確認／AI抽出済み／要確認／過年度候補／重複候補」の状態を必ず表示する設計です。未確認・公式未確認の候補は申請判断に使わない旨の注意表示を行います。
+既存の自然文AI検索（`/api/search-nl`・`/search`）は `grants` のみを対象にしており、**変更していません**。これに加えて、`grants` / `discovered_items` / `extracted_grant_candidates` を**横断検索する拡張版**を新エンドポイント `/api/discovery/search` として用意し、`/discovery`（探索ダッシュボード）の検索ボックスから利用できます。
+
+- 検索文の条件抽出は既存ロジック（AIキーありはAI、なしは `ruleExtractConditions`）を再利用。
+- 結果には必ず情報の状態を表示します：**正式登録済み／未確認候補／公式未確認／AI抽出済み／AI抽出済み（公式未確認）／過年度候補／重複候補**。
+- 未確認・公式未確認・過年度・重複の候補には、申請判断に使わない旨の注意を表示します。
 
 ---
 
@@ -184,7 +189,7 @@ source_sites に情報源を登録
 
 将来の自動収集に備え、`grants` に `source`（取得元）・`fetched_at`（取得日時）・`official_url`・`guideline_pdf_url` を保持しています。自動探索レーダーは `source_sites` / `discovered_items` / `extracted_grant_candidates` / `import_reviews` / `source_fetch_logs` を土台として、以下を後から追加できます。
 
-- **自動巡回（クローラ）**：`source_sites` の `is_active` / `crawl_frequency` に従って定期巡回し、新着・更新・締切変更・PDF追加・募集開始/終了・ページ更新・類似制度の再募集・前年度版の更新などの変化を検知。結果を `discovered_items` に保存し、`source_fetch_logs` に成功/失敗/検知件数を記録（→ `/radar` の「巡回エラー」表示に反映）。
+- **自動巡回（クローラ）**：`source_sites` の `is_active` / `crawl_frequency` に従って定期巡回し、新着・更新・締切変更・PDF追加・募集開始/終了・ページ更新・類似制度の再募集・前年度版の更新などの変化を検知。結果を `discovered_items` に保存し、`source_fetch_logs` に成功/失敗/検知件数を記録（→ `/discovery` の「巡回エラー」表示に反映）。
 - **地方補助金の発見**：公式サイトだけでなく `aggregator`（補助金ポータル等）・`professional_article`・`news` を**発見用レーダー**として併用。見つけた候補は必ず `discovered_items`（未確認候補）に保存し、公式に戻して確認してから正式登録。
 - **公式情報確認の自動補助**：民間サイト由来候補について、実施主体の公式ページ・自治体/省庁/財団の公式URL・公募要領PDF・募集年度の最新性・締切の有効性・募集終了有無・申請前着手NG・対象経費/法人種別の明記などをAIまたは手動でチェックし `verification_status` を更新。
 - **Jグランツ API 連携 / JグランツMCP 連携**：取得した制度を `discovered_items`→`extracted_grant_candidates` 経由、または `grants` に upsert し `source='jgrants'` で識別。日次バッチで差分検知→新着アラート作成（`/api/rematch` を流用）。

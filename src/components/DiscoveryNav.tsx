@@ -4,13 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/radar", label: "探索ダッシュボード" },
-  { href: "/sources", label: "情報源管理" },
-  { href: "/discovered", label: "検知候補" },
-  { href: "/candidates", label: "AI抽出候補" },
+  { href: "/discovery", label: "探索ダッシュボード" },
+  { href: "/discovery/sources", label: "情報源管理" },
+  { href: "/discovery/items", label: "検知候補" },
+  { href: "/discovery/review", label: "AI抽出候補" },
 ];
 
-export function RadarNav() {
+export function DiscoveryNav() {
   const pathname = usePathname();
   return (
     <div className="mb-5">

@@ -24,7 +24,7 @@ import {
 } from "@/lib/constants";
 import { TextField, TextArea } from "@/components/Form";
 import { TrustBadge, SourceTypeBadge } from "@/components/Badges";
-import { RadarNav } from "@/components/RadarNav";
+import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { formatDate } from "@/lib/utils";
 import { SAMPLE_SOURCE_SITES } from "@/lib/samples";
 
@@ -135,10 +135,10 @@ export default function SourcesPage() {
 
   return (
     <div>
-      <RadarNav />
+      <DiscoveryNav />
       {error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}（radar_schema.sql を Supabase で実行済みか確認してください）
+          {error}（discovery_schema.sql を Supabase で実行済みか確認してください）
         </p>
       )}
 

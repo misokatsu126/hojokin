@@ -1,14 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { aiExtractCandidate, hasOpenAI } from "@/lib/ai";
+import { htmlToText } from "@/lib/discovery";
 import type { DiscoveredItem, SourceSite } from "@/lib/types";
 
 export const runtime = "nodejs";
 
+// サーバー側で URL を取得してテキスト化する。失敗（拒否・JS描画・タイムアウト等）は ok:false。
+async function tryFetchUrl(
+  url: string
+): Promise<{ ok: boolean; text?: string; html?: string; reason?: string }> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; HojokinRadar/1.0; +https://example.com/bot)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { ok: false, reason: `HTTP ${res.status}` };
+    const html = await res.text();
+    const text = htmlToText(html);
+    if (text.length < 40) return { ok: false, reason: "本文が取得できませんでした（JS描画の可能性）", html };
+    return { ok: true, text, html };
+  } catch (e) {
+    return { ok: false, reason: (e as Error).name === "AbortError" ? "タイムアウト" : "取得失敗" };
+  }
+}
+
 /**
  * discovered_item から補助金情報を抽出し、extracted_grant_candidates に保存する。
- * OpenAIキーがあればAI抽出、なければルールベース抽出（ai.ts 側でフォールバック）。
- * 抽出結果は本登録せず、必ず候補テーブルに保存する（安全フロー）。
+ * - 本文(raw_text)が乏しく URL がある場合は、サーバー側で URL 取得を試みる。
+ *   取得できなければ「テキスト貼り付けへのフォールバック」をUIに促すフラグを返す。
+ * - OpenAIキーがあればAI抽出、なければルールベース抽出（ai.ts 側でフォールバック）。
+ * - 抽出結果は本登録せず、必ず候補テーブルに保存する（安全フロー）。
  */
 export async function POST(req: NextRequest) {
   let itemId: string;
@@ -28,7 +58,7 @@ export async function POST(req: NextRequest) {
   if (itemErr || !itemData) {
     return NextResponse.json({ error: "検知候補が見つかりません。" }, { status: 404 });
   }
-  const item = itemData as DiscoveredItem;
+  let item = itemData as DiscoveredItem;
 
   let site: SourceSite | null = null;
   if (item.source_site_id) {
@@ -38,6 +68,27 @@ export async function POST(req: NextRequest) {
       .eq("id", item.source_site_id)
       .maybeSingle();
     site = (siteData as SourceSite) ?? null;
+  }
+
+  // 本文が乏しく URL があれば取得を試みる
+  let fetch_attempted = false;
+  let fetch_succeeded = false;
+  let fetch_reason: string | null = null;
+  const needsFetch = (!item.raw_text || item.raw_text.trim().length < 40) && !!item.url;
+  if (needsFetch && item.url) {
+    fetch_attempted = true;
+    const r = await tryFetchUrl(item.url);
+    if (r.ok && r.text) {
+      fetch_succeeded = true;
+      // 取得本文を保存し、以降の抽出に使う
+      await supabase
+        .from("discovered_items")
+        .update({ raw_text: r.text, raw_html: r.html ?? null })
+        .eq("id", item.id);
+      item = { ...item, raw_text: r.text, raw_html: r.html ?? null };
+    } else {
+      fetch_reason = r.reason ?? "取得失敗";
+    }
   }
 
   const engine = hasOpenAI() ? "ai" : "rule";
@@ -85,5 +136,13 @@ export async function POST(req: NextRequest) {
     await supabase.from("discovered_items").update({ status: "candidate" }).eq("id", item.id);
   }
 
-  return NextResponse.json({ engine, candidate });
+  return NextResponse.json({
+    engine,
+    candidate,
+    confidence_score: result.confidence_score,
+    missing_fields: result.missing_fields,
+    fetch_attempted,
+    fetch_succeeded,
+    fetch_reason,
+  });
 }

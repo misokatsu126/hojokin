@@ -15,10 +15,11 @@ import type {
   SourceSite,
 } from "@/lib/types";
 import { TrustBadge, SourceTypeBadge, VerificationBadge } from "@/components/Badges";
-import { RadarNav } from "@/components/RadarNav";
+import { DiscoveryNav } from "@/components/DiscoveryNav";
+import { DiscoverySearchBox } from "@/components/DiscoverySearchBox";
 import { formatDate, daysUntil } from "@/lib/utils";
 
-export default function RadarDashboardPage() {
+export default function DiscoveryDashboardPage() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [candidates, setCandidates] = useState<ExtractedGrantCandidate[]>([]);
   const [reviews, setReviews] = useState<ImportReview[]>([]);
@@ -79,33 +80,38 @@ export default function RadarDashboardPage() {
 
   return (
     <div>
-      <RadarNav />
+      <DiscoveryNav />
       {error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}（radar_schema.sql を Supabase で実行済みか確認してください）
+          {error}（discovery_schema.sql を Supabase で実行済みか確認してください）
         </p>
       )}
 
       <h1 className="mb-4 text-xl font-bold text-ink">自動探索ダッシュボード</h1>
 
+      <div className="mb-6 rounded-lg border bg-white p-4">
+        <DiscoverySearchBox />
+      </div>
+
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <Stat label="今日の新着候補" value={todayNew} tone="sky" href="/discovered" />
-        <Stat label="未確認の検知候補" value={unreviewed.length} tone="amber" href="/discovered" />
-        <Stat label="AI抽出済み候補" value={candidates.length} tone="indigo" href="/candidates" />
-        <Stat label="人間確認待ち" value={awaitingReview.length} tone="orange" href="/candidates" />
+        <Stat label="今日の新着候補" value={todayNew} tone="sky" href="/discovery/items" />
+        <Stat label="未確認の検知候補" value={unreviewed.length} tone="amber" href="/discovery/items" />
+        <Stat label="AI抽出済み候補" value={candidates.length} tone="indigo" href="/discovery/review" />
+        <Stat label="人間確認待ち" value={awaitingReview.length} tone="orange" href="/discovery/review" />
         <Stat label="本登録済み" value={imported} tone="green" href="/grants" />
-        <Stat label="無視・却下" value={ignored} tone="gray" href="/discovered" />
-        <Stat label="公式未確認候補" value={officialUnconfirmed.length} tone="orange" href="/discovered" />
-        <Stat label="重複候補" value={duplicates.length} tone="purple" href="/discovered" />
+        <Stat label="無視・却下" value={ignored} tone="gray" href="/discovery/items" />
+        <Stat label="公式未確認候補" value={officialUnconfirmed.length} tone="orange" href="/discovery/items" />
+        <Stat label="過年度候補" value={oldYear.length} tone="orange" href="/discovery/items" />
+        <Stat label="重複候補" value={duplicates.length} tone="purple" href="/discovery/items" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="高優先度の新着候補" href="/discovered">
+        <Panel title="高優先度の新着候補" href="/discovery/items">
           {highPriorityNew.length === 0 ? (
             <Empty>高優先度の未確認候補はありません。</Empty>
           ) : (
             highPriorityNew.slice(0, 8).map((i) => (
-              <Link key={i.id} href="/discovered" className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50">
+              <Link key={i.id} href="/discovery/items" className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50">
                 <span className="min-w-0 truncate text-sm text-ink">{i.title}</span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   <SourceTypeBadge type={i.source_category} />
@@ -116,12 +122,12 @@ export default function RadarDashboardPage() {
           )}
         </Panel>
 
-        <Panel title="公式未確認の候補（要確認）" href="/discovered">
+        <Panel title="公式未確認の候補（要確認）" href="/discovery/items">
           {officialUnconfirmed.length === 0 ? (
             <Empty>公式未確認の候補はありません。</Empty>
           ) : (
             officialUnconfirmed.slice(0, 8).map((i) => (
-              <Link key={i.id} href="/discovered" className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50">
+              <Link key={i.id} href="/discovery/items" className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50">
                 <span className="min-w-0 truncate text-sm text-ink">{i.title}</span>
                 <VerificationBadge status={i.verification_status} />
               </Link>
@@ -129,12 +135,12 @@ export default function RadarDashboardPage() {
           )}
         </Panel>
 
-        <Panel title="人間確認待ちのAI抽出候補" href="/candidates">
+        <Panel title="人間確認待ちのAI抽出候補" href="/discovery/review">
           {awaitingReview.length === 0 ? (
             <Empty>確認待ちの抽出候補はありません。</Empty>
           ) : (
             awaitingReview.slice(0, 8).map((c) => (
-              <Link key={c.id} href="/candidates" className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50">
+              <Link key={c.id} href="/discovery/review" className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50">
                 <span className="min-w-0 truncate text-sm text-ink">{c.name ?? "（名称未抽出）"}</span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   <span className="text-xs text-gray-400">確信度{c.confidence_score}</span>
@@ -145,7 +151,7 @@ export default function RadarDashboardPage() {
           )}
         </Panel>
 
-        <Panel title="情報源別の最終巡回" href="/sources">
+        <Panel title="情報源別の最終巡回" href="/discovery/sources">
           {sites.length === 0 ? (
             <Empty>情報源が未登録です。情報源管理から登録してください。</Empty>
           ) : (
