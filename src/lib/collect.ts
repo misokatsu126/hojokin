@@ -2,6 +2,8 @@ import {
   supabase,
   upsertDiscoveredByExternal,
   discoveredExists,
+  findDiscoveredByNormalizedKey,
+  setDiscoveredDuplicate,
   createSourceFetchLog,
   findOrCreateSourceSite,
   fetchSourceSites,
@@ -58,6 +60,64 @@ export function inferAudience(text: string): AudienceType {
   return "unknown";
 }
 
+// 情報源をまたいだ重複検知用の正規化キー（補助金名ベース）。
+//   公式名称は情報源（Jグランツ/ミラサポ/J-Net21/自治体）が違っても概ね共通なため、
+//   名称を NFKC 正規化＋空白記号除去して突き合わせる（実施主体やドメインはあえて含めない）。
+export function buildNormalizedKey(name: string | null | undefined): string {
+  if (!name) return "";
+  return name
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\s　]/g, "")
+    .replace(/[、。・,.\-―ー–—_()（）「」『』【】\[\]"'’“”:：;；/／|｜~〜!！?？#＃&＆＊*]/g, "");
+}
+
+// 取り込み後にクロスソース重複を検知し duplicate_of を設定（自動統合はしない）。
+//   優先順位: Jグランツ ＞ ミラサポplus ＝ J-Net21 ＝ その他。
+//   - 新規が Jグランツ → 既存の非Jグランツ同名を「重複候補」として新規に紐づける（新規を本体）。
+//   - 新規が非Jグランツ → 既存（Jグランツ優先）を本体として新規を重複候補に回す。
+async function resolveCrossSourceDuplicate(
+  newId: string | null,
+  normalizedKey: string,
+  newSource: string | null
+): Promise<void> {
+  if (!newId || !normalizedKey) return;
+  let matches: { id: string; external_source: string | null; duplicate_of: string | null }[] = [];
+  try {
+    matches = await findDiscoveredByNormalizedKey(normalizedKey, newId);
+  } catch {
+    return;
+  }
+  if (matches.length === 0) return;
+  const isJ = (s: string | null) => s === "jgrants";
+
+  if (isJ(newSource)) {
+    // 新規(Jグランツ)を本体に。既存の非Jグランツ同名を重複候補として紐づける。
+    for (const m of matches) {
+      if (!isJ(m.external_source) && m.duplicate_of !== newId) {
+        try {
+          await setDiscoveredDuplicate(m.id, newId);
+        } catch {
+          /* noop */
+        }
+      }
+    }
+  } else {
+    // 新規(非Jグランツ)は、Jグランツ＞重複でない既存＞先頭 を本体として紐づける。
+    const canonical =
+      matches.find((m) => isJ(m.external_source)) ??
+      matches.find((m) => !m.duplicate_of) ??
+      matches[0];
+    if (canonical && canonical.id !== newId) {
+      try {
+        await setDiscoveredDuplicate(newId, canonical.id);
+      } catch {
+        /* noop */
+      }
+    }
+  }
+}
+
 // ---------------- Jグランツ公開API ----------------
 const JGRANTS_BASE = "https://api.jgrants-portal.go.jp/exp/v1/public";
 const JGRANTS_PORTAL = "https://www.jgrants-portal.go.jp/subsidy";
@@ -73,8 +133,8 @@ const JGRANTS_DEFAULT_KEYWORDS = [
   "販路",
   "設備",
 ];
-// target_area_search に渡す地域（全国＋対象5地域）。空でも regionTextInTarget で再フィルタ。
-const JGRANTS_AREAS = ["全国", "愛知県", "名古屋市", "弥富市", "岐阜県", "岐阜市"];
+// target_area_search に渡す地域（全国＋対象地域）。空でも regionTextInTarget で再フィルタ。
+const JGRANTS_AREAS = ["全国", "愛知県", "名古屋市", "弥富市", "岐阜県", "岐阜市", "三重県", "四日市市"];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -245,8 +305,9 @@ export async function runJgrantsSync(opts?: {
           }
 
           const rawText = baseLines.join("\n");
+          const normalizedKey = buildNormalizedKey(name);
           try {
-            const { inserted } = await upsertDiscoveredByExternal({
+            const { inserted, id } = await upsertDiscoveredByExternal({
               external_id: `jgrants:${it.id}`,
               external_source: "jgrants",
               source_site_id: site?.id ?? null,
@@ -268,10 +329,13 @@ export async function runJgrantsSync(opts?: {
               last_verified_at: null,
               verification_status: "official_found",
               duplicate_of: null,
+              normalized_key: normalizedKey,
               audience_type: inferAudience(rawText) === "unknown" ? "business" : inferAudience(rawText),
             });
             if (inserted) summary.inserted++;
             else summary.updated++;
+            // 情報源をまたいだ重複検知（Jグランツを本体に）
+            await resolveCrossSourceDuplicate(id, normalizedKey, "jgrants");
           } catch {
             // 1件の保存失敗は無視して継続
           }
@@ -361,8 +425,9 @@ export async function runCrawl(site: SourceSite): Promise<CollectSummary> {
   const audienceScope = site.audience_scope ?? "both";
   for (const lk of links) {
     summary.scanned++;
+    const normalizedKey = buildNormalizedKey(lk.text);
     try {
-      const { inserted } = await upsertDiscoveredByExternal({
+      const { inserted, id } = await upsertDiscoveredByExternal({
         external_id: `crawl:${lk.href}`,
         external_source: "crawl",
         source_site_id: site.id,
@@ -383,10 +448,12 @@ export async function runCrawl(site: SourceSite): Promise<CollectSummary> {
         last_verified_at: null,
         verification_status: site.source_type === "official" ? "official_found" : "unverified",
         duplicate_of: null,
+        normalized_key: normalizedKey,
         audience_type: audienceScope === "both" ? inferAudience(lk.text) : (audienceScope as AudienceType),
       });
       if (inserted) summary.inserted++;
       else summary.updated++;
+      await resolveCrossSourceDuplicate(id, normalizedKey, "crawl");
     } catch {
       /* skip one */
     }
@@ -460,8 +527,9 @@ export async function runFeed(site: SourceSite): Promise<CollectSummary> {
   for (const e of entries) {
     summary.scanned++;
     const text = `${e.title}\n${e.desc}`;
+    const normalizedKey = buildNormalizedKey(e.title);
     try {
-      const { inserted } = await upsertDiscoveredByExternal({
+      const { inserted, id } = await upsertDiscoveredByExternal({
         external_id: `feed:${e.link}`,
         external_source: "feed",
         source_site_id: site.id,
@@ -482,10 +550,12 @@ export async function runFeed(site: SourceSite): Promise<CollectSummary> {
         last_verified_at: null,
         verification_status: site.source_type === "official" ? "official_found" : "unverified",
         duplicate_of: null,
+        normalized_key: normalizedKey,
         audience_type: audienceScope === "both" ? inferAudience(text) : (audienceScope as AudienceType),
       });
       if (inserted) summary.inserted++;
       else summary.updated++;
+      await resolveCrossSourceDuplicate(id, normalizedKey, "feed");
     } catch {
       /* skip one */
     }

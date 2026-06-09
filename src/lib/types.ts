@@ -244,6 +244,8 @@ export type DiscoveredItem = {
   audience_type?: AudienceType | null;
   external_id?: string | null;
   external_source?: string | null;
+  // discovery_dedup_schema.sql で追加（情報源をまたいだ重複検知用の正規化キー）
+  normalized_key?: string | null;
   created_at: string;
   updated_at: string;
 };

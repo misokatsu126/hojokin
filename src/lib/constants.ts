@@ -319,20 +319,23 @@ export const AUDIENCE_TYPE_COLORS: Record<AudienceType, string> = {
   unknown: "bg-gray-100 text-gray-500",
 };
 
-// 自動収集の対象地域（愛知県/名古屋市/弥富市/岐阜県/岐阜市）
+// 自動収集の対象地域（愛知県/名古屋市/弥富市/岐阜県/岐阜市/三重県/四日市市）
 export const COLLECT_TARGET_REGIONS = [
   "愛知県",
   "名古屋市",
   "弥富市",
   "岐阜県",
   "岐阜市",
+  "三重県",
+  "四日市市",
 ] as const;
 
 // target_area_search 等の地域文字列がこの収集対象に該当するか（全国・空も対象に含める）
 export function regionTextInTarget(areaText: string | null | undefined): boolean {
   if (!areaText) return true; // 地域指定なし＝全国扱いで拾う
   if (areaText.includes("全国")) return true;
-  if (areaText.includes("愛知") || areaText.includes("岐阜")) return true;
+  // 県レベルの部分一致（市区町村は県に内包される）
+  if (areaText.includes("愛知") || areaText.includes("岐阜") || areaText.includes("三重")) return true;
   return COLLECT_TARGET_REGIONS.some((r) => areaText.includes(r));
 }
 

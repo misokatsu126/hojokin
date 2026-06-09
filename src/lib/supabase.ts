@@ -387,10 +387,10 @@ export async function discoveredExists(externalId: string): Promise<boolean> {
   return Boolean(data);
 }
 
-// 外部ソースの一意キー（external_id）で discovered_items を upsert（重複防止）
+// 外部ソースの一意キー（external_id）で discovered_items を upsert（同一源内の重複防止）
 export async function upsertDiscoveredByExternal(
   row: Partial<DiscoveredItemInput> & { external_id: string }
-): Promise<{ inserted: boolean }> {
+): Promise<{ inserted: boolean; id: string | null }> {
   // 既存チェック（更新時に detected_at を保持したいので存在確認してから分岐）
   const { data: existing } = await supabase
     .from("discovered_items")
@@ -398,12 +398,42 @@ export async function upsertDiscoveredByExternal(
     .eq("external_id", row.external_id)
     .maybeSingle();
   if (existing) {
-    await supabase.from("discovered_items").update(row).eq("external_id", row.external_id);
-    return { inserted: false };
+    const { data: updated } = await supabase
+      .from("discovered_items")
+      .update(row)
+      .eq("external_id", row.external_id)
+      .select("id")
+      .maybeSingle();
+    return { inserted: false, id: (updated as any)?.id ?? (existing as any).id };
   }
-  const { error } = await supabase.from("discovered_items").insert(row);
+  const { data: inserted, error } = await supabase
+    .from("discovered_items")
+    .insert(row)
+    .select("id")
+    .single();
   if (error) throw error;
-  return { inserted: true };
+  return { inserted: true, id: (inserted as any)?.id ?? null };
+}
+
+// 情報源をまたいだ重複検知：正規化キーが一致/酷似する既存候補を返す（自分自身は除外）
+export async function findDiscoveredByNormalizedKey(
+  normalizedKey: string,
+  excludeId?: string | null
+): Promise<{ id: string; external_source: string | null; duplicate_of: string | null }[]> {
+  if (!normalizedKey) return [];
+  const { data } = await supabase
+    .from("discovered_items")
+    .select("id, external_source, duplicate_of, normalized_key")
+    .eq("normalized_key", normalizedKey);
+  const rows = (data ?? []) as any[];
+  return rows
+    .filter((r) => r.id !== excludeId)
+    .map((r) => ({ id: r.id, external_source: r.external_source ?? null, duplicate_of: r.duplicate_of ?? null }));
+}
+
+// duplicate_of を設定（自動統合はせず重複候補として紐づけるだけ）
+export async function setDiscoveredDuplicate(id: string, dupOfId: string | null): Promise<void> {
+  await supabase.from("discovered_items").update({ duplicate_of: dupOfId }).eq("id", id);
 }
 
 // 既知URLの情報源を取得、無ければ作成（Jグランツ等の固定ソース用）
