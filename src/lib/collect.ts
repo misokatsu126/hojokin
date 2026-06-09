@@ -7,10 +7,11 @@ import {
   createSourceFetchLog,
   findOrCreateSourceSite,
   fetchSourceSites,
+  fetchProfiles,
 } from "./supabase";
-import { htmlToText } from "./discovery";
+import { htmlToText, scoreDiscoveredAgainstProfiles } from "./discovery";
 import { regionTextInTarget, type AudienceType } from "./constants";
-import type { SourceSite } from "./types";
+import type { SourceSite, DiscoveredItem } from "./types";
 
 // =============================================================
 // 自動収集（合法ルートのみ）
@@ -833,10 +834,58 @@ export async function runMirasapo(): Promise<CollectSummary> {
 }
 
 /**
+ * 収集済みの discovered_items（未確認）を、登録済み事業プロフィールと自動照合し、
+ * 相性スコア・最適事業・推定締切を discovered_items に保存する（OpenAI不要のルールベース）。
+ * これにより Cron収集後すぐ、人手のAI抽出を待たずに高相性/締切間近を出せる。
+ */
+async function scoreNewDiscovered(): Promise<{ scored: number; total: number }> {
+  let profiles = [];
+  try {
+    profiles = await fetchProfiles();
+  } catch {
+    return { scored: 0, total: 0 };
+  }
+  if (profiles.length === 0) return { scored: 0, total: 0 };
+
+  let items: DiscoveredItem[] = [];
+  try {
+    const { data } = await supabase
+      .from("discovered_items")
+      .select("*")
+      .eq("status", "unreviewed")
+      .limit(500);
+    items = (data ?? []) as DiscoveredItem[];
+  } catch {
+    return { scored: 0, total: 0 };
+  }
+
+  let scored = 0;
+  for (const item of items) {
+    try {
+      const { bestScore, bestProfile, recommendation, deadline } = scoreDiscoveredAgainstProfiles(item, profiles);
+      await supabase
+        .from("discovered_items")
+        .update({
+          match_score: bestScore,
+          match_profile: bestProfile || null,
+          match_recommendation: recommendation,
+          extracted_deadline: deadline,
+        })
+        .eq("id", item.id);
+      scored++;
+    } catch {
+      /* 1件失敗は無視（match列未追加の環境など）。続行 */
+    }
+  }
+  return { scored, total: items.length };
+}
+
+/**
  * 全収集をまとめて実行（Jグランツ + J-Net21 + ミラサポplus + アクティブな公式巡回/フィード）。
+ * 収集後に discovered_items を事業プロフィールと自動照合する。
  * /api/discovery/run と手動「今すぐ全収集」ボタンの両方から呼ぶ。
  */
-export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: { inserted: number; updated: number } }> {
+export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: { inserted: number; updated: number }; matched: number }> {
   const summaries: CollectSummary[] = [];
 
   // 1) Jグランツ公開API
@@ -867,6 +916,9 @@ export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: {
     { inserted: 0, updated: 0 }
   );
 
+  // 収集後に discovered_items を事業プロフィールと自動照合（相性スコア付与）
+  const match = await scoreNewDiscovered();
+
   // run全体の実行ログを残す（Cron成否を後から追跡できるよう source_site_id=null で記録）
   const allFailed = summaries.length > 0 && summaries.every((s) => !s.ok);
   const summaryLine = summaries.map((s) => `${s.source}:${s.ok ? `${s.inserted}+${s.updated}` : `NG(${s.error ?? "?"})`}`).join(" / ");
@@ -875,10 +927,10 @@ export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: {
       source_site_id: null,
       status: allFailed ? "error" : "success",
       detected_count: totals.inserted + totals.updated,
-      error_message: `run: ${summaryLine}`.slice(0, 500),
+      error_message: `run: ${summaryLine} / matched:${match.scored}/${match.total}`.slice(0, 500),
     });
   } catch {
     /* ログ保存失敗は無視 */
   }
-  return { summaries, totals };
+  return { summaries, totals, matched: match.scored };
 }

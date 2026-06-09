@@ -7,7 +7,7 @@
 // だけを先に用意する。runtime には未配線（将来 /api/discovery/run の最後で呼ぶ想定）。
 // =============================================================
 
-import type { ExtractedGrantCandidate, BusinessProfile } from "./types";
+import type { ExtractedGrantCandidate, BusinessProfile, DiscoveredItem } from "./types";
 import { scoreCandidateAgainstProfiles } from "./discovery";
 import { daysUntil } from "./utils";
 
@@ -75,6 +75,36 @@ export function selectNotifiable(
     });
   }
   // 高相性→締切が近い順
+  return out.sort((a, b) => b.best_score - a.best_score || (daysUntil(a.deadline) ?? 9999) - (daysUntil(b.deadline) ?? 9999));
+}
+
+/**
+ * 自動照合済みの discovered_items（match_score / extracted_deadline 付与済み）から通知候補を生成する。
+ * runAll が付けたスコアをそのまま使うので、プロフィール再計算は不要（将来 /api/discovery/run の最後で呼ぶ想定）。
+ */
+export function selectNotifiableFromDiscovered(
+  items: DiscoveredItem[],
+  config: NotifyConfig = DEFAULT_NOTIFY_CONFIG
+): NotifyItem[] {
+  const out: NotifyItem[] = [];
+  for (const i of items) {
+    if (i.status === "imported" || i.status === "rejected") continue;
+    const score = i.match_score ?? 0;
+    const d = daysUntil(i.extracted_deadline ?? null);
+    const triggers: NotifyTrigger[] = [];
+    if (score >= config.minScore) triggers.push("high_affinity");
+    if (d != null && d >= 0 && d <= config.deadlineDays) triggers.push("deadline_soon");
+    if (triggers.length === 0) continue;
+    out.push({
+      candidate_id: i.id,
+      title: i.title ?? "（無題）",
+      triggers,
+      best_score: score,
+      best_profile: i.match_profile ?? "",
+      deadline: i.extracted_deadline ?? null,
+      url: i.official_url ?? i.url ?? null,
+    });
+  }
   return out.sort((a, b) => b.best_score - a.best_score || (daysUntil(a.deadline) ?? 9999) - (daysUntil(b.deadline) ?? 9999));
 }
 

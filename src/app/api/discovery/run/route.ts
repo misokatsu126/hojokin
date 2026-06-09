@@ -10,8 +10,8 @@ export const maxDuration = 60;
 // Vercel Cron は GET で叩くため GET/POST 両対応。失敗時も 200 で返す（Cronを失敗扱いにしない）。
 async function handle() {
   try {
-    const { summaries, totals } = await runAll();
-    return NextResponse.json({ ok: true, ran_at: new Date().toISOString(), totals, summaries });
+    const { summaries, totals, matched } = await runAll();
+    return NextResponse.json({ ok: true, ran_at: new Date().toISOString(), totals, matched, summaries });
   } catch (e) {
     // 想定外の失敗もDBに記録（Cron失敗の追跡用）
     try {

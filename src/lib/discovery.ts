@@ -298,3 +298,67 @@ export function scoreCandidateAgainstProfiles(
   }
   return { bestScore, bestProfile, recommendation };
 }
+
+/**
+ * 収集した discovered_item（生の検知候補）を、ルールベースで構造化抽出してから
+ * 事業プロフィールと照合し、最高相性スコア・事業名・おすすめ度・推定締切を返す。
+ * 人手の「AI抽出」前でも自動照合できるようにするための関数（OpenAI不要）。
+ */
+export function scoreDiscoveredAgainstProfiles(
+  item: DiscoveredItem,
+  profiles: BusinessProfile[]
+): { bestScore: number; bestProfile: string; recommendation: string; deadline: string | null } {
+  const ex = ruleExtract(item); // raw_text/title から地域・業種・経費・締切等を抽出
+  if (!profiles || profiles.length === 0) {
+    return { bestScore: 0, bestProfile: "", recommendation: "D", deadline: ex.deadline };
+  }
+  const hay = [item.title ?? "", item.raw_text ?? "", ...ex.target_industries, ...ex.eligible_expenses].join(" ");
+  const purposes = PURPOSES.filter((p) => hay.includes(p));
+  const grant = {
+    id: "",
+    name: ex.name,
+    grant_type: ex.grant_type,
+    organization: ex.organizer,
+    org_type: null,
+    regions: ex.target_regions,
+    industries: ex.target_industries,
+    entity_types: ex.target_business_types,
+    target_audience: ex.target_people,
+    expense_categories: ex.eligible_expenses,
+    subsidy_rate: ex.subsidy_rate,
+    min_amount: ex.min_amount,
+    max_amount: ex.max_amount,
+    application_start: ex.application_start_date,
+    application_deadline: ex.deadline,
+    recruitment_status: ex.application_status,
+    application_method: ex.application_method,
+    required_documents: ex.required_documents,
+    official_url: ex.official_url,
+    guideline_pdf_url: ex.official_pdf_url,
+    notes: ex.notes,
+    pre_application_ng: ex.pre_application_ng_risk,
+    requires_professional: ex.professional_check_recommended,
+    keywords: [],
+    purposes,
+    exclusion_conditions: null,
+    early_termination_risk: false,
+    selection_type: "不明",
+    difficulty: "不明",
+    source: item.external_source ?? null,
+    fetched_at: item.fetched_at ?? null,
+    created_at: "",
+    updated_at: "",
+  } as Grant;
+  let bestScore = 0;
+  let bestProfile = "";
+  let recommendation = "D";
+  for (const p of profiles) {
+    const m = ruleMatch(grant, p);
+    if (m.match_score > bestScore) {
+      bestScore = m.match_score;
+      bestProfile = p.name;
+      recommendation = m.recommendation;
+    }
+  }
+  return { bestScore, bestProfile, recommendation, deadline: ex.deadline };
+}

@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { fetchDiscoveredItems, fetchExtractedCandidates, fetchProfiles } from "@/lib/supabase";
-import type { DiscoveredItem, ExtractedGrantCandidate, BusinessProfile } from "@/lib/types";
+import { fetchDiscoveredItems, fetchProfiles } from "@/lib/supabase";
+import type { DiscoveredItem, BusinessProfile } from "@/lib/types";
 import { AUDIENCE_TYPE_LABEL, AUDIENCE_TYPE_COLORS, type AudienceType } from "@/lib/constants";
-import { TrustBadge, DiscoveredStatusBadge } from "@/components/Badges";
-import { scoreCandidateAgainstProfiles } from "@/lib/discovery";
+import { TrustBadge } from "@/components/Badges";
+import { scoreDiscoveredAgainstProfiles } from "@/lib/discovery";
 import { daysUntil, formatDate } from "@/lib/utils";
 
 type AudienceFilter = "all" | "business" | "individual";
@@ -19,7 +19,6 @@ function matchAudience(a: AudienceType | null | undefined, f: AudienceFilter): b
 
 export function AutoCollectSection() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
-  const [candidates, setCandidates] = useState<ExtractedGrantCandidate[]>([]);
   const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
   const [filter, setFilter] = useState<AudienceFilter>("all");
   const [loading, setLoading] = useState(true);
@@ -28,9 +27,8 @@ export function AutoCollectSection() {
   const [unavailable, setUnavailable] = useState(false);
 
   async function load() {
-    const [it, c, p] = await Promise.all([fetchDiscoveredItems(), fetchExtractedCandidates(), fetchProfiles()]);
+    const [it, p] = await Promise.all([fetchDiscoveredItems(), fetchProfiles()]);
     setItems(it);
-    setCandidates(c);
     setProfiles(p);
   }
   useEffect(() => {
@@ -41,24 +39,29 @@ export function AutoCollectSection() {
   }, []);
 
   const fItems = useMemo(() => items.filter((i) => matchAudience(i.audience_type, filter)), [items, filter]);
-  const fCands = useMemo(() => candidates.filter((c) => matchAudience(c.audience_type, filter)), [candidates, filter]);
+
+  // discovered_items を事業プロフィールと照合した結果を使用。
+  //   match_score 列があればそれを優先（runで自動付与）、無ければクライアントで即時計算（フォールバック）。
+  const scored = useMemo(
+    () =>
+      fItems
+        .filter((i) => i.status !== "imported" && i.status !== "rejected")
+        .map((i) => {
+          if (i.match_score != null) {
+            return { i, score: i.match_score, profile: i.match_profile ?? "", deadline: i.extracted_deadline ?? null };
+          }
+          const r = scoreDiscoveredAgainstProfiles(i, profiles);
+          return { i, score: r.bestScore, profile: r.bestProfile, deadline: r.deadline };
+        }),
+    [fItems, profiles]
+  );
 
   const todayNew = fItems.filter((i) => daysUntil(i.detected_at) === 0 && i.status !== "imported" && i.status !== "rejected");
   const unreviewed = fItems.filter((i) => i.status === "unreviewed");
-
-  // 高相性候補：AI抽出候補を登録済み事業プロフィールと照合し、最高スコア順に。
-  const scored = useMemo(
-    () =>
-      fCands
-        .map((c) => ({ c, ...scoreCandidateAgainstProfiles(c, profiles) }))
-        .sort((a, b) => b.bestScore - a.bestScore),
-    [fCands, profiles]
-  );
-  const highAffinity = scored.filter((s) => s.bestScore >= 70);
-
-  const deadlineSoon = fCands
-    .filter((c) => {
-      const d = daysUntil(c.deadline);
+  const highAffinity = scored.filter((s) => s.score >= 70).sort((a, b) => b.score - a.score);
+  const deadlineSoon = scored
+    .filter((s) => {
+      const d = daysUntil(s.deadline);
       return d != null && d >= 0 && d <= 30;
     })
     .sort((a, b) => daysUntil(a.deadline)! - daysUntil(b.deadline)!);
@@ -71,7 +74,7 @@ export function AutoCollectSection() {
       const d = await r.json();
       setMsg(
         d.ok
-          ? `自動収集を実行しました（新着 ${d.totals?.inserted ?? 0} 件・更新 ${d.totals?.updated ?? 0} 件）。`
+          ? `自動収集を実行しました（新着 ${d.totals?.inserted ?? 0} 件・更新 ${d.totals?.updated ?? 0} 件／事業プロフィールと照合 ${d.matched ?? 0} 件）。`
           : `自動収集に失敗しました（${d.error ?? "不明"}）。`
       );
       await load();
@@ -124,18 +127,18 @@ export function AutoCollectSection() {
             </Row>
           ))}
         </Col>
-        <Col title="高相性候補（事業との相性）" href="/discovery/review">
-          {highAffinity.length === 0 ? <Empty>高相性の候補はありません（事業プロフィール登録で精度UP）。</Empty> : highAffinity.slice(0, 6).map(({ c, bestScore, bestProfile }) => (
-            <Row key={c.id} href="/discovery/review" title={c.name ?? "（名称未抽出）"}>
-              {bestProfile && <span className="shrink-0 text-[10px] text-gray-400">{bestProfile}</span>}
-              <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">{bestScore}</span>
+        <Col title="高相性候補（事業との相性）" href="/discovery/items">
+          {highAffinity.length === 0 ? <Empty>高相性の候補はありません（事業プロフィール登録で精度UP）。</Empty> : highAffinity.slice(0, 6).map(({ i, score, profile }) => (
+            <Row key={i.id} href="/discovery/items" title={i.title ?? "（無題）"}>
+              {profile && <span className="shrink-0 text-[10px] text-gray-400">{profile}</span>}
+              <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">{score}</span>
             </Row>
           ))}
         </Col>
-        <Col title="締切間近（AI抽出候補）" href="/discovery/review">
-          {deadlineSoon.length === 0 ? <Empty>締切30日以内はありません。</Empty> : deadlineSoon.slice(0, 6).map((c) => (
-            <Row key={c.id} href="/discovery/review" title={c.name ?? "（名称未抽出）"}>
-              <span className="shrink-0 text-xs text-red-600">{formatDate(c.deadline)}</span>
+        <Col title="締切間近（自動収集）" href="/discovery/items">
+          {deadlineSoon.length === 0 ? <Empty>締切30日以内はありません。</Empty> : deadlineSoon.slice(0, 6).map(({ i, deadline }) => (
+            <Row key={i.id} href="/discovery/items" title={i.title ?? "（無題）"}>
+              <span className="shrink-0 text-xs text-red-600">{formatDate(deadline)}</span>
             </Row>
           ))}
         </Col>

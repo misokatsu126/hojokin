@@ -249,6 +249,11 @@ export type DiscoveredItem = {
   // discovery_fetch_schema.sql で追加（実HTTP取得メタ）
   fetched_at?: string | null;
   extraction_confidence?: number | null;
+  // discovery_match_schema.sql で追加（事業プロフィールとの自動照合結果）
+  match_score?: number | null;
+  match_profile?: string | null;
+  match_recommendation?: string | null;
+  extracted_deadline?: string | null;
   created_at: string;
   updated_at: string;
 };
