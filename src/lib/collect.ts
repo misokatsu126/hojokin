@@ -1,6 +1,9 @@
 import {
   supabase,
   upsertDiscoveredByExternal,
+  discoveredExists,
+  findDiscoveredByNormalizedKey,
+  setDiscoveredDuplicate,
   createSourceFetchLog,
   findOrCreateSourceSite,
   fetchSourceSites,
@@ -57,9 +60,83 @@ export function inferAudience(text: string): AudienceType {
   return "unknown";
 }
 
+// 情報源をまたいだ重複検知用の正規化キー（補助金名ベース）。
+//   公式名称は情報源（Jグランツ/ミラサポ/J-Net21/自治体）が違っても概ね共通なため、
+//   名称を NFKC 正規化＋空白記号除去して突き合わせる（実施主体やドメインはあえて含めない）。
+export function buildNormalizedKey(name: string | null | undefined): string {
+  if (!name) return "";
+  return name
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\s　]/g, "")
+    .replace(/[、。・,.\-―ー–—_()（）「」『』【】\[\]"'’“”:：;；/／|｜~〜!！?？#＃&＆＊*]/g, "");
+}
+
+// 取り込み後にクロスソース重複を検知し duplicate_of を設定（自動統合はしない）。
+//   優先順位: Jグランツ ＞ ミラサポplus ＝ J-Net21 ＝ その他。
+//   - 新規が Jグランツ → 既存の非Jグランツ同名を「重複候補」として新規に紐づける（新規を本体）。
+//   - 新規が非Jグランツ → 既存（Jグランツ優先）を本体として新規を重複候補に回す。
+async function resolveCrossSourceDuplicate(
+  newId: string | null,
+  normalizedKey: string,
+  newSource: string | null
+): Promise<void> {
+  if (!newId || !normalizedKey) return;
+  let matches: { id: string; external_source: string | null; duplicate_of: string | null }[] = [];
+  try {
+    matches = await findDiscoveredByNormalizedKey(normalizedKey, newId);
+  } catch {
+    return;
+  }
+  if (matches.length === 0) return;
+  const isJ = (s: string | null) => s === "jgrants";
+
+  if (isJ(newSource)) {
+    // 新規(Jグランツ)を本体に。既存の非Jグランツ同名を重複候補として紐づける。
+    for (const m of matches) {
+      if (!isJ(m.external_source) && m.duplicate_of !== newId) {
+        try {
+          await setDiscoveredDuplicate(m.id, newId);
+        } catch {
+          /* noop */
+        }
+      }
+    }
+  } else {
+    // 新規(非Jグランツ)は、Jグランツ＞重複でない既存＞先頭 を本体として紐づける。
+    const canonical =
+      matches.find((m) => isJ(m.external_source)) ??
+      matches.find((m) => !m.duplicate_of) ??
+      matches[0];
+    if (canonical && canonical.id !== newId) {
+      try {
+        await setDiscoveredDuplicate(newId, canonical.id);
+      } catch {
+        /* noop */
+      }
+    }
+  }
+}
+
 // ---------------- Jグランツ公開API ----------------
 const JGRANTS_BASE = "https://api.jgrants-portal.go.jp/exp/v1/public";
 const JGRANTS_PORTAL = "https://www.jgrants-portal.go.jp/subsidy";
+
+// 対象地域×複数キーワードでループ検索するための既定キーワード
+const JGRANTS_DEFAULT_KEYWORDS = [
+  "補助金",
+  "助成金",
+  "IT",
+  "DX",
+  "省エネ",
+  "創業",
+  "販路",
+  "設備",
+];
+// target_area_search に渡す地域（全国＋対象地域）。空でも regionTextInTarget で再フィルタ。
+const JGRANTS_AREAS = ["全国", "愛知県", "名古屋市", "弥富市", "岐阜県", "岐阜市", "三重県", "四日市市"];
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type JgrantsListItem = {
   id?: string;
@@ -73,14 +150,26 @@ type JgrantsListItem = {
   institution_name?: string | null;
 };
 
-// Jグランツ一覧API（keyword 必須・2〜255文字、sort/order/acceptance 必須）
-async function jgrantsSearch(keyword: string): Promise<JgrantsListItem[]> {
+type JgrantsDetail = {
+  subsidy_catch_phrase?: string | null;
+  detail?: string | null;
+  use_purpose?: string | null;
+  industry?: string | null;
+  target_area_detail?: string | null;
+  subsidy_rate?: string | null;
+  project_end_deadline?: string | null;
+  front_subsidy_detail_page_url?: string | null;
+};
+
+// Jグランツ一覧API（keyword 必須・2〜255文字、sort/order/acceptance 必須、target_area_search 任意）
+async function jgrantsSearch(keyword: string, targetArea?: string): Promise<JgrantsListItem[]> {
   const qs = new URLSearchParams({
     keyword,
-    sort: "acceptance_end_datetime",
-    order: "ASC",
+    sort: "created_date",
+    order: "DESC",
     acceptance: "1", // 募集中のみ
   });
+  if (targetArea) qs.set("target_area_search", targetArea);
   const r = await safeFetch(`${JGRANTS_BASE}/subsidies?${qs.toString()}`, { timeoutMs: 12000 });
   if (!r.ok || !r.text) throw new Error(r.error ?? `HTTP ${r.status}`);
   let json: any;
@@ -93,6 +182,19 @@ async function jgrantsSearch(keyword: string): Promise<JgrantsListItem[]> {
   return result as JgrantsListItem[];
 }
 
+// Jグランツ詳細API（公式詳細ページURLや補助率・締切などを補完）。失敗時は null。
+async function jgrantsDetail(id: string): Promise<JgrantsDetail | null> {
+  const r = await safeFetch(`${JGRANTS_BASE}/subsidies/id/${encodeURIComponent(id)}`, { timeoutMs: 12000 });
+  if (!r.ok || !r.text) return null;
+  try {
+    const json = JSON.parse(r.text);
+    const d = Array.isArray(json?.result) ? json.result[0] : json?.result;
+    return (d as JgrantsDetail) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export type CollectSummary = {
   source: string;
   ok: boolean;
@@ -103,10 +205,16 @@ export type CollectSummary = {
 };
 
 /**
- * Jグランツから対象地域・キーワードで取得し discovered_items に upsert する。
- * 取得失敗時も throw せず CollectSummary(ok:false) を返す。
+ * Jグランツから対象地域×複数キーワードでループ検索し discovered_items に upsert する。
+ * - 一覧APIで募集中の補助金を取得 → 対象地域で再フィルタ → upsert（external_id で重複排除）。
+ * - 新規分は詳細APIで front_subsidy_detail_page_url・補助率・締切等を補完（件数上限あり）。
+ * - レート制限に配慮し各リクエスト間に小待機。取得失敗時も throw せず ok:false を返す。
  */
-export async function runJgrantsSync(opts?: { keywords?: string[] }): Promise<CollectSummary> {
+export async function runJgrantsSync(opts?: {
+  keywords?: string[];
+  maxListCalls?: number;
+  maxDetail?: number;
+}): Promise<CollectSummary> {
   const summary: CollectSummary = { source: "jgrants", ok: true, inserted: 0, updated: 0, scanned: 0 };
 
   // Jグランツ用の情報源（source_sites）を用意（ログ紐づけ用）
@@ -124,85 +232,115 @@ export async function runJgrantsSync(opts?: { keywords?: string[] }): Promise<Co
         crawl_frequency: "daily",
         is_active: true,
         last_checked_at: null,
-        notes: "デジタル庁 Jグランツ公開API（GET /exp/v1/public/subsidies）。認証不要。",
+        notes: "デジタル庁 Jグランツ公開API（GET /exp/v1/public/subsidies）。認証不要。利用規約: https://www.jgrants-portal.go.jp/open-api",
       }
     );
   } catch {
     // source_sites が無い環境でも収集自体は継続（ログだけ諦める）
   }
 
-  const keywords = opts?.keywords?.length
-    ? opts.keywords
-    : (["愛知県", "名古屋市", "弥富市", "岐阜県", "岐阜市"] as string[]);
+  const keywords = opts?.keywords?.length ? opts.keywords : JGRANTS_DEFAULT_KEYWORDS;
+  const maxListCalls = opts?.maxListCalls ?? 36;
+  const maxDetail = opts?.maxDetail ?? 20;
 
   const seen = new Set<string>();
-  let kwTried = 0;
-  let kwFailed = 0;
+  let listCalls = 0;
+  let callsTried = 0;
+  let callsFailed = 0;
+  let detailFetched = 0;
   let lastError = "";
+
   try {
-    for (const kw of keywords) {
-      if (!kw || kw.length < 2) continue;
-      kwTried++;
-      let items: JgrantsListItem[] = [];
-      try {
-        items = await jgrantsSearch(kw);
-      } catch (e) {
-        // 個別キーワードの失敗はスキップして継続（全滅時は後でok:falseに）
-        kwFailed++;
-        lastError = (e as Error).message;
-        continue;
-      }
-      for (const it of items) {
-        if (!it.id || seen.has(it.id)) continue;
-        seen.add(it.id);
-        summary.scanned++;
-        // 対象地域でフィルタ（全国・空も対象）
-        if (!regionTextInTarget(it.target_area_search)) continue;
-
-        const name = (it.name || it.title || "").trim() || "（名称不明のJグランツ補助金）";
-        const rawText = [
-          name,
-          it.institution_name ? `実施機関: ${it.institution_name}` : "",
-          it.target_area_search ? `対象地域: ${it.target_area_search}` : "",
-          it.subsidy_max_limit != null ? `上限額: ${it.subsidy_max_limit}円` : "",
-          it.acceptance_start_datetime ? `募集開始: ${it.acceptance_start_datetime}` : "",
-          it.acceptance_end_datetime ? `締切: ${it.acceptance_end_datetime}` : "",
-          it.target_number_of_employees ? `従業員規模: ${it.target_number_of_employees}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n");
-
-        const portalUrl = `${JGRANTS_PORTAL}/${it.id}`;
+    outer: for (const area of JGRANTS_AREAS) {
+      for (const kw of keywords) {
+        if (!kw || kw.length < 2) continue;
+        if (listCalls >= maxListCalls) break outer;
+        listCalls++;
+        callsTried++;
+        let items: JgrantsListItem[] = [];
         try {
-          const { inserted } = await upsertDiscoveredByExternal({
-            external_id: `jgrants:${it.id}`,
-            external_source: "jgrants",
-            source_site_id: site?.id ?? null,
-            title: name,
-            url: portalUrl,
-            raw_text: rawText,
-            raw_html: null,
-            pdf_url: null,
-            detection_type: "new",
-            status: "unreviewed",
-            source_category: "semi_official",
-            trust_level: "B",
-            original_source_url: portalUrl,
-            // Jグランツは公的ポータルなので公式URLとして扱う
-            official_url: portalUrl,
-            official_pdf_url: null,
-            official_source_confirmed: true,
-            source_warning: null,
-            last_verified_at: null,
-            verification_status: "official_found",
-            duplicate_of: null,
-            audience_type: inferAudience(rawText) === "unknown" ? "business" : inferAudience(rawText),
-          });
-          if (inserted) summary.inserted++;
-          else summary.updated++;
-        } catch {
-          // 1件の保存失敗は無視して継続
+          items = await jgrantsSearch(kw, area);
+        } catch (e) {
+          callsFailed++;
+          lastError = (e as Error).message;
+          await sleep(200);
+          continue;
         }
+        for (const it of items) {
+          if (!it.id || seen.has(it.id)) continue;
+          seen.add(it.id);
+          summary.scanned++;
+          // 対象地域でフィルタ（全国・空も対象）
+          if (!regionTextInTarget(it.target_area_search)) continue;
+
+          const name = (it.name || it.title || "").trim() || "（名称不明のJグランツ補助金）";
+          const baseLines = [
+            name,
+            it.institution_name ? `実施機関: ${it.institution_name}` : "",
+            it.target_area_search ? `対象地域: ${it.target_area_search}` : "",
+            it.subsidy_max_limit != null ? `上限額: ${it.subsidy_max_limit}円` : "",
+            it.acceptance_start_datetime ? `募集開始: ${it.acceptance_start_datetime}` : "",
+            it.acceptance_end_datetime ? `締切: ${it.acceptance_end_datetime}` : "",
+            it.target_number_of_employees ? `従業員規模: ${it.target_number_of_employees}` : "",
+          ].filter(Boolean);
+
+          const portalUrl = `${JGRANTS_PORTAL}/${it.id}`;
+          let officialUrl = portalUrl;
+          let pdfUrl: string | null = null;
+
+          // 新規候補だけ詳細APIで補完（件数上限・小待機）
+          const exists = await discoveredExists(`jgrants:${it.id}`);
+          if (!exists && detailFetched < maxDetail) {
+            detailFetched++;
+            await sleep(150);
+            const d = await jgrantsDetail(it.id);
+            if (d) {
+              if (d.front_subsidy_detail_page_url) officialUrl = d.front_subsidy_detail_page_url;
+              if (d.subsidy_catch_phrase) baseLines.push(`概要: ${d.subsidy_catch_phrase}`);
+              if (d.subsidy_rate) baseLines.push(`補助率: ${d.subsidy_rate}`);
+              if (d.use_purpose) baseLines.push(`目的: ${d.use_purpose}`);
+              if (d.industry) baseLines.push(`業種: ${d.industry}`);
+              if (d.project_end_deadline) baseLines.push(`事業終了期限: ${d.project_end_deadline}`);
+            }
+          }
+
+          const rawText = baseLines.join("\n");
+          const normalizedKey = buildNormalizedKey(name);
+          try {
+            const { inserted, id } = await upsertDiscoveredByExternal({
+              external_id: `jgrants:${it.id}`,
+              external_source: "jgrants",
+              source_site_id: site?.id ?? null,
+              title: name,
+              url: officialUrl,
+              raw_text: rawText,
+              raw_html: null,
+              pdf_url: pdfUrl,
+              detection_type: "new",
+              status: "unreviewed",
+              source_category: "semi_official",
+              trust_level: "B",
+              original_source_url: portalUrl,
+              // Jグランツは公的ポータルなので公式URLとして扱う
+              official_url: officialUrl,
+              official_pdf_url: null,
+              official_source_confirmed: true,
+              source_warning: null,
+              last_verified_at: null,
+              verification_status: "official_found",
+              duplicate_of: null,
+              normalized_key: normalizedKey,
+              audience_type: inferAudience(rawText) === "unknown" ? "business" : inferAudience(rawText),
+            });
+            if (inserted) summary.inserted++;
+            else summary.updated++;
+            // 情報源をまたいだ重複検知（Jグランツを本体に）
+            await resolveCrossSourceDuplicate(id, normalizedKey, "jgrants");
+          } catch {
+            // 1件の保存失敗は無視して継続
+          }
+        }
+        await sleep(200); // レート配慮
       }
     }
   } catch (e) {
@@ -210,8 +348,8 @@ export async function runJgrantsSync(opts?: { keywords?: string[] }): Promise<Co
     summary.error = (e as Error).message;
   }
 
-  // 全キーワードで取得に失敗した場合は ok:false（外部到達不可・API障害を可視化）
-  if (summary.ok && kwTried > 0 && kwFailed === kwTried) {
+  // 全リクエストで取得に失敗した場合は ok:false（外部到達不可・API障害を可視化）
+  if (summary.ok && callsTried > 0 && callsFailed === callsTried) {
     summary.ok = false;
     summary.error = `Jグランツへの取得に全て失敗しました（${lastError || "ネットワーク不可"}）`;
   }
@@ -287,8 +425,9 @@ export async function runCrawl(site: SourceSite): Promise<CollectSummary> {
   const audienceScope = site.audience_scope ?? "both";
   for (const lk of links) {
     summary.scanned++;
+    const normalizedKey = buildNormalizedKey(lk.text);
     try {
-      const { inserted } = await upsertDiscoveredByExternal({
+      const { inserted, id } = await upsertDiscoveredByExternal({
         external_id: `crawl:${lk.href}`,
         external_source: "crawl",
         source_site_id: site.id,
@@ -309,10 +448,12 @@ export async function runCrawl(site: SourceSite): Promise<CollectSummary> {
         last_verified_at: null,
         verification_status: site.source_type === "official" ? "official_found" : "unverified",
         duplicate_of: null,
+        normalized_key: normalizedKey,
         audience_type: audienceScope === "both" ? inferAudience(lk.text) : (audienceScope as AudienceType),
       });
       if (inserted) summary.inserted++;
       else summary.updated++;
+      await resolveCrossSourceDuplicate(id, normalizedKey, "crawl");
     } catch {
       /* skip one */
     }
@@ -386,8 +527,9 @@ export async function runFeed(site: SourceSite): Promise<CollectSummary> {
   for (const e of entries) {
     summary.scanned++;
     const text = `${e.title}\n${e.desc}`;
+    const normalizedKey = buildNormalizedKey(e.title);
     try {
-      const { inserted } = await upsertDiscoveredByExternal({
+      const { inserted, id } = await upsertDiscoveredByExternal({
         external_id: `feed:${e.link}`,
         external_source: "feed",
         source_site_id: site.id,
@@ -408,10 +550,12 @@ export async function runFeed(site: SourceSite): Promise<CollectSummary> {
         last_verified_at: null,
         verification_status: site.source_type === "official" ? "official_found" : "unverified",
         duplicate_of: null,
+        normalized_key: normalizedKey,
         audience_type: audienceScope === "both" ? inferAudience(text) : (audienceScope as AudienceType),
       });
       if (inserted) summary.inserted++;
       else summary.updated++;
+      await resolveCrossSourceDuplicate(id, normalizedKey, "feed");
     } catch {
       /* skip one */
     }

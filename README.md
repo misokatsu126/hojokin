@@ -31,7 +31,8 @@ npm run dev                          # http://localhost:3000
 
 1. [supabase.com](https://supabase.com) でプロジェクトを作成。
 2. **SQL Editor** で `supabase/schema.sql` を実行（9テーブル＋トリガ＋RLSを作成）。
-3. **SQL Editor** で `supabase/discovery_schema.sql` を実行（自動探索レーダー用の5テーブルを追加）。`schema.sql` とは独立しており、後から追加実行できます。両ファイルとも**冪等**（何度実行しても安全）です。
+3. **SQL Editor** で `supabase/discovery_schema.sql` を実行（自動探索レーダー用の5テーブルを追加）。`schema.sql` とは独立しており、後から追加実行できます。
+3b. **SQL Editor** で `supabase/discovery_collect_schema.sql` → `supabase/discovery_dedup_schema.sql` の順に実行（自動収集の追加列：`audience_type`/`external_id`/`feed_url` 等、および情報源をまたいだ重複検知用の `normalized_key`）。いずれも**冪等**（何度実行しても安全）です。
 4. （任意）`supabase/seed.sql` を実行するとサンプルデータが入ります。
    - ※ SQLで投入した場合、判定・アラートは未生成です。各補助金の詳細ページで「全事業を再照合」を押すか、アプリ内の「サンプル登録」ボタンを使ってください（後者は登録と同時に自動照合します）。
 5. **Settings > API** の URL と anon key を `.env.local` に設定。
@@ -191,11 +192,16 @@ source_sites に情報源を登録
 
 | 層 | エンドポイント | 内容 |
 | --- | --- | --- |
-| ① Jグランツ公開API | `POST/GET /api/discovery/jgrants/sync` | デジタル庁 Jグランツ `GET /exp/v1/public/subsidies`（認証不要）。対象地域でフィルタし `discovered_items` に upsert（`external_id='jgrants:<id>'`、公的ポータルのため公式URL確認済み扱い）。 |
-| ② 公式ページ巡回 | `POST/GET /api/discovery/crawl?source_id=...` | `source_sites.url` をサーバー側fetch→補助金関連リンクを抽出して保存。取得不可（robots/JS描画/到達不可）時は `source_fetch_logs` に error 記録し手動確認に委ねる。5地域の公式URLは「公式5地域＋J-Net21を登録」ボタンで投入。 |
-| ③ J-Net21 | （手動） | 調査の結果、公開RSS/API/CSV等の機械可読な一括取得手段は無し（配信はメルマガのみ）。方針どおり自動スクレイピングはせず、情報源登録＋手動取り込み導線のみ（`is_active=false`）。 |
+| ① Jグランツ公開API | `POST/GET /api/discovery/jgrants/sync` | デジタル庁 Jグランツ `GET /exp/v1/public/subsidies`（認証不要、規約 https://www.jgrants-portal.go.jp/open-api ）。**対象地域(全国＋5地域)×複数キーワード**（補助金/助成金/IT/DX/省エネ/創業/販路/設備）でループ検索（各リクエスト間に小待機）。新規分は詳細API `…/subsidies/id/{id}` で `front_subsidy_detail_page_url`・補助率・締切を補完。`discovered_items` に upsert（`external_id='jgrants:<id>'`、公的ポータルのため公式URL確認済み扱い）。 |
+| ② 公式ページ巡回 | `POST/GET /api/discovery/crawl?source_id=...` | `source_sites.url` をサーバー側fetch→補助金関連リンクを抽出して保存。取得不可（robots/JS描画/到達不可）時は `source_fetch_logs` に error 記録し手動確認に委ねる。公式URL（愛知/名古屋/弥富/岐阜県/岐阜市/三重県/四日市市）は「公式情報源を登録」で投入。 |
+| ③ J-Net21 | （手動） | 公開RSS/API/CSV等の機械可読な一括取得手段は無し（配信はメルマガのみ）。方針どおり自動スクレイピングはせず、情報源登録＋手動取り込み導線のみ（`is_active=false`）。 |
+| ③ ミラサポplus | （手動・出典表示） | 経産省・中小企業庁運営（`mirasapo-plus.go.jp`、.go.jp が正）。利用規約は出典表示を条件に複製・公衆送信等を許可するが、**「制度ナビ」APIは2023/09で提供終了**し公開API/フィード無し。よって自動取得はせず登録＋手動導線（`is_active=false`）。取り込んだ候補には **「出典：中小企業庁『ミラサポplus』」** を表示。 |
 | ④ RSS/Atom | `POST/GET /api/discovery/feed?source_id=...` | `source_sites.feed_url` の公開フィードを購読して保存。メール受信取り込みは将来実装（`feed` ルートに設計コメント）。 |
-| 自動実行 | `GET/POST /api/discovery/run` | ①②④をまとめて実行。`vercel.json` の Cron で毎日1回（`0 21 * * *` = 06:00 JST）。Cron無しでも情報源管理の「今すぐ全収集」ボタンで手動実行可。 |
+| 自動実行 | `GET/POST /api/discovery/run` | ①②④をまとめて実行（J-Net21・ミラサポは手動のため自動対象外）。`vercel.json` の Cron で毎日1回（`0 21 * * *` = 06:00 JST）。Cron無しでも情報源管理の「今すぐ全収集」ボタンで手動実行可。 |
+
+対象地域は **愛知県 / 名古屋市 / 弥富市 / 岐阜県 / 岐阜市 / 三重県 / 四日市市（および全国）**。
+
+**情報源をまたいだ重複検知**：Jグランツ・ミラサポplus・J-Net21・公式ページは同一制度（IT導入補助金・ものづくり・持続化等）を別々に配信するため、`external_id`（同一源内の重複防止）に加えて **`normalized_key`（補助金名を NFKC 正規化＋空白記号除去）** を全候補に付与。取り込み時に正規化キーが一致する既存候補があれば `duplicate_of` を設定して**重複候補**として紐づけます。優先順位は **Jグランツ ＞ ミラサポplus ＝ J-Net21**（Jグランツがあればそれを本体に、他源を重複候補へ）。自動統合・自動削除はせず、`/discovery` ダッシュボードの「重複候補」枠に表示して人が確認・統合します。
 
 **ダッシュボード表示で完結**：トップ `/` に「自動収集の新着」セクションを追加（既存表示は無変更）。今日の新着／未確認／締切30日以内を表示し、**事業者向け／個人向け**フィルタで切替。正式登録済みは従来どおり `/grants` に流れます。外部取得に失敗しても各APIは 200 + `ok:false`/0件で返し、アプリは落ちません（`discovery_collect_schema.sql` 未実行時はセクションを静かに非表示）。
 

@@ -17,6 +17,7 @@ import type {
 import { TrustBadge, SourceTypeBadge, VerificationBadge } from "@/components/Badges";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { DiscoverySearchBox } from "@/components/DiscoverySearchBox";
+import { HelpBox, StepGuide } from "@/components/DiscoveryHelp";
 import { formatDate, daysUntil } from "@/lib/utils";
 
 export default function DiscoveryDashboardPage() {
@@ -88,6 +89,13 @@ export default function DiscoveryDashboardPage() {
       )}
 
       <h1 className="mb-4 text-xl font-bold text-ink">自動探索ダッシュボード</h1>
+
+      <HelpBox title="この画面でできること">
+        自動で集めた補助金の候補をまとめて見る画面です。今日の新着・未確認・締切が近いものなどがひと目で分かります。
+        まだ候補が無いときは、下の「①情報源を登録 → ②全収集」を順に進めると補助金が集まります。
+      </HelpBox>
+
+      <StepGuide />
 
       <div className="mb-6 rounded-lg border bg-white p-4">
         <DiscoverySearchBox />

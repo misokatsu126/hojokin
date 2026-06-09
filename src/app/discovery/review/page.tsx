@@ -20,6 +20,7 @@ import {
   OfficialUnconfirmedWarning,
 } from "@/components/Badges";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
+import { HelpBox, ButtonGuide } from "@/components/DiscoveryHelp";
 import { formatAmount, formatDate } from "@/lib/utils";
 
 export default function CandidatesPage() {
@@ -178,6 +179,22 @@ export default function CandidatesPage() {
           {error}（discovery_schema.sql を Supabase で実行済みか確認してください）
         </p>
       )}
+
+      <HelpBox title="この画面でできること">
+        AIが整理した補助金の候補を最後に確認して、問題なければ「正式登録」する画面です。正式登録すると、補助金の正式リストに追加され、登録済みの全事業と自動で照合されます。
+        公式サイト・公募要領が未確認のものは、確認できるまで正式登録できないようになっています（誤った情報の登録を防ぐため）。
+      </HelpBox>
+
+      <ButtonGuide
+        items={[
+          { label: "正式登録する", desc: "この補助金を正式リストに追加し、登録済みの全事業と自動で照合します（高相性ならアラートが出ます）。公式情報の確認が済んでいるものだけ押せます。" },
+          { label: "要追加確認", desc: "情報が足りない・もう少し調べたい候補に印を付けます（メモを残せます）。" },
+          { label: "重複として扱う", desc: "他で登録済みと同じ制度のとき、重複として記録し一覧から外します。" },
+          { label: "却下する", desc: "使わない候補として記録します（理由メモを残せます）。" },
+          { label: "削除", desc: "この抽出候補を完全に消します。" },
+          { label: "確認者", desc: "誰が確認したかを記録したいときに名前を入れます（任意）。" },
+        ]}
+      />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">AI抽出候補の確認（extracted_grant_candidates）</h1>
