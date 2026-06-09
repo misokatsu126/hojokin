@@ -6,8 +6,9 @@ import {
   createSourceSite,
   updateSourceSite,
   deleteSourceSite,
+  fetchRecentFetchLogs,
 } from "@/lib/supabase";
-import type { SourceSite, SourceSiteInput } from "@/lib/types";
+import type { SourceSite, SourceSiteInput, SourceFetchLog } from "@/lib/types";
 import {
   SOURCE_TYPES,
   SOURCE_TYPE_LABEL,
@@ -52,9 +53,12 @@ export default function SourcesPage() {
   const [running, setRunning] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<SourceFetchLog[]>([]);
 
   async function load() {
-    setSites(await fetchSourceSites());
+    const [ss, lg] = await Promise.all([fetchSourceSites(), fetchRecentFetchLogs(30).catch(() => [])]);
+    setSites(ss);
+    setLogs(lg);
   }
   useEffect(() => {
     load()
@@ -273,6 +277,8 @@ export default function SourcesPage() {
         ボタン一つで最新の補助金をまとめて取り込めます。まずは「公式情報源を登録」を1回押すのがおすすめです。
       </HelpBox>
 
+      <CollectStatus logs={logs} sites={sites} />
+
       <ButtonGuide
         items={[
           { label: "公式情報源を登録", desc: "Jグランツ・J-Net21・ミラサポplus・各自治体（愛知/名古屋/弥富/岐阜県/岐阜市/三重県/四日市市）を情報源として一括登録します（最初に1回押せばOK）。" },
@@ -478,6 +484,74 @@ export default function SourcesPage() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function nextCronJst(): string {
+  // 毎日 06:00 JST（vercel.json: "0 21 * * *" UTC）
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 3600 * 1000);
+  const next = new Date(jst);
+  next.setHours(6, 0, 0, 0);
+  if (jst.getHours() >= 6) next.setDate(next.getDate() + 1);
+  return `${next.getMonth() + 1}/${next.getDate()} 06:00（JST）`;
+}
+
+// 自動収集の状況パネル（最終収集・次回Cron・直近結果・各ソースの成否・取得/照合件数）
+function CollectStatus({ logs, sites }: { logs: SourceFetchLog[]; sites: SourceSite[] }) {
+  const siteName = (id: string | null) => (id ? sites.find((s) => s.id === id)?.name ?? "不明" : "全体");
+  const lastRun = logs.find((l) => l.source_site_id === null);
+  const lastAny = logs[0];
+  // 主要3ソースの最新ログ
+  const pick = (kw: string) => {
+    const site = sites.find((s) => (s.url ?? "").includes(kw) || s.name.includes(kw));
+    if (!site) return null;
+    return logs.find((l) => l.source_site_id === site.id) ?? null;
+  };
+  const rows = [
+    { label: "Jグランツ", log: pick("jgrants-portal.go.jp") },
+    { label: "J-Net21", log: pick("j-net21.smrj.go.jp") },
+    { label: "ミラサポplus", log: pick("mirasapo-plus.go.jp") },
+  ];
+  const matched = (() => {
+    const m = lastRun?.error_message?.match(/matched:(\d+)\/(\d+)/);
+    return m ? `${m[1]}/${m[2]} 件` : "—";
+  })();
+
+  return (
+    <div className="mb-4 rounded-lg border bg-white p-3">
+      <h3 className="mb-2 text-sm font-semibold text-ink">自動収集の状況</h3>
+      <div className="mb-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+        <div className="rounded-md bg-slate-50 p-2"><div className="text-[10px] text-gray-400">最終収集</div><div className="font-medium text-ink">{fmtDateTime(lastAny?.fetched_at)}</div></div>
+        <div className="rounded-md bg-slate-50 p-2"><div className="text-[10px] text-gray-400">次回自動実行</div><div className="font-medium text-ink">{nextCronJst()}</div></div>
+        <div className="rounded-md bg-slate-50 p-2"><div className="text-[10px] text-gray-400">直近の取得件数</div><div className="font-medium text-ink">{lastRun?.detected_count ?? "—"}</div></div>
+        <div className="rounded-md bg-slate-50 p-2"><div className="text-[10px] text-gray-400">事業と照合</div><div className="font-medium text-ink">{matched}</div></div>
+      </div>
+      <div className="grid gap-1.5 sm:grid-cols-3">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-center justify-between rounded-md border px-2 py-1 text-xs">
+            <span className="text-gray-600">{r.label}</span>
+            {r.log ? (
+              <span className="flex items-center gap-1.5">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${r.log.status === "success" ? "bg-green-100 text-green-800" : r.log.status === "error" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500"}`}>
+                  {r.log.status === "success" ? "成功" : r.log.status === "error" ? "失敗" : "skip"}
+                </span>
+                <span className="text-gray-400">{r.log.detected_count}件 / {fmtDateTime(r.log.fetched_at)}</span>
+              </span>
+            ) : (
+              <span className="text-gray-400">未実行</span>
+            )}
+          </div>
+        ))}
+      </div>
+      {lastRun?.error_message && <p className="mt-2 truncate text-[11px] text-gray-400">直近の結果: {lastRun.error_message}</p>}
     </div>
   );
 }

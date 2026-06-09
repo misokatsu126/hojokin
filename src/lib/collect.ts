@@ -862,7 +862,7 @@ async function scoreNewDiscovered(): Promise<{ scored: number; total: number }> 
   let scored = 0;
   for (const item of items) {
     try {
-      const { bestScore, bestProfile, recommendation, deadline } = scoreDiscoveredAgainstProfiles(item, profiles);
+      const { bestScore, bestProfile, recommendation, deadline, reason } = scoreDiscoveredAgainstProfiles(item, profiles);
       await supabase
         .from("discovered_items")
         .update({
@@ -870,6 +870,7 @@ async function scoreNewDiscovered(): Promise<{ scored: number; total: number }> 
           match_profile: bestProfile || null,
           match_recommendation: recommendation,
           extracted_deadline: deadline,
+          match_reason: reason || null,
         })
         .eq("id", item.id);
       scored++;

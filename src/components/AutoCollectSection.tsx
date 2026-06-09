@@ -5,15 +5,21 @@ import Link from "next/link";
 import { fetchDiscoveredItems, fetchProfiles } from "@/lib/supabase";
 import type { DiscoveredItem, BusinessProfile } from "@/lib/types";
 import { AUDIENCE_TYPE_LABEL, AUDIENCE_TYPE_COLORS, type AudienceType } from "@/lib/constants";
-import { TrustBadge } from "@/components/Badges";
 import { scoreDiscoveredAgainstProfiles } from "@/lib/discovery";
 import { daysUntil, formatDate } from "@/lib/utils";
 
 type AudienceFilter = "all" | "business" | "individual";
+type Scored = {
+  i: DiscoveredItem;
+  score: number;
+  profile: string;
+  deadline: string | null;
+  regions: string[];
+};
 
 function matchAudience(a: AudienceType | null | undefined, f: AudienceFilter): boolean {
   if (f === "all") return true;
-  if (!a || a === "both" || a === "unknown") return true; // 両方・未判定は常に表示
+  if (!a || a === "both" || a === "unknown") return true;
   return a === f;
 }
 
@@ -33,31 +39,28 @@ export function AutoCollectSection() {
   }
   useEffect(() => {
     load()
-      // discovery_collect_schema.sql 未実行など。ダッシュボード全体は壊さず、本セクションだけ隠す。
       .catch(() => setUnavailable(true))
       .finally(() => setLoading(false));
   }, []);
 
-  const fItems = useMemo(() => items.filter((i) => matchAudience(i.audience_type, filter)), [items, filter]);
+  const scored: Scored[] = useMemo(() => {
+    return items
+      .filter((i) => matchAudience(i.audience_type, filter) && i.status !== "imported" && i.status !== "rejected")
+      .map((i) => {
+        const r = scoreDiscoveredAgainstProfiles(i, profiles);
+        return {
+          i,
+          score: i.match_score ?? r.bestScore,
+          profile: i.match_profile ?? r.bestProfile,
+          deadline: i.extracted_deadline ?? r.deadline,
+          regions: r.regions,
+        };
+      });
+  }, [items, profiles, filter]);
 
-  // discovered_items を事業プロフィールと照合した結果を使用。
-  //   match_score 列があればそれを優先（runで自動付与）、無ければクライアントで即時計算（フォールバック）。
-  const scored = useMemo(
-    () =>
-      fItems
-        .filter((i) => i.status !== "imported" && i.status !== "rejected")
-        .map((i) => {
-          if (i.match_score != null) {
-            return { i, score: i.match_score, profile: i.match_profile ?? "", deadline: i.extracted_deadline ?? null };
-          }
-          const r = scoreDiscoveredAgainstProfiles(i, profiles);
-          return { i, score: r.bestScore, profile: r.bestProfile, deadline: r.deadline };
-        }),
-    [fItems, profiles]
-  );
-
-  const todayNew = fItems.filter((i) => daysUntil(i.detected_at) === 0 && i.status !== "imported" && i.status !== "rejected");
-  const unreviewed = fItems.filter((i) => i.status === "unreviewed");
+  const todayNew = scored
+    .filter((s) => daysUntil(s.i.detected_at) === 0)
+    .sort((a, b) => b.score - a.score);
   const highAffinity = scored.filter((s) => s.score >= 70).sort((a, b) => b.score - a.score);
   const deadlineSoon = scored
     .filter((s) => {
@@ -65,6 +68,23 @@ export function AutoCollectSection() {
       return d != null && d >= 0 && d <= 30;
     })
     .sort((a, b) => daysUntil(a.deadline)! - daysUntil(b.deadline)!);
+  const unconfirmed = scored.filter((s) => s.i.status === "unreviewed").sort((a, b) => b.score - a.score);
+
+  // 通知候補（送信はまだ。高相性80+/締切30日以内/新着/人間確認待ち）
+  const notify = useMemo(() => {
+    const out: { s: Scored; tags: string[] }[] = [];
+    for (const s of scored) {
+      const tags: string[] = [];
+      if (s.score >= 80) tags.push("高相性80+");
+      const d = daysUntil(s.deadline);
+      if (d != null && d >= 0 && d <= 30) tags.push("締切30日");
+      if (daysUntil(s.i.detected_at) === 0) tags.push("新着");
+      const rs = s.i.review_state ?? "ai_judged";
+      if ((rs === "ai_judged" || rs === "unconfirmed") && s.score >= 70) tags.push("確認待ち");
+      if (tags.length) out.push({ s, tags });
+    }
+    return out.sort((a, b) => b.s.score - a.s.score).slice(0, 8);
+  }, [scored]);
 
   async function runAll() {
     setRunning(true);
@@ -74,23 +94,23 @@ export function AutoCollectSection() {
       const d = await r.json();
       setMsg(
         d.ok
-          ? `自動収集を実行しました（新着 ${d.totals?.inserted ?? 0} 件・更新 ${d.totals?.updated ?? 0} 件／事業プロフィールと照合 ${d.matched ?? 0} 件）。`
-          : `自動収集に失敗しました（${d.error ?? "不明"}）。`
+          ? `最新情報を取り込みました（新着 ${d.totals?.inserted ?? 0} 件・更新 ${d.totals?.updated ?? 0} 件／自社事業と照合 ${d.matched ?? 0} 件）。`
+          : `取り込みに失敗しました。時間をおいて再度お試しください。（${d.error ?? "不明"}）`
       );
       await load();
-    } catch (e: any) {
-      setMsg(`実行エラー：${e.message}`);
+    } catch {
+      setMsg("取り込みに失敗しました。時間をおいて再度お試しください。");
     } finally {
       setRunning(false);
     }
   }
 
-  if (loading || unavailable) return null; // 取得不可時は静かに非表示（既存ダッシュボードは無傷）
+  if (loading || unavailable) return null;
 
   return (
-    <div className="mb-6 rounded-lg border bg-white p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-ink">自動収集の新着（毎朝6時に自動更新・Jグランツ/J-Net21/ミラサポplus/公式）</h2>
+    <div className="mb-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-bold text-ink">今日の補助金チェック</h2>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border p-0.5 text-xs">
             {(["all", "business", "individual"] as AudienceFilter[]).map((f) => (
@@ -103,91 +123,108 @@ export function AutoCollectSection() {
               </button>
             ))}
           </div>
-          <button onClick={runAll} disabled={running} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50">
-            {running ? "収集中…" : "今すぐ収集"}
+          <button onClick={runAll} disabled={running} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50" title="登録した全情報源から最新の補助金を取り込みます">
+            {running ? "取り込み中…" : "最新を取り込む"}
           </button>
         </div>
       </div>
 
-      {msg && <p className="mb-3 rounded-md border border-green-200 bg-green-50 p-2 text-xs text-green-800">{msg}</p>}
+      {msg && <p className="rounded-md border border-green-200 bg-green-50 p-2 text-xs text-green-800">{msg}</p>}
 
-      <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MiniStat label="今日の新着" value={todayNew.length} tone="sky" />
-        <MiniStat label="高相性候補" value={highAffinity.length} tone="green" />
-        <MiniStat label="締切30日以内" value={deadlineSoon.length} tone="red" />
-        <MiniStat label="未確認" value={unreviewed.length} tone="amber" />
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+        <Block title="今日見つかった補助金" count={todayNew.length} tone="sky" rows={todayNew} />
+        <Block title="自社に合いそう（高相性）" count={highAffinity.length} tone="green" rows={highAffinity} />
+        <Block title="締切30日以内" count={deadlineSoon.length} tone="red" rows={deadlineSoon} />
+        <Block title="未確認の候補" count={unconfirmed.length} tone="amber" rows={unconfirmed} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Col title="今日見つかった候補" href="/discovery/items">
-          {todayNew.length === 0 ? <Empty>本日の新着はありません。</Empty> : todayNew.slice(0, 6).map((i) => (
-            <Row key={i.id} href="/discovery/items" title={i.title ?? "（無題）"}>
-              <AudienceTag a={i.audience_type} />
-              <TrustBadge level={i.trust_level} />
-            </Row>
-          ))}
-        </Col>
-        <Col title="高相性候補（事業との相性）" href="/discovery/items">
-          {highAffinity.length === 0 ? <Empty>高相性の候補はありません（事業プロフィール登録で精度UP）。</Empty> : highAffinity.slice(0, 6).map(({ i, score, profile }) => (
-            <Row key={i.id} href="/discovery/items" title={i.title ?? "（無題）"}>
-              {profile && <span className="shrink-0 text-[10px] text-gray-400">{profile}</span>}
-              <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">{score}</span>
-            </Row>
-          ))}
-        </Col>
-        <Col title="締切間近（自動収集）" href="/discovery/items">
-          {deadlineSoon.length === 0 ? <Empty>締切30日以内はありません。</Empty> : deadlineSoon.slice(0, 6).map(({ i, deadline }) => (
-            <Row key={i.id} href="/discovery/items" title={i.title ?? "（無題）"}>
-              <span className="shrink-0 text-xs text-red-600">{formatDate(deadline)}</span>
-            </Row>
-          ))}
-        </Col>
+      {/* 通知候補（将来メール/LINE/Slack送信予定。今は画面表示のみ） */}
+      <div className="rounded-lg border bg-white p-4">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-ink">通知候補（要チェック）</h3>
+          <span className="text-[11px] text-gray-400">高相性80点以上／締切30日以内／新着／確認待ち</span>
+        </div>
+        {notify.length === 0 ? (
+          <p className="px-1 py-2 text-xs text-gray-400">通知対象の候補はまだありません。</p>
+        ) : (
+          <ul className="divide-y">
+            {notify.map(({ s, tags }) => (
+              <li key={s.i.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                <span className="min-w-0 flex-1 truncate text-sm text-ink">{s.i.title}</span>
+                <span className="flex shrink-0 flex-wrap items-center gap-1">
+                  {tags.map((t) => (
+                    <span key={t} className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] text-rose-700">{t}</span>
+                  ))}
+                  {(s.i.official_url || s.i.url) && (
+                    <a href={s.i.official_url ?? s.i.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-medium text-white hover:opacity-90">本物を見る↗</a>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      <p className="mt-3 text-xs text-gray-400">
-        正式登録済みの補助金は <Link href="/grants" className="text-accent hover:underline">補助金一覧</Link> に表示されます。
-        収集候補は <Link href="/discovery" className="text-accent hover:underline">自動探索</Link> で確認・正式登録できます。
+      <p className="text-xs text-gray-400">
+        正式登録した補助金は <Link href="/grants" className="text-accent hover:underline">補助金一覧</Link> に表示されます。
+        すべての候補は <Link href="/discovery/items" className="text-accent hover:underline">候補一覧</Link> で確認・整理できます（毎朝6時に自動で最新化）。
       </p>
+    </div>
+  );
+}
+
+function Block({ title, count, tone, rows }: { title: string; count: number; tone: string; rows: Scored[] }) {
+  const bar: Record<string, string> = {
+    sky: "bg-sky-50 text-sky-800 border-sky-200",
+    green: "bg-green-50 text-green-800 border-green-200",
+    red: "bg-red-50 text-red-800 border-red-200",
+    amber: "bg-amber-50 text-amber-800 border-amber-200",
+  };
+  return (
+    <div className="flex flex-col rounded-lg border bg-white">
+      <div className={`flex items-center justify-between rounded-t-lg border-b px-3 py-2 text-sm font-semibold ${bar[tone]}`}>
+        <span>{title}</span>
+        <span className="rounded-full bg-white/70 px-2 text-xs">{count}</span>
+      </div>
+      <div className="flex-1 divide-y">
+        {rows.length === 0 ? (
+          <p className="px-3 py-4 text-center text-xs text-gray-400">該当なし</p>
+        ) : (
+          rows.slice(0, 5).map((s) => <MiniCard key={s.i.id} s={s} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MiniCard({ s }: { s: Scored }) {
+  const i = s.i;
+  const dd = daysUntil(s.deadline);
+  return (
+    <div className="px-3 py-2">
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0 flex-1 text-sm font-medium text-ink line-clamp-2">{i.title}</span>
+        {s.score > 0 && (
+          <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[11px] font-bold text-green-800">相性{s.score}</span>
+        )}
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
+        {s.regions.length > 0 && <span>📍{s.regions.slice(0, 2).join("・")}</span>}
+        {s.profile && <span>🏢{s.profile}</span>}
+        {s.deadline && <span className={dd != null && dd <= 14 ? "text-red-600" : ""}>🗓{formatDate(s.deadline)}{dd != null && dd >= 0 ? `（あと${dd}日）` : ""}</span>}
+        <AudienceTag a={i.audience_type} />
+      </div>
+      <div className="mt-1.5 flex gap-2">
+        {(i.official_url || i.url) && (
+          <a href={i.official_url ?? i.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90">本物を見る↗</a>
+        )}
+        <Link href="/discovery/items" className="rounded border px-2 py-0.5 text-[11px] text-gray-600 hover:bg-gray-50">詳細を見る</Link>
+      </div>
     </div>
   );
 }
 
 function AudienceTag({ a }: { a: AudienceType | null | undefined }) {
   const key = (a ?? "unknown") as AudienceType;
-  return <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${AUDIENCE_TYPE_COLORS[key]}`}>{AUDIENCE_TYPE_LABEL[key]}</span>;
-}
-
-function MiniStat({ label, value, tone }: { label: string; value: number; tone: string }) {
-  const colors: Record<string, string> = { sky: "text-sky-700", amber: "text-amber-700", red: "text-red-700", green: "text-green-700" };
-  return (
-    <div className="rounded-md border bg-slate-50 p-2 text-center">
-      <div className={`text-xl font-bold ${colors[tone]}`}>{value}</div>
-      <div className="text-[11px] text-gray-500">{label}</div>
-    </div>
-  );
-}
-
-function Col({ title, href, children }: { title: string; href: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-600">{title}</h3>
-        <Link href={href} className="text-[11px] text-accent hover:underline">一覧</Link>
-      </div>
-      <div className="space-y-0.5">{children}</div>
-    </div>
-  );
-}
-
-function Row({ href, title, children }: { href: string; title: string; children: React.ReactNode }) {
-  return (
-    <Link href={href} className="flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-gray-50">
-      <span className="min-w-0 truncate text-xs text-ink">{title}</span>
-      <span className="flex shrink-0 items-center gap-1">{children}</span>
-    </Link>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-2 py-2 text-xs text-gray-400">{children}</p>;
+  return <span className={`rounded px-1 py-0.5 text-[10px] ${AUDIENCE_TYPE_COLORS[key]}`}>{AUDIENCE_TYPE_LABEL[key]}</span>;
 }

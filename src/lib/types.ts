@@ -12,6 +12,7 @@ import type {
   VerificationStatus,
   ReviewStatus,
   AudienceType,
+  ReviewState,
 } from "./constants";
 
 export type Grant = {
@@ -254,6 +255,9 @@ export type DiscoveredItem = {
   match_profile?: string | null;
   match_recommendation?: string | null;
   extracted_deadline?: string | null;
+  // discovery_ui_schema.sql で追加（人による確認状態・相性理由）
+  review_state?: ReviewState | null;
+  match_reason?: string | null;
   created_at: string;
   updated_at: string;
 };

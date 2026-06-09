@@ -330,6 +330,24 @@ export const COLLECT_TARGET_REGIONS = [
   "四日市市",
 ] as const;
 
+// 候補の「人による確認状態」（AI自動判定と人間確認済みを区別）
+export const REVIEW_STATES = ["ai_judged", "unconfirmed", "human_ok", "applicant", "not_needed"] as const;
+export type ReviewState = (typeof REVIEW_STATES)[number];
+export const REVIEW_STATE_LABEL: Record<ReviewState, string> = {
+  ai_judged: "AI自動判定",
+  unconfirmed: "未確認",
+  human_ok: "人間確認済み",
+  applicant: "申請候補",
+  not_needed: "不要",
+};
+export const REVIEW_STATE_COLORS: Record<ReviewState, string> = {
+  ai_judged: "bg-violet-100 text-violet-800",
+  unconfirmed: "bg-sky-100 text-sky-800",
+  human_ok: "bg-green-100 text-green-800",
+  applicant: "bg-amber-100 text-amber-800",
+  not_needed: "bg-gray-100 text-gray-500",
+};
+
 // target_area_search 等の地域文字列がこの収集対象に該当するか（全国・空も対象に含める）
 export function regionTextInTarget(areaText: string | null | undefined): boolean {
   if (!areaText) return true; // 地域指定なし＝全国扱いで拾う

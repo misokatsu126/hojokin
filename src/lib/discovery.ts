@@ -307,10 +307,17 @@ export function scoreCandidateAgainstProfiles(
 export function scoreDiscoveredAgainstProfiles(
   item: DiscoveredItem,
   profiles: BusinessProfile[]
-): { bestScore: number; bestProfile: string; recommendation: string; deadline: string | null } {
+): {
+  bestScore: number;
+  bestProfile: string;
+  recommendation: string;
+  deadline: string | null;
+  regions: string[];
+  reason: string;
+} {
   const ex = ruleExtract(item); // raw_text/title から地域・業種・経費・締切等を抽出
   if (!profiles || profiles.length === 0) {
-    return { bestScore: 0, bestProfile: "", recommendation: "D", deadline: ex.deadline };
+    return { bestScore: 0, bestProfile: "", recommendation: "D", deadline: ex.deadline, regions: ex.target_regions, reason: "" };
   }
   const hay = [item.title ?? "", item.raw_text ?? "", ...ex.target_industries, ...ex.eligible_expenses].join(" ");
   const purposes = PURPOSES.filter((p) => hay.includes(p));
@@ -352,13 +359,15 @@ export function scoreDiscoveredAgainstProfiles(
   let bestScore = 0;
   let bestProfile = "";
   let recommendation = "D";
+  let reason = "";
   for (const p of profiles) {
     const m = ruleMatch(grant, p);
     if (m.match_score > bestScore) {
       bestScore = m.match_score;
       bestProfile = p.name;
       recommendation = m.recommendation;
+      reason = (m.matched_reasons ?? []).slice(0, 2).join("／") || m.summary || "";
     }
   }
-  return { bestScore, bestProfile, recommendation, deadline: ex.deadline };
+  return { bestScore, bestProfile, recommendation, deadline: ex.deadline, regions: ex.target_regions, reason };
 }
