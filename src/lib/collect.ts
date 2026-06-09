@@ -571,17 +571,282 @@ export async function runFeed(site: SourceSite): Promise<CollectSummary> {
   return summary;
 }
 
+// ---------------- 地域フィルタ補助（対象地域＋全国を残し、他県のみ明示のものは除外） ----------------
+const PREFECTURES = [
+  "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県","茨城県","栃木県","群馬県","埼玉県","千葉県",
+  "東京都","神奈川県","新潟県","富山県","石川県","福井県","山梨県","長野県","岐阜県","静岡県","愛知県","三重県",
+  "滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県","鳥取県","島根県","岡山県","広島県","山口県","徳島県",
+  "香川県","愛媛県","高知県","福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県",
+];
+const TARGET_PREFS = ["愛知県", "岐阜県", "三重県"];
+function keepForRegion(text: string): boolean {
+  if (regionTextInTarget(text)) return true; // 全国 or 対象地域を含む / 空
+  // 対象外の都道府県が明示されているなら除外、どの県も無ければ全国扱いで残す
+  const mentionsOther = PREFECTURES.some((p) => !TARGET_PREFS.includes(p) && text.includes(p));
+  return !mentionsOther;
+}
+
+// RSS/Atom を {title, link, pubDate, description} で詳細抽出（runFeed の parseFeed より項目多め）
+function parseRssDetailed(xml: string): { title: string; link: string; pubDate: string; description: string }[] {
+  const get = (b: string, tag: string) => {
+    const m = b.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+    if (!m) return "";
+    return htmlToText(m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")).trim();
+  };
+  const items: { title: string; link: string; pubDate: string; description: string }[] = [];
+  let m: RegExpExecArray | null;
+  const itemRe = /<item\b[\s\S]*?<\/item>/gi;
+  while ((m = itemRe.exec(xml)) !== null) {
+    const b = m[0];
+    items.push({
+      title: get(b, "title"),
+      link: get(b, "link"),
+      pubDate: get(b, "pubDate") || get(b, "dc:date") || get(b, "date"),
+      description: get(b, "description"),
+    });
+  }
+  if (items.length === 0) {
+    const entryRe = /<entry\b[\s\S]*?<\/entry>/gi;
+    while ((m = entryRe.exec(xml)) !== null) {
+      const b = m[0];
+      let link = "";
+      const lm = b.match(/<link[^>]*href=["']([^"']+)["']/i);
+      if (lm) link = lm[1];
+      items.push({
+        title: get(b, "title"),
+        link,
+        pubDate: get(b, "updated") || get(b, "published"),
+        description: get(b, "summary") || get(b, "content"),
+      });
+    }
+  }
+  return items;
+}
+
+// ---------------- 層2: J-Net21（支援情報ヘッドライン RSS の実取得） ----------------
+const JNET21_RSS_URL = "https://j-net21.smrj.go.jp/snavi/support/support.xml";
+const JNET21_SITE = "https://j-net21.smrj.go.jp/";
+
 /**
- * 全収集をまとめて実行（Jグランツ + アクティブな公式巡回 + アクティブなフィード）。
+ * J-Net21 の RSS を実HTTP取得し、title/link/pubDate/description を抽出して discovered_items に upsert。
+ * 取得失敗時はモックを返さず、source_fetch_logs に status/理由を記録して ok:false を返す。
+ */
+export async function runJnet21(): Promise<CollectSummary> {
+  const summary: CollectSummary = { source: "jnet21", ok: true, inserted: 0, updated: 0, scanned: 0 };
+
+  let site: SourceSite | null = null;
+  try {
+    site = await findOrCreateSourceSite(
+      { url: JNET21_SITE },
+      {
+        name: "J-Net21 支援情報ヘッドライン（中小機構）",
+        source_type: "semi_official",
+        trust_level: "B",
+        url: JNET21_SITE,
+        region: "全国",
+        priority: "high",
+        crawl_frequency: "daily",
+        is_active: true,
+        last_checked_at: null,
+        notes: "中小機構 J-Net21 の公開RSS（support.xml）を購読。出典明記のうえ利用。",
+        feed_url: JNET21_RSS_URL,
+      }
+    );
+  } catch {
+    /* ログ紐づけ不可でも継続 */
+  }
+
+  const fetchedAt = new Date().toISOString();
+  const r = await safeFetch(JNET21_RSS_URL, { timeoutMs: 15000 });
+  if (!r.ok || !r.text) {
+    summary.ok = false;
+    summary.error = `J-Net21 RSS取得失敗 HTTP ${r.status}${r.error ? ` (${r.error})` : ""}`;
+    if (site) await createSourceFetchLog({ source_site_id: site.id, status: "error", http_status: r.status || null, error_message: summary.error });
+    return summary;
+  }
+
+  const items = parseRssDetailed(r.text);
+  for (const it of items) {
+    if (!it.title || !it.link) continue;
+    summary.scanned++;
+    const text = `${it.title}\n${it.description}`;
+    if (!keepForRegion(text)) continue; // 対象地域＋全国のみ
+    const normalizedKey = buildNormalizedKey(it.title);
+    const confidence = Math.min(100, 40 + (it.link ? 20 : 0) + (it.pubDate ? 20 : 0) + (it.description ? 20 : 0));
+    try {
+      const { inserted, id } = await upsertDiscoveredByExternal({
+        external_id: `jnet21:${it.link}`,
+        external_source: "jnet21",
+        source_site_id: site?.id ?? null,
+        title: it.title.slice(0, 200),
+        url: it.link,
+        raw_text: [it.title, it.pubDate ? `公開日: ${it.pubDate}` : "", it.description].filter(Boolean).join("\n"),
+        raw_html: null,
+        pdf_url: null,
+        detection_type: "new",
+        status: "unreviewed",
+        source_category: "semi_official",
+        trust_level: "B",
+        original_source_url: it.link,
+        official_url: it.link,
+        official_pdf_url: null,
+        official_source_confirmed: false,
+        source_warning: null,
+        last_verified_at: null,
+        verification_status: "needs_review",
+        duplicate_of: null,
+        normalized_key: normalizedKey,
+        audience_type: inferAudience(text) === "unknown" ? "business" : inferAudience(text),
+        fetched_at: fetchedAt,
+        extraction_confidence: confidence,
+      });
+      if (inserted) summary.inserted++;
+      else summary.updated++;
+      await resolveCrossSourceDuplicate(id, normalizedKey, "jnet21");
+    } catch {
+      /* skip one */
+    }
+  }
+
+  if (site) {
+    await createSourceFetchLog({
+      source_site_id: site.id,
+      status: "success",
+      http_status: r.status,
+      detected_count: summary.inserted + summary.updated,
+    });
+    await supabase.from("source_sites").update({ last_checked_at: fetchedAt }).eq("id", site.id);
+  }
+  return summary;
+}
+
+// ---------------- 層3: ミラサポplus（補助金一覧HTMLの実取得） ----------------
+const MIRASAPO_LIST_URL = "https://mirasapo-plus.go.jp/subsidy/";
+const MIRASAPO_SITE = "https://mirasapo-plus.go.jp/";
+const DATE_RANGE_RE =
+  /((?:令和|R)?\s*[0-9０-９]{1,4}\s*[年./-]\s*[0-9０-９]{1,2}\s*[月./-]\s*[0-9０-９]{1,2}\s*日?)/g;
+
+/**
+ * ミラサポplus の補助金一覧を実HTTP取得し、補助金名・リンク・日付・公募要領URLを抽出して upsert。
+ * 出典「中小企業庁 ミラサポplus」を付与。SPA等で静的HTMLから一覧が取れない場合は、
+ * モックを返さず source_fetch_logs に理由を記録し ok:false（抽出0件）を返す。
+ */
+export async function runMirasapo(): Promise<CollectSummary> {
+  const summary: CollectSummary = { source: "mirasapo", ok: true, inserted: 0, updated: 0, scanned: 0 };
+
+  let site: SourceSite | null = null;
+  try {
+    site = await findOrCreateSourceSite(
+      { url: MIRASAPO_SITE },
+      {
+        name: "ミラサポplus（経産省・中小企業庁／出典表示）",
+        source_type: "semi_official",
+        trust_level: "B",
+        url: MIRASAPO_SITE,
+        region: "全国",
+        priority: "medium",
+        crawl_frequency: "weekly",
+        is_active: true,
+        last_checked_at: null,
+        notes: "ミラサポplus 補助金一覧を実取得。出典『中小企業庁 ミラサポplus』を表示。",
+      }
+    );
+  } catch {
+    /* 継続 */
+  }
+
+  const fetchedAt = new Date().toISOString();
+  const r = await safeFetch(MIRASAPO_LIST_URL, { timeoutMs: 15000 });
+  if (!r.ok || !r.text) {
+    summary.ok = false;
+    summary.error = `ミラサポplus取得失敗 HTTP ${r.status}${r.error ? ` (${r.error})` : ""}`;
+    if (site) await createSourceFetchLog({ source_site_id: site.id, status: "error", http_status: r.status || null, error_message: summary.error });
+    return summary;
+  }
+
+  // 補助金関連リンク＋アンカー近傍の日付を抽出
+  const html = r.text;
+  const links = extractLinks(html, MIRASAPO_LIST_URL); // 補助金/助成金 等を含むアンカー
+  if (links.length === 0) {
+    summary.ok = false;
+    summary.error = `一覧を抽出できませんでした（HTML ${html.length} 文字。JS描画/構造変更の可能性）`;
+    if (site) await createSourceFetchLog({ source_site_id: site.id, status: "success", http_status: r.status, detected_count: 0, error_message: summary.error });
+    if (site) await supabase.from("source_sites").update({ last_checked_at: fetchedAt }).eq("id", site.id);
+    return summary;
+  }
+
+  for (const lk of links) {
+    summary.scanned++;
+    if (!keepForRegion(lk.text)) continue;
+    // リンク周辺テキストから日付（公開日/受付期間）を拾う
+    const idx = html.indexOf(lk.href);
+    const around = idx >= 0 ? htmlToText(html.slice(Math.max(0, idx - 400), idx + 400)) : lk.text;
+    const dates = (around.match(DATE_RANGE_RE) || []).slice(0, 3);
+    const isPdf = lk.href.toLowerCase().endsWith(".pdf");
+    const normalizedKey = buildNormalizedKey(lk.text);
+    const confidence = Math.min(100, 30 + 25 /*url*/ + (dates.length ? 25 : 0) + (isPdf ? 20 : 0));
+    try {
+      const { inserted, id } = await upsertDiscoveredByExternal({
+        external_id: `mirasapo:${lk.href}`,
+        external_source: "mirasapo",
+        source_site_id: site?.id ?? null,
+        title: lk.text.slice(0, 200),
+        url: lk.href,
+        raw_text: [`出典：中小企業庁『ミラサポplus』`, lk.text, dates.length ? `日付: ${dates.join(" / ")}` : ""].filter(Boolean).join("\n"),
+        raw_html: null,
+        pdf_url: isPdf ? lk.href : null,
+        detection_type: "new",
+        status: "unreviewed",
+        source_category: "semi_official",
+        trust_level: "B",
+        original_source_url: MIRASAPO_LIST_URL,
+        official_url: lk.href,
+        official_pdf_url: isPdf ? lk.href : null,
+        official_source_confirmed: false,
+        source_warning: null,
+        last_verified_at: null,
+        verification_status: "needs_review",
+        duplicate_of: null,
+        normalized_key: normalizedKey,
+        audience_type: inferAudience(lk.text) === "unknown" ? "business" : inferAudience(lk.text),
+        fetched_at: fetchedAt,
+        extraction_confidence: confidence,
+      });
+      if (inserted) summary.inserted++;
+      else summary.updated++;
+      await resolveCrossSourceDuplicate(id, normalizedKey, "mirasapo");
+    } catch {
+      /* skip one */
+    }
+  }
+
+  if (site) {
+    await createSourceFetchLog({
+      source_site_id: site.id,
+      status: "success",
+      http_status: r.status,
+      detected_count: summary.inserted + summary.updated,
+    });
+    await supabase.from("source_sites").update({ last_checked_at: fetchedAt }).eq("id", site.id);
+  }
+  return summary;
+}
+
+/**
+ * 全収集をまとめて実行（Jグランツ + J-Net21 + ミラサポplus + アクティブな公式巡回/フィード）。
  * /api/discovery/run と手動「今すぐ全収集」ボタンの両方から呼ぶ。
  */
 export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: { inserted: number; updated: number } }> {
   const summaries: CollectSummary[] = [];
 
-  // 1) Jグランツ
+  // 1) Jグランツ公開API
   summaries.push(await runJgrantsSync());
+  // 2) J-Net21（RSS実取得）
+  summaries.push(await runJnet21());
+  // 3) ミラサポplus（補助金一覧HTML実取得）
+  summaries.push(await runMirasapo());
 
-  // 2) 公式ページ巡回 + 3) フィード（情報源テーブルから）
+  // 4) その他のアクティブな情報源（公式ページ巡回 / フィード）
   let sites: SourceSite[] = [];
   try {
     sites = await fetchSourceSites();
@@ -590,9 +855,11 @@ export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: {
   }
   for (const s of sites) {
     if (!s.is_active) continue;
+    const u = s.url ?? "";
+    // 専用fetcherで取得済みのソースは除外（二重取得防止）
+    if (u.includes("jgrants-portal.go.jp") || u.includes("j-net21.smrj.go.jp") || u.includes("mirasapo-plus.go.jp")) continue;
     if (s.feed_url) summaries.push(await runFeed(s));
-    // Jグランツのポータルは巡回対象から除外（APIで取得済み）
-    else if (s.url && !s.url.includes("jgrants-portal.go.jp")) summaries.push(await runCrawl(s));
+    else if (u) summaries.push(await runCrawl(s));
   }
 
   const totals = summaries.reduce(

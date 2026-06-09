@@ -177,6 +177,44 @@ export default function SourcesPage() {
     }
   }
 
+  // J-Net21 RSS 取得
+  async function syncJnet21() {
+    setRunning("jnet21");
+    setMsg(null);
+    try {
+      const d = await callJson("/api/discovery/jnet21/sync");
+      setMsg(
+        d.ok
+          ? `J-Net21（中小機構）から取り込みました（新着 ${d.inserted} 件・更新 ${d.updated} 件／確認した件数 ${d.scanned} 件）。`
+          : `J-Net21からの取り込みに失敗しました。時間をおいて再度お試しください。（理由：${d.error ?? "不明"}）`
+      );
+      await load();
+    } catch {
+      setMsg("J-Net21からの取り込みに失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  // ミラサポplus 取得
+  async function syncMirasapo() {
+    setRunning("mirasapo");
+    setMsg(null);
+    try {
+      const d = await callJson("/api/discovery/mirasapo/sync");
+      setMsg(
+        d.ok
+          ? `ミラサポplusから取り込みました（新着 ${d.inserted} 件・更新 ${d.updated} 件）。出典：中小企業庁『ミラサポplus』`
+          : `ミラサポplusからの取り込みに失敗、または一覧を抽出できませんでした。（理由：${d.error ?? "不明"}）`
+      );
+      await load();
+    } catch {
+      setMsg("ミラサポplusからの取り込みに失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setRunning(null);
+    }
+  }
+
   // 全収集（Jグランツ＋公式巡回＋フィード）
   async function runAllCollect() {
     setRunning("all");
@@ -239,7 +277,9 @@ export default function SourcesPage() {
         items={[
           { label: "公式情報源を登録", desc: "Jグランツ・J-Net21・ミラサポplus・各自治体（愛知/名古屋/弥富/岐阜県/岐阜市/三重県/四日市市）を情報源として一括登録します（最初に1回押せばOK）。" },
           { label: "Jグランツ同期", desc: "国の補助金データベース（Jグランツ）から、対象地域の最新の補助金を取り込みます。" },
-          { label: "今すぐ全収集", desc: "登録した全情報源から最新情報をまとめて取り込みます（毎朝6時にも自動で実行されます）。" },
+          { label: "J-Net21取得", desc: "中小機構 J-Net21 の支援情報RSSを実際に読みに行き、新しい支援情報を取り込みます。" },
+          { label: "ミラサポplus取得", desc: "中小企業庁 ミラサポplus の補助金一覧を実際に読みに行って取り込みます（出典を表示）。" },
+          { label: "今すぐ全収集", desc: "登録した全情報源（Jグランツ・J-Net21・ミラサポplus・各自治体）から最新情報をまとめて取り込みます（毎朝6時にも自動で実行されます）。" },
           { label: "サンプル8件を登録", desc: "動作確認用に、見本の情報源を8件登録します（お試し用）。" },
           { label: "＋ 情報源を追加", desc: "集めたいサイトを手動で1件追加します（名前・URL・種類などを入力）。" },
           { label: "巡回 / フィード取得", desc: "その情報源のページ（またはRSS）を読みに行き、新しい補助金候補を取り込みます。" },
@@ -256,6 +296,12 @@ export default function SourcesPage() {
           </button>
           <button onClick={syncJgrants} disabled={running !== null} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
             {running === "jgrants" ? "Jグランツ同期中…" : "Jグランツ同期"}
+          </button>
+          <button onClick={syncJnet21} disabled={running !== null} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            {running === "jnet21" ? "J-Net21取得中…" : "J-Net21取得"}
+          </button>
+          <button onClick={syncMirasapo} disabled={running !== null} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            {running === "mirasapo" ? "ミラサポ取得中…" : "ミラサポplus取得"}
           </button>
           <button onClick={runAllCollect} disabled={running !== null} className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
             {running === "all" ? "全収集中…" : "今すぐ全収集"}

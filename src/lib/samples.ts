@@ -412,9 +412,9 @@ export const SAMPLE_COLLECT_SOURCES: SourceSiteInput[] = [
     region: "全国",
     priority: "medium",
     crawl_frequency: "weekly",
-    is_active: false,
+    is_active: true,
     last_checked_at: null,
-    notes: "公開API/フィード無し（制度ナビAPIは2023/09終了）。自動取得せず手動取り込み。出典『中小企業庁 ミラサポplus』を表示。",
+    notes: "補助金一覧(/subsidy/)を実HTTP取得。制度ナビAPIは2023/09終了のためHTML取得。出典『中小企業庁 ミラサポplus』を表示。",
     audience_scope: "business",
   },
   {
@@ -529,17 +529,17 @@ export const SAMPLE_COLLECT_SOURCES: SourceSiteInput[] = [
   //      is_active=false なので runAll の自動巡回対象から除外される。
   //      メルマガ取り込みは将来「メール受信取り込み」（feed ルートのコメント参照）で対応予定。
   {
-    name: "J-Net21 支援情報ヘッドライン（中小機構・準公式）",
+    name: "J-Net21 支援情報ヘッドライン（中小機構）",
     source_type: "semi_official",
     trust_level: "B",
-    url: "https://j-net21.smrj.go.jp/snavi/index.html",
+    url: "https://j-net21.smrj.go.jp/",
+    feed_url: "https://j-net21.smrj.go.jp/snavi/support/support.xml",
     region: "全国",
-    priority: "medium",
-    crawl_frequency: "weekly",
-    is_active: false,
+    priority: "high",
+    crawl_frequency: "daily",
+    is_active: true,
     last_checked_at: null,
-    notes:
-      "公開フィード/API無し。自動巡回はせず手動取り込み。メルマガ（毎週火）はメール受信取り込みで将来対応。出典明記のうえ利用。",
+    notes: "公開RSS（support.xml）を実HTTP取得して購読。出典明記のうえ利用。",
     audience_scope: "business",
   },
 ];

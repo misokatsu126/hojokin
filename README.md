@@ -194,12 +194,14 @@ source_sites に情報源を登録
 | --- | --- | --- |
 | ① Jグランツ公開API | `POST/GET /api/discovery/jgrants/sync` | デジタル庁 Jグランツ `GET /exp/v1/public/subsidies`（認証不要、規約 https://www.jgrants-portal.go.jp/open-api ）。**対象地域(全国＋5地域)×複数キーワード**（補助金/助成金/IT/DX/省エネ/創業/販路/設備）でループ検索（各リクエスト間に小待機）。新規分は詳細API `…/subsidies/id/{id}` で `front_subsidy_detail_page_url`・補助率・締切を補完。`discovered_items` に upsert（`external_id='jgrants:<id>'`、公的ポータルのため公式URL確認済み扱い）。 |
 | ② 公式ページ巡回 | `POST/GET /api/discovery/crawl?source_id=...` | `source_sites.url` をサーバー側fetch→補助金関連リンクを抽出して保存。取得不可（robots/JS描画/到達不可）時は `source_fetch_logs` に error 記録し手動確認に委ねる。公式URL（愛知/名古屋/弥富/岐阜県/岐阜市/三重県/四日市市）は「公式情報源を登録」で投入。 |
-| ③ J-Net21 | （手動） | 公開RSS/API/CSV等の機械可読な一括取得手段は無し（配信はメルマガのみ）。方針どおり自動スクレイピングはせず、情報源登録＋手動取り込み導線のみ（`is_active=false`）。 |
-| ③ ミラサポplus | （手動・出典表示） | 経産省・中小企業庁運営（`mirasapo-plus.go.jp`、.go.jp が正）。利用規約は出典表示を条件に複製・公衆送信等を許可するが、**「制度ナビ」APIは2023/09で提供終了**し公開API/フィード無し。よって自動取得はせず登録＋手動導線（`is_active=false`）。取り込んだ候補には **「出典：中小企業庁『ミラサポplus』」** を表示。 |
+| ③ J-Net21 | `POST/GET /api/discovery/jnet21/sync` | 中小機構 J-Net21 の公開RSS `https://j-net21.smrj.go.jp/snavi/support/support.xml` を**実HTTP取得**し、title/link/pubDate/description を抽出して `discovered_items` に upsert（`external_id='jnet21:<link>'`、出典明記）。対象地域＋全国のみ残す。 |
+| ③ ミラサポplus | `POST/GET /api/discovery/mirasapo/sync` | 中小企業庁 ミラサポplus（`mirasapo-plus.go.jp`、.go.jp が正）の補助金一覧 `/subsidy/` を**実HTTP取得**し、補助金名・リンク・日付・公募要領URLを抽出して upsert（`external_id='mirasapo:<url>'`）。**「出典：中小企業庁『ミラサポplus』」** を表示。制度ナビAPIは2023/09終了のためHTML取得。SPA等で静的HTMLから一覧が取れない場合はモックを返さず理由をログ。 |
 | ④ RSS/Atom | `POST/GET /api/discovery/feed?source_id=...` | `source_sites.feed_url` の公開フィードを購読して保存。メール受信取り込みは将来実装（`feed` ルートに設計コメント）。 |
 | 自動実行 | `GET/POST /api/discovery/run` | ①②④をまとめて実行（J-Net21・ミラサポは手動のため自動対象外）。`vercel.json` の Cron で毎日1回（`0 21 * * *` = 06:00 JST）。Cron無しでも情報源管理の「今すぐ全収集」ボタンで手動実行可。 |
 
 対象地域は **愛知県 / 名古屋市 / 弥富市 / 岐阜県 / 岐阜市 / 三重県 / 四日市市（および全国）**。
+
+**外部取得の検証コマンド**：`npm run probe:sources`（4つの対象URLを実HTTP取得し status/Content-Type/本文長/RSS件数を表示）／`npm run update:external-sources`（J-Net21 RSS と ミラサポplus を実取得→抽出→`discovered_items`/`source_fetch_logs` に保存。`.env.local` の Supabase 設定を使用）。取得メタ用に `supabase/discovery_fetch_schema.sql`（`fetched_at`/`extraction_confidence`）を追加。各候補に source_url(`url`)/official_url/fetched_at/raw_text/extraction_confidence を保存。各候補カードに「**本物を見る**」ボタン（元ページを開く）を表示。
 
 **情報源をまたいだ重複検知**：Jグランツ・ミラサポplus・J-Net21・公式ページは同一制度（IT導入補助金・ものづくり・持続化等）を別々に配信するため、`external_id`（同一源内の重複防止）に加えて **`normalized_key`（補助金名を NFKC 正規化＋空白記号除去）** を全候補に付与。取り込み時に正規化キーが一致する既存候補があれば `duplicate_of` を設定して**重複候補**として紐づけます。優先順位は **Jグランツ ＞ ミラサポplus ＝ J-Net21**（Jグランツがあればそれを本体に、他源を重複候補へ）。自動統合・自動削除はせず、`/discovery` ダッシュボードの「重複候補」枠に表示して人が確認・統合します。
 

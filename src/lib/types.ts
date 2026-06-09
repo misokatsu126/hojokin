@@ -246,6 +246,9 @@ export type DiscoveredItem = {
   external_source?: string | null;
   // discovery_dedup_schema.sql で追加（情報源をまたいだ重複検知用の正規化キー）
   normalized_key?: string | null;
+  // discovery_fetch_schema.sql で追加（実HTTP取得メタ）
+  fetched_at?: string | null;
+  extraction_confidence?: number | null;
   created_at: string;
   updated_at: string;
 };

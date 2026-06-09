@@ -406,7 +406,18 @@ export default function DiscoveredPage() {
                   </p>
                 )}
 
-                <div className="mb-2 flex flex-wrap gap-3 text-xs">
+                <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
+                  {(item.official_url || item.url) && (
+                    <a
+                      href={item.official_url ?? item.url ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                      title="この候補の元になった実際のページを新しいタブで開きます"
+                    >
+                      本物を見る ↗
+                    </a>
+                  )}
                   {item.url && (
                     <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">検知元URL ↗</a>
                   )}
@@ -415,6 +426,9 @@ export default function DiscoveredPage() {
                   )}
                   {(item.official_pdf_url || item.pdf_url) && (
                     <a href={item.official_pdf_url ?? item.pdf_url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">公募要領PDF ↗</a>
+                  )}
+                  {item.fetched_at && (
+                    <span className="text-gray-400">取得 {formatDate(item.fetched_at)}{item.extraction_confidence != null ? `・確信度${item.extraction_confidence}` : ""}</span>
                   )}
                 </div>
 
