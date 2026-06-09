@@ -17,6 +17,7 @@ import type {
   ExtractedGrantCandidate,
   ExtractedGrantCandidateInput,
   ImportReview,
+  SourceFetchLog,
 } from "./types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -365,4 +366,68 @@ export async function createImportReview(input: {
   const { data, error } = await supabase.from("import_reviews").insert(input).select().single();
   if (error) throw error;
   return data as ImportReview;
+}
+
+// ---------------- 自動収集（Jグランツ/巡回/RSS）用 ----------------
+
+export async function fetchSourceSite(id: string): Promise<SourceSite | null> {
+  const { data, error } = await supabase.from("source_sites").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data as SourceSite) ?? null;
+}
+
+// 外部ソースの一意キー（external_id）で discovered_items を upsert（重複防止）
+export async function upsertDiscoveredByExternal(
+  row: Partial<DiscoveredItemInput> & { external_id: string }
+): Promise<{ inserted: boolean }> {
+  // 既存チェック（更新時に detected_at を保持したいので存在確認してから分岐）
+  const { data: existing } = await supabase
+    .from("discovered_items")
+    .select("id")
+    .eq("external_id", row.external_id)
+    .maybeSingle();
+  if (existing) {
+    await supabase.from("discovered_items").update(row).eq("external_id", row.external_id);
+    return { inserted: false };
+  }
+  const { error } = await supabase.from("discovered_items").insert(row);
+  if (error) throw error;
+  return { inserted: true };
+}
+
+// 既知URLの情報源を取得、無ければ作成（Jグランツ等の固定ソース用）
+export async function findOrCreateSourceSite(
+  match: { url: string },
+  defaults: SourceSiteInput
+): Promise<SourceSite> {
+  const { data: found } = await supabase
+    .from("source_sites")
+    .select("*")
+    .eq("url", match.url)
+    .maybeSingle();
+  if (found) return found as SourceSite;
+  const { data, error } = await supabase.from("source_sites").insert(defaults).select().single();
+  if (error) throw error;
+  return data as SourceSite;
+}
+
+export async function createSourceFetchLog(row: {
+  source_site_id: string | null;
+  status: "success" | "error" | "skipped";
+  http_status?: number | null;
+  error_message?: string | null;
+  detected_count?: number;
+}): Promise<void> {
+  const { error } = await supabase.from("source_fetch_logs").insert(row);
+  if (error) console.warn("[source_fetch_logs] insert failed:", error.message);
+}
+
+export async function fetchRecentFetchLogs(limit = 50): Promise<SourceFetchLog[]> {
+  const { data, error } = await supabase
+    .from("source_fetch_logs")
+    .select("*")
+    .order("fetched_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as SourceFetchLog[];
 }

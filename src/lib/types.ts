@@ -11,6 +11,7 @@ import type {
   DiscoveredStatus,
   VerificationStatus,
   ReviewStatus,
+  AudienceType,
 } from "./constants";
 
 export type Grant = {
@@ -197,6 +198,9 @@ export type SourceSite = {
   is_active: boolean;
   last_checked_at: string | null;
   notes: string | null;
+  // discovery_collect_schema.sql で追加（既存環境では未定義のこともあるため任意）
+  feed_url?: string | null;
+  audience_scope?: AudienceType | null;
   created_at: string;
   updated_at: string;
 };
@@ -236,6 +240,10 @@ export type DiscoveredItem = {
   last_verified_at: string | null;
   verification_status: VerificationStatus;
   duplicate_of: string | null;
+  // discovery_collect_schema.sql で追加（既存環境では未定義のこともあるため任意）
+  audience_type?: AudienceType | null;
+  external_id?: string | null;
+  external_source?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -274,6 +282,8 @@ export type ExtractedGrantCandidate = {
   source_category: SourceType | null;
   trust_level: TrustLevel | null;
   verification_status: VerificationStatus;
+  // discovery_collect_schema.sql で追加（既存環境では未定義のこともあるため任意）
+  audience_type?: AudienceType | null;
   created_at: string;
   updated_at: string;
 };

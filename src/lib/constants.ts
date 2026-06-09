@@ -297,6 +297,45 @@ export const SECONDARY_SOURCE_WARNING_TEXT =
 export const OFFICIAL_UNCONFIRMED_WARNING_TEXT =
   "公式情報未確認：この補助金候補について、公式URLまたは公募要領PDFがまだ確認できていません。申請判断には使用せず、確認候補として扱ってください。";
 
+// =============================================================
+// 自動収集（Jグランツ/公式巡回/J-Net21/RSS）用の区分・設定
+// =============================================================
+
+// 対象種別（事業者向け / 個人向け）
+export const AUDIENCE_TYPES = ["business", "individual", "both", "unknown"] as const;
+export type AudienceType = (typeof AUDIENCE_TYPES)[number];
+
+export const AUDIENCE_TYPE_LABEL: Record<AudienceType, string> = {
+  business: "事業者向け",
+  individual: "個人向け",
+  both: "事業者・個人",
+  unknown: "対象未判定",
+};
+
+export const AUDIENCE_TYPE_COLORS: Record<AudienceType, string> = {
+  business: "bg-blue-100 text-blue-800",
+  individual: "bg-emerald-100 text-emerald-800",
+  both: "bg-violet-100 text-violet-800",
+  unknown: "bg-gray-100 text-gray-500",
+};
+
+// 自動収集の対象地域（愛知県/名古屋市/弥富市/岐阜県/岐阜市）
+export const COLLECT_TARGET_REGIONS = [
+  "愛知県",
+  "名古屋市",
+  "弥富市",
+  "岐阜県",
+  "岐阜市",
+] as const;
+
+// target_area_search 等の地域文字列がこの収集対象に該当するか（全国・空も対象に含める）
+export function regionTextInTarget(areaText: string | null | undefined): boolean {
+  if (!areaText) return true; // 地域指定なし＝全国扱いで拾う
+  if (areaText.includes("全国")) return true;
+  if (areaText.includes("愛知") || areaText.includes("岐阜")) return true;
+  return COLLECT_TARGET_REGIONS.some((r) => areaText.includes(r));
+}
+
 // 法務・士業に関する全体注意文
 export const LEGAL_DISCLAIMER_TEXT =
   "本サービスは補助金・助成金情報の検索・整理・一次判定を目的としたツールです。申請可否や受給を保証するものではありません。実際の申請前には、必ず公式情報・公募要領を確認し、必要に応じて行政書士、社会保険労務士、認定支援機関などの専門家へご相談ください。";

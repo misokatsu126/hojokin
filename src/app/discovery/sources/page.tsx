@@ -26,7 +26,7 @@ import { TextField, TextArea } from "@/components/Form";
 import { TrustBadge, SourceTypeBadge } from "@/components/Badges";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { formatDate } from "@/lib/utils";
-import { SAMPLE_SOURCE_SITES } from "@/lib/samples";
+import { SAMPLE_SOURCE_SITES, SAMPLE_COLLECT_SOURCES } from "@/lib/samples";
 
 const blank: SourceSiteInput = {
   name: "",
@@ -48,6 +48,8 @@ export default function SourcesPage() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -131,6 +133,91 @@ export default function SourcesPage() {
     }
   }
 
+  // 5地域の公式情報源＋J-Net21 を登録（自動収集の巡回対象）
+  async function seedCollectSources() {
+    if (!confirm("対象5地域（愛知県/名古屋市/弥富市/岐阜県/岐阜市）の公式補助金ページ＋J-Net21を登録しますか？")) return;
+    setBusy(true);
+    try {
+      for (const s of SAMPLE_COLLECT_SOURCES) await createSourceSite(s);
+      await load();
+      setMsg("公式情報源を登録しました。「今すぐ全収集」または各行の「巡回」で収集できます。");
+    } catch (e: any) {
+      alert(`登録に失敗しました: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function callJson(url: string, body?: any) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+    return r.json();
+  }
+
+  // Jグランツ同期
+  async function syncJgrants() {
+    setRunning("jgrants");
+    setMsg(null);
+    try {
+      const d = await callJson("/api/discovery/jgrants/sync");
+      setMsg(
+        d.ok
+          ? `Jグランツ同期完了：新規${d.inserted}・更新${d.updated}（走査${d.scanned}）。`
+          : `Jグランツ同期に失敗しました（${d.error ?? "不明"}）。ネットワーク制限環境では取得できないことがあります。`
+      );
+      await load();
+    } catch (e: any) {
+      setMsg(`Jグランツ同期エラー：${e.message}`);
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  // 全収集（Jグランツ＋公式巡回＋フィード）
+  async function runAllCollect() {
+    setRunning("all");
+    setMsg(null);
+    try {
+      const d = await callJson("/api/discovery/run");
+      if (d.ok) {
+        const lines = (d.summaries ?? [])
+          .map((s: any) => `・${s.source}: ${s.ok ? `新規${s.inserted}/更新${s.updated}` : `失敗(${s.error ?? "?"})`}`)
+          .join("\n");
+        setMsg(`全収集を実行しました（新規${d.totals.inserted}・更新${d.totals.updated}）。\n${lines}`);
+      } else {
+        setMsg(`全収集に失敗しました（${d.error ?? "不明"}）。`);
+      }
+      await load();
+    } catch (e: any) {
+      setMsg(`全収集エラー：${e.message}`);
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  // 個別の情報源を巡回 or フィード取得
+  async function collectSource(s: SourceSite) {
+    setRunning(s.id);
+    setMsg(null);
+    try {
+      const isFeed = !!s.feed_url;
+      const d = await callJson(`/api/discovery/${isFeed ? "feed" : "crawl"}?source_id=${s.id}`);
+      setMsg(
+        d.ok
+          ? `「${s.name}」を${isFeed ? "フィード取得" : "巡回"}：新規${d.inserted}・更新${d.updated}（走査${d.scanned}）。`
+          : `「${s.name}」の取得に失敗（${d.error ?? "不明"}）。robots/JS描画/到達不可の可能性。手動確認に切替を検討してください。`
+      );
+      await load();
+    } catch (e: any) {
+      setMsg(`取得エラー：${e.message}`);
+    } finally {
+      setRunning(null);
+    }
+  }
+
   if (loading) return <p className="py-12 text-center text-gray-400">読み込み中…</p>;
 
   return (
@@ -144,7 +231,16 @@ export default function SourcesPage() {
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">情報源管理（監視対象サイト）</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={seedCollectSources} disabled={busy} className="rounded-md border border-accent px-3 py-1.5 text-sm text-accent hover:bg-accent/5 disabled:opacity-50">
+            公式5地域＋J-Net21を登録
+          </button>
+          <button onClick={syncJgrants} disabled={running !== null} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            {running === "jgrants" ? "Jグランツ同期中…" : "Jグランツ同期"}
+          </button>
+          <button onClick={runAllCollect} disabled={running !== null} className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
+            {running === "all" ? "全収集中…" : "今すぐ全収集"}
+          </button>
           {sites.length === 0 && (
             <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
               サンプル8件を登録
@@ -155,6 +251,10 @@ export default function SourcesPage() {
           </button>
         </div>
       </div>
+
+      {msg && (
+        <p className="mb-4 whitespace-pre-line rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">{msg}</p>
+      )}
 
       {showForm && (
         <div className="mb-6 rounded-lg border bg-white p-5">
@@ -217,17 +317,30 @@ export default function SourcesPage() {
             </label>
           </div>
 
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <TextField label="RSS/Atom フィードURL（任意）" value={form.feed_url ?? ""} onChange={(v) => set("feed_url", v)} placeholder="https://.../rss" />
+            <label className="block">
+              <span className="mb-1 block text-xs text-gray-500">対象（事業者/個人）</span>
+              <select value={form.audience_scope ?? "both"} onChange={(e) => set("audience_scope", e.target.value)} className="w-full rounded-md border px-3 py-2 text-sm">
+                <option value="both">事業者・個人の両方</option>
+                <option value="business">事業者向け</option>
+                <option value="individual">個人向け</option>
+                <option value="unknown">未判定</option>
+              </select>
+            </label>
+          </div>
+
           <div className="mt-4">
             <TextArea label="メモ" value={form.notes ?? ""} onChange={(v) => set("notes", v)} rows={2} />
           </div>
 
           <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-gray-600">
             <input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} className="h-4 w-4" />
-            アクティブ（巡回対象にする）
+            アクティブ（自動収集・全収集の対象にする）
           </label>
 
           <p className="mt-3 text-xs text-gray-400">
-            MVPでは実際の巡回は行いません。まずは「将来監視する情報源」を登録・管理できます。
+            feed_url があればRSS購読、無ければURLをサーバー側fetchで巡回します。取得不可（robots/JS描画等）の場合は手動確認に切り替えてください。
           </p>
 
           <div className="mt-5 flex gap-2">
@@ -286,6 +399,11 @@ export default function SourcesPage() {
                     </button>
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
+                    {(s.url || s.feed_url) && (
+                      <button onClick={() => collectSource(s)} disabled={running !== null} className="mr-3 text-emerald-600 hover:underline disabled:opacity-40">
+                        {running === s.id ? "取得中…" : s.feed_url ? "フィード取得" : "巡回"}
+                      </button>
+                    )}
                     <button onClick={() => startEdit(s)} className="mr-3 text-accent hover:underline">編集</button>
                     <button onClick={() => remove(s.id)} className="text-red-500 hover:underline">削除</button>
                   </td>

@@ -183,6 +183,22 @@ source_sites に情報源を登録
 - 結果には必ず情報の状態を表示します：**正式登録済み／未確認候補／公式未確認／AI抽出済み／AI抽出済み（公式未確認）／過年度候補／重複候補**。
 - 未確認・公式未確認・過年度・重複の候補には、申請判断に使わない旨の注意を表示します。
 
+### 7.8 自動収集（4層・合法ルートのみ／ツール内表示で完結）
+
+対象地域は **愛知県 / 名古屋市 / 弥富市 / 岐阜県 / 岐阜市**、対象は**事業者向け＋個人向け**の両方。通知は外部に出さず、すべてダッシュボードに表示して完結します。民間まとめサイトの自動スクレイピングは行いません。
+
+追加SQL `supabase/discovery_collect_schema.sql`（既存無編集・冪等）で、`discovered_items`/`extracted_grant_candidates` に `audience_type`（事業者/個人）、`discovered_items` に `external_id`（重複防止のupsertキー）、`source_sites` に `feed_url`/`audience_scope` を追加します。
+
+| 層 | エンドポイント | 内容 |
+| --- | --- | --- |
+| ① Jグランツ公開API | `POST/GET /api/discovery/jgrants/sync` | デジタル庁 Jグランツ `GET /exp/v1/public/subsidies`（認証不要）。対象地域でフィルタし `discovered_items` に upsert（`external_id='jgrants:<id>'`、公的ポータルのため公式URL確認済み扱い）。 |
+| ② 公式ページ巡回 | `POST/GET /api/discovery/crawl?source_id=...` | `source_sites.url` をサーバー側fetch→補助金関連リンクを抽出して保存。取得不可（robots/JS描画/到達不可）時は `source_fetch_logs` に error 記録し手動確認に委ねる。5地域の公式URLは「公式5地域＋J-Net21を登録」ボタンで投入。 |
+| ③ J-Net21 | （手動） | 調査の結果、公開RSS/API/CSV等の機械可読な一括取得手段は無し（配信はメルマガのみ）。方針どおり自動スクレイピングはせず、情報源登録＋手動取り込み導線のみ（`is_active=false`）。 |
+| ④ RSS/Atom | `POST/GET /api/discovery/feed?source_id=...` | `source_sites.feed_url` の公開フィードを購読して保存。メール受信取り込みは将来実装（`feed` ルートに設計コメント）。 |
+| 自動実行 | `GET/POST /api/discovery/run` | ①②④をまとめて実行。`vercel.json` の Cron で毎日1回（`0 21 * * *` = 06:00 JST）。Cron無しでも情報源管理の「今すぐ全収集」ボタンで手動実行可。 |
+
+**ダッシュボード表示で完結**：トップ `/` に「自動収集の新着」セクションを追加（既存表示は無変更）。今日の新着／未確認／締切30日以内を表示し、**事業者向け／個人向け**フィルタで切替。正式登録済みは従来どおり `/grants` に流れます。外部取得に失敗しても各APIは 200 + `ok:false`/0件で返し、アプリは落ちません（`discovery_collect_schema.sql` 未実行時はセクションを静かに非表示）。
+
 ---
 
 ## 8. 今後の拡張ポイント

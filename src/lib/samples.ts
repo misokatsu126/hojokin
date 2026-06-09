@@ -383,6 +383,110 @@ export const SAMPLE_SOURCE_SITES: SourceSiteInput[] = [
   },
 ];
 
+// 自動収集の対象：5地域の公式補助金一覧ページ（web で確認済みの実URL）。
+// source_type=official / trust_level=A。/api/discovery/crawl の巡回対象になる。
+export const SAMPLE_COLLECT_SOURCES: SourceSiteInput[] = [
+  {
+    name: "愛知県 助成金・補助金（公式）",
+    source_type: "official",
+    trust_level: "A",
+    url: "https://www.pref.aichi.jp/life/sub/2/",
+    region: "愛知県",
+    priority: "high",
+    crawl_frequency: "weekly",
+    is_active: true,
+    last_checked_at: null,
+    notes: "愛知県公式の助成金・補助金カテゴリ。事業者・個人の双方を含む。",
+    audience_scope: "both",
+  },
+  {
+    name: "名古屋市 事業者等への支援（公式）",
+    source_type: "official",
+    trust_level: "A",
+    url: "https://www.city.nagoya.jp/jigyou/sangyou/1026356/index.html",
+    region: "名古屋市",
+    priority: "high",
+    crawl_frequency: "weekly",
+    is_active: true,
+    last_checked_at: null,
+    notes: "名古屋市公式の事業者向け支援・補助の入口。",
+    audience_scope: "business",
+  },
+  {
+    name: "名古屋市 市の補助・助成制度（暮らし・公式）",
+    source_type: "official",
+    trust_level: "A",
+    url: "https://www.city.nagoya.jp/kurashi/juutaku/1014710/1043859/index.html",
+    region: "名古屋市",
+    priority: "medium",
+    crawl_frequency: "weekly",
+    is_active: true,
+    last_checked_at: null,
+    notes: "名古屋市公式の個人・暮らし向け補助・助成。",
+    audience_scope: "individual",
+  },
+  {
+    name: "岐阜県 補助金・優遇制度（公式）",
+    source_type: "official",
+    trust_level: "A",
+    url: "https://www.pref.gifu.lg.jp/life/sub/10/",
+    region: "岐阜県",
+    priority: "high",
+    crawl_frequency: "weekly",
+    is_active: true,
+    last_checked_at: null,
+    notes: "岐阜県公式の補助金・優遇制度カテゴリ。",
+    audience_scope: "both",
+  },
+  {
+    name: "岐阜市 補助金（公式）",
+    source_type: "official",
+    trust_level: "A",
+    url: "https://www.city.gifu.lg.jp/info/hojokin/index.html",
+    region: "岐阜市",
+    priority: "high",
+    crawl_frequency: "weekly",
+    is_active: true,
+    last_checked_at: null,
+    notes: "岐阜市公式の補助金インデックス。",
+    audience_scope: "both",
+  },
+  {
+    name: "弥富市 補助金等一覧（公式）",
+    source_type: "official",
+    trust_level: "A",
+    url: "https://www.city.yatomi.lg.jp/kurashi/1006880/index.html",
+    region: "弥富市",
+    priority: "high",
+    crawl_frequency: "weekly",
+    is_active: true,
+    last_checked_at: null,
+    notes: "弥富市公式の補助金等一覧。",
+    audience_scope: "both",
+  },
+  // J-Net21（中小機構の支援情報ヘッドライン）。
+  //   調査結果（2026-06 時点）：公開RSS/Atom/CSV/API などの機械可読な一括取得手段は
+  //   提供されておらず、構造的な配信は「新着情報メールマガジン（毎週火曜）」のみ。
+  //   サイトはリンクフリー（出典明記を要請）だが、自動取得用フィードは無い。
+  //   → 方針どおり「自動スクレイピングはせず」、情報源として登録＋手動取り込み導線のみ。
+  //      is_active=false なので runAll の自動巡回対象から除外される。
+  //      メルマガ取り込みは将来「メール受信取り込み」（feed ルートのコメント参照）で対応予定。
+  {
+    name: "J-Net21 支援情報ヘッドライン（中小機構・準公式）",
+    source_type: "semi_official",
+    trust_level: "B",
+    url: "https://j-net21.smrj.go.jp/snavi/index.html",
+    region: "全国",
+    priority: "medium",
+    crawl_frequency: "weekly",
+    is_active: false,
+    last_checked_at: null,
+    notes:
+      "公開フィード/API無し。自動巡回はせず手動取り込み。メルマガ（毎週火）はメール受信取り込みで将来対応。出典明記のうえ利用。",
+    audience_scope: "business",
+  },
+];
+
 // 検知候補のサンプル（source_site_id はシード時に紐づける／未紐づけでも可）
 export const SAMPLE_DISCOVERED_ITEMS: Omit<DiscoveredItemInput, "source_site_id">[] = [
   {
