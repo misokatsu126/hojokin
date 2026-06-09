@@ -9,7 +9,7 @@ import {
   fetchSourceSites,
   fetchProfiles,
 } from "./supabase";
-import { htmlToText, scoreDiscoveredAgainstProfiles } from "./discovery";
+import { htmlToText, scoreDiscoveredAgainstProfiles, buildNormalizedKey } from "./discovery";
 import { regionTextInTarget, type AudienceType } from "./constants";
 import type { SourceSite, DiscoveredItem } from "./types";
 
@@ -59,18 +59,6 @@ export function inferAudience(text: string): AudienceType {
   if (business) return "business";
   if (individual) return "individual";
   return "unknown";
-}
-
-// 情報源をまたいだ重複検知用の正規化キー（補助金名ベース）。
-//   公式名称は情報源（Jグランツ/ミラサポ/J-Net21/自治体）が違っても概ね共通なため、
-//   名称を NFKC 正規化＋空白記号除去して突き合わせる（実施主体やドメインはあえて含めない）。
-export function buildNormalizedKey(name: string | null | undefined): string {
-  if (!name) return "";
-  return name
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/[\s　]/g, "")
-    .replace(/[、。・,.\-―ー–—_()（）「」『』【】\[\]"'’“”:：;；/／|｜~〜!！?？#＃&＆＊*]/g, "");
 }
 
 // 取り込み後にクロスソース重複を検知し duplicate_of を設定（自動統合はしない）。

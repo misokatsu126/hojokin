@@ -23,6 +23,18 @@ import {
 } from "./constants";
 import { ruleMatch } from "./matching";
 
+// 情報源をまたいだ重複検知用の正規化キー（補助金名ベース）。
+//   公式名称は情報源（Jグランツ/ミラサポ/J-Net21/自治体）が違っても概ね共通なため、
+//   名称を NFKC 正規化＋空白記号除去して突き合わせる（実施主体やドメインはあえて含めない）。
+export function buildNormalizedKey(name: string | null | undefined): string {
+  if (!name) return "";
+  return name
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\s　]/g, "")
+    .replace(/[、。・,.\-―ー–—_()（）「」『』【】\[\]"'’“”:：;；/／|｜~〜!！?？#＃&＆＊*]/g, "");
+}
+
 // HTML をプレーンテキストに変換（サーバー側のURL取得用・依存ライブラリなし）
 export function htmlToText(html: string): string {
   return html
@@ -370,4 +382,25 @@ export function scoreDiscoveredAgainstProfiles(
     }
   }
   return { bestScore, bestProfile, recommendation, deadline: ex.deadline, regions: ex.target_regions, reason };
+}
+
+/**
+ * 候補ごとの「次にやること」を本文・抽出結果から提案する（実務の確認手順）。
+ */
+export function suggestNextActions(item: DiscoveredItem): string[] {
+  const ex = ruleExtract(item);
+  const text = `${item.title ?? ""}\n${item.raw_text ?? ""}`;
+  const out: string[] = [];
+  out.push("募集要項（公募要領）を確認");
+  out.push(ex.deadline ? "申請期限を確認" : "申請期限・募集状況を確認");
+  if (ex.pre_application_ng_risk || /(交付決定前|着手|契約.{0,4}前|発注.{0,4}前)/.test(text)) {
+    out.push("交付決定前の着手可否を確認");
+  }
+  out.push("対象経費を確認");
+  if (/(商店街|推薦書)/.test(text)) out.push("商店街推薦書の要否を確認");
+  if (ex.professional_check_recommended || /(社会保険労務士|社労士|行政書士|認定支援機関|税理士)/.test(text)) {
+    out.push("専門家（士業）へ相談");
+  }
+  // 重複なしで最大4件
+  return Array.from(new Set(out)).slice(0, 4);
 }

@@ -258,6 +258,8 @@ export type DiscoveredItem = {
   // discovery_ui_schema.sql で追加（人による確認状態・相性理由）
   review_state?: ReviewState | null;
   match_reason?: string | null;
+  // discovery_note_schema.sql で追加（担当者メモ）
+  human_note?: string | null;
   created_at: string;
   updated_at: string;
 };

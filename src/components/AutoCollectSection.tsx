@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems, fetchProfiles } from "@/lib/supabase";
 import type { DiscoveredItem, BusinessProfile } from "@/lib/types";
 import { AUDIENCE_TYPE_LABEL, AUDIENCE_TYPE_COLORS, type AudienceType } from "@/lib/constants";
-import { scoreDiscoveredAgainstProfiles } from "@/lib/discovery";
+import { scoreDiscoveredAgainstProfiles, suggestNextActions } from "@/lib/discovery";
 import { daysUntil, formatDate } from "@/lib/utils";
 
 type AudienceFilter = "all" | "business" | "individual";
@@ -58,17 +58,46 @@ export function AutoCollectSection() {
       });
   }, [items, profiles, filter]);
 
-  const todayNew = scored
-    .filter((s) => daysUntil(s.i.detected_at) === 0)
-    .sort((a, b) => b.score - a.score);
-  const highAffinity = scored.filter((s) => s.score >= 70).sort((a, b) => b.score - a.score);
-  const deadlineSoon = scored
-    .filter((s) => {
-      const d = daysUntil(s.deadline);
-      return d != null && d >= 0 && d <= 30;
-    })
-    .sort((a, b) => daysUntil(a.deadline)! - daysUntil(b.deadline)!);
-  const unconfirmed = scored.filter((s) => s.i.status === "unreviewed").sort((a, b) => b.score - a.score);
+  // 実務優先順位：①締切7日以内 ②高相性80+ ③未確認 ④今日新規 ⑤締切30日以内
+  const PRIORITY: { rank: number; label: string; tone: string }[] = [
+    { rank: 1, label: "締切7日以内", tone: "bg-red-600 text-white" },
+    { rank: 2, label: "高相性80点+", tone: "bg-green-600 text-white" },
+    { rank: 3, label: "未確認", tone: "bg-sky-600 text-white" },
+    { rank: 4, label: "今日新規", tone: "bg-violet-600 text-white" },
+    { rank: 5, label: "締切30日以内", tone: "bg-amber-500 text-white" },
+  ];
+  function rankOf(s: Scored): number {
+    const d = daysUntil(s.deadline);
+    if (d != null && d >= 0 && d <= 7) return 1;
+    if (s.score >= 80) return 2;
+    if (s.i.status === "unreviewed") return 3;
+    if (daysUntil(s.i.detected_at) === 0) return 4;
+    if (d != null && d >= 0 && d <= 30) return 5;
+    return 99;
+  }
+  const prioritized = useMemo(() => {
+    return scored
+      .map((s) => ({ s, rank: rankOf(s) }))
+      .filter((x) => x.rank < 99)
+      .sort((a, b) => {
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        const da = daysUntil(a.s.deadline);
+        const db = daysUntil(b.s.deadline);
+        if ((a.rank === 1 || a.rank === 5) && da != null && db != null) return da - db;
+        return b.s.score - a.s.score;
+      })
+      .slice(0, 15);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scored]);
+  const counts = useMemo(() => {
+    const c = [0, 0, 0, 0, 0];
+    for (const s of scored) {
+      const r = rankOf(s);
+      if (r < 99) c[r - 1]++;
+    }
+    return c;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scored]);
 
   // 通知候補（送信はまだ。高相性80+/締切30日以内/新着/人間確認待ち）
   const notify = useMemo(() => {
@@ -131,11 +160,59 @@ export function AutoCollectSection() {
 
       {msg && <p className="rounded-md border border-green-200 bg-green-50 p-2 text-xs text-green-800">{msg}</p>}
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-        <Block title="今日見つかった補助金" count={todayNew.length} tone="sky" rows={todayNew} />
-        <Block title="自社に合いそう（高相性）" count={highAffinity.length} tone="green" rows={highAffinity} />
-        <Block title="締切30日以内" count={deadlineSoon.length} tone="red" rows={deadlineSoon} />
-        <Block title="未確認の候補" count={unconfirmed.length} tone="amber" rows={unconfirmed} />
+      {/* 優先度の内訳カウント */}
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        {PRIORITY.map((p, idx) => (
+          <div key={p.rank} className="rounded-md border bg-white p-2 text-center">
+            <div className="text-lg font-bold text-ink">{counts[idx]}</div>
+            <div className="text-[10px] text-gray-500">{p.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 今日見るべき補助金（実務優先順） */}
+      <div className="rounded-lg border bg-white">
+        <div className="border-b px-4 py-2 text-sm font-semibold text-ink">今日見るべき補助金（優先順）</div>
+        {prioritized.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-gray-400">
+            対象の候補はまだありません。「最新を取り込む」または <Link href="/setup" className="text-accent hover:underline">初期設定</Link> で事業を登録してください。
+          </p>
+        ) : (
+          <ul className="divide-y">
+            {prioritized.map(({ s, rank }) => {
+              const p = PRIORITY[rank - 1];
+              const dd = daysUntil(s.deadline);
+              return (
+                <li key={s.i.id} className="px-4 py-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${p.tone}`}>{p.label}</span>
+                        <span className="truncate text-sm font-semibold text-ink">{s.i.title}</span>
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
+                        {s.regions.length > 0 && <span>📍{s.regions.slice(0, 2).join("・")}</span>}
+                        {s.profile && <span>🏢{s.profile}</span>}
+                        {s.deadline && <span className={dd != null && dd <= 7 ? "font-semibold text-red-600" : ""}>🗓{formatDate(s.deadline)}{dd != null && dd >= 0 ? `（あと${dd}日）` : ""}</span>}
+                        <AudienceTag a={s.i.audience_type} />
+                      </div>
+                      <NextActions item={s.i} />
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {s.score > 0 && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[11px] font-bold text-green-800">相性{s.score}</span>}
+                      <div className="flex gap-1">
+                        {(s.i.official_url || s.i.url) && (
+                          <a href={s.i.official_url ?? s.i.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-medium text-white hover:opacity-90">本物↗</a>
+                        )}
+                        <Link href="/discovery/items" className="rounded border px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-50">詳細</Link>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* 通知候補（将来メール/LINE/Slack送信予定。今は画面表示のみ） */}
@@ -173,53 +250,15 @@ export function AutoCollectSection() {
   );
 }
 
-function Block({ title, count, tone, rows }: { title: string; count: number; tone: string; rows: Scored[] }) {
-  const bar: Record<string, string> = {
-    sky: "bg-sky-50 text-sky-800 border-sky-200",
-    green: "bg-green-50 text-green-800 border-green-200",
-    red: "bg-red-50 text-red-800 border-red-200",
-    amber: "bg-amber-50 text-amber-800 border-amber-200",
-  };
+function NextActions({ item }: { item: DiscoveredItem }) {
+  const actions = suggestNextActions(item).slice(0, 3);
+  if (actions.length === 0) return null;
   return (
-    <div className="flex flex-col rounded-lg border bg-white">
-      <div className={`flex items-center justify-between rounded-t-lg border-b px-3 py-2 text-sm font-semibold ${bar[tone]}`}>
-        <span>{title}</span>
-        <span className="rounded-full bg-white/70 px-2 text-xs">{count}</span>
-      </div>
-      <div className="flex-1 divide-y">
-        {rows.length === 0 ? (
-          <p className="px-3 py-4 text-center text-xs text-gray-400">該当なし</p>
-        ) : (
-          rows.slice(0, 5).map((s) => <MiniCard key={s.i.id} s={s} />)
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MiniCard({ s }: { s: Scored }) {
-  const i = s.i;
-  const dd = daysUntil(s.deadline);
-  return (
-    <div className="px-3 py-2">
-      <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 flex-1 text-sm font-medium text-ink line-clamp-2">{i.title}</span>
-        {s.score > 0 && (
-          <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[11px] font-bold text-green-800">相性{s.score}</span>
-        )}
-      </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
-        {s.regions.length > 0 && <span>📍{s.regions.slice(0, 2).join("・")}</span>}
-        {s.profile && <span>🏢{s.profile}</span>}
-        {s.deadline && <span className={dd != null && dd <= 14 ? "text-red-600" : ""}>🗓{formatDate(s.deadline)}{dd != null && dd >= 0 ? `（あと${dd}日）` : ""}</span>}
-        <AudienceTag a={i.audience_type} />
-      </div>
-      <div className="mt-1.5 flex gap-2">
-        {(i.official_url || i.url) && (
-          <a href={i.official_url ?? i.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90">本物を見る↗</a>
-        )}
-        <Link href="/discovery/items" className="rounded border px-2 py-0.5 text-[11px] text-gray-600 hover:bg-gray-50">詳細を見る</Link>
-      </div>
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      <span className="text-[10px] font-medium text-orange-700">次にやること:</span>
+      {actions.map((a) => (
+        <span key={a} className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] text-orange-800 ring-1 ring-orange-100">{a}</span>
+      ))}
     </div>
   );
 }
