@@ -135,7 +135,7 @@ export default function SourcesPage() {
 
   // 5地域の公式情報源＋J-Net21 を登録（自動収集の巡回対象）
   async function seedCollectSources() {
-    if (!confirm("対象5地域（愛知県/名古屋市/弥富市/岐阜県/岐阜市）の公式補助金ページ＋J-Net21を登録しますか？")) return;
+    if (!confirm("Jグランツ・ミラサポplus・J-Net21＋公式自治体ページ（愛知/名古屋/弥富/岐阜県/岐阜市/三重県/四日市市）を情報源として登録しますか？")) return;
     setBusy(true);
     try {
       for (const s of SAMPLE_COLLECT_SOURCES) await createSourceSite(s);
@@ -233,7 +233,7 @@ export default function SourcesPage() {
         <h1 className="text-xl font-bold text-ink">情報源管理（監視対象サイト）</h1>
         <div className="flex flex-wrap gap-2">
           <button onClick={seedCollectSources} disabled={busy} className="rounded-md border border-accent px-3 py-1.5 text-sm text-accent hover:bg-accent/5 disabled:opacity-50">
-            公式5地域＋J-Net21を登録
+            公式情報源を登録
           </button>
           <button onClick={syncJgrants} disabled={running !== null} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
             {running === "jgrants" ? "Jグランツ同期中…" : "Jグランツ同期"}

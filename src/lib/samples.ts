@@ -387,6 +387,37 @@ export const SAMPLE_SOURCE_SITES: SourceSiteInput[] = [
 // source_type=official / trust_level=A。/api/discovery/crawl の巡回対象になる。
 export const SAMPLE_COLLECT_SOURCES: SourceSiteInput[] = [
   {
+    name: "Jグランツ（補助金電子申請システム・公開API）",
+    source_type: "semi_official",
+    trust_level: "B",
+    url: "https://www.jgrants-portal.go.jp/",
+    region: "全国",
+    priority: "high",
+    crawl_frequency: "daily",
+    is_active: true,
+    last_checked_at: null,
+    notes: "デジタル庁 Jグランツ公開API（GET /exp/v1/public/subsidies、認証不要）。「Jグランツ同期」で取得。利用規約: https://www.jgrants-portal.go.jp/open-api",
+    audience_scope: "business",
+  },
+  {
+    // ミラサポplus（経産省・中小企業庁）。複製・公衆送信・翻案・商用利用は出典表示を条件に許可。
+    //   ただし「制度ナビ」APIは2023/09提供終了で、公開API/フィードによる機械取得手段は無い。
+    //   → 方針どおり自動取得はせず、情報源登録＋手動取り込み導線のみ（is_active=false）。
+    //      取り込んだ候補には「出典：中小企業庁『ミラサポplus』」を表示すること。
+    //      正しいドメインは mirasapo-plus.go.jp（.go.jp。mirasapo.jp は無関係の第三者）。
+    name: "ミラサポplus（経産省・中小企業庁／出典表示）",
+    source_type: "semi_official",
+    trust_level: "B",
+    url: "https://mirasapo-plus.go.jp/",
+    region: "全国",
+    priority: "medium",
+    crawl_frequency: "weekly",
+    is_active: false,
+    last_checked_at: null,
+    notes: "公開API/フィード無し（制度ナビAPIは2023/09終了）。自動取得せず手動取り込み。出典『中小企業庁 ミラサポplus』を表示。",
+    audience_scope: "business",
+  },
+  {
     name: "愛知県 助成金・補助金（公式）",
     source_type: "official",
     trust_level: "A",
@@ -462,6 +493,32 @@ export const SAMPLE_COLLECT_SOURCES: SourceSiteInput[] = [
     is_active: true,
     last_checked_at: null,
     notes: "弥富市公式の補助金等一覧。",
+    audience_scope: "both",
+  },
+  {
+    name: "三重県 現在受付中の補助金一覧（公式）",
+    source_type: "official",
+    trust_level: "A",
+    url: "https://www.pref.mie.lg.jp/KOYOKEI/HP/m0136700072.htm",
+    region: "三重県",
+    priority: "medium",
+    crawl_frequency: "weekly",
+    is_active: true,
+    last_checked_at: null,
+    notes: "三重県公式（雇用経済部）の受付中補助金一覧。",
+    audience_scope: "both",
+  },
+  {
+    name: "四日市市 補助金・支援制度（公式）",
+    source_type: "official",
+    trust_level: "A",
+    url: "https://www.city.yokkaichi.lg.jp/www/genre/1697009423287/index.html",
+    region: "四日市市",
+    priority: "medium",
+    crawl_frequency: "weekly",
+    is_active: true,
+    last_checked_at: null,
+    notes: "四日市市公式の補助金・支援制度の入口。",
     audience_scope: "both",
   },
   // J-Net21（中小機構の支援情報ヘッドライン）。

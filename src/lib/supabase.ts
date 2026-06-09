@@ -377,6 +377,17 @@ export async function fetchSourceSite(id: string): Promise<SourceSite | null> {
 }
 
 // 外部ソースの一意キー（external_id）で discovered_items を upsert（重複防止）
+// external_id で既存の検知候補が存在するか（詳細取得を新規分だけに限定する判定用）
+export async function discoveredExists(externalId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("discovered_items")
+    .select("id")
+    .eq("external_id", externalId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
+// 外部ソースの一意キー（external_id）で discovered_items を upsert（重複防止）
 export async function upsertDiscoveredByExternal(
   row: Partial<DiscoveredItemInput> & { external_id: string }
 ): Promise<{ inserted: boolean }> {

@@ -349,6 +349,13 @@ export default function DiscoveredPage() {
             const category = item.source_category ?? site?.source_type ?? null;
             const secondary = isSecondarySource(category);
             const officialConfirmed = item.official_source_confirmed;
+            // 出典表示（ミラサポplus 由来は必須）
+            const attribution =
+              item.external_source === "mirasapo" ||
+              (site?.url ?? "").includes("mirasapo-plus.go.jp") ||
+              (site?.name ?? "").includes("ミラサポ")
+                ? "出典：中小企業庁『ミラサポplus』"
+                : null;
             return (
               <div key={item.id} className="rounded-lg border bg-white p-4">
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
@@ -357,6 +364,7 @@ export default function DiscoveredPage() {
                     <div className="mt-0.5 text-xs text-gray-400">
                       {site?.name ?? "情報源未指定"}・検知 {formatDate(item.detected_at)}
                     </div>
+                    {attribution && <div className="mt-0.5 text-[11px] text-gray-500">{attribution}</div>}
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
