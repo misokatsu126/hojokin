@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/discovery", label: "探索ダッシュボード" },
+  { href: "/discovery", label: "探索ホーム" },
   { href: "/discovery/sources", label: "情報源管理" },
-  { href: "/discovery/items", label: "検知候補" },
-  { href: "/discovery/review", label: "AI抽出候補" },
-  { href: "/discovery/import-url", label: "URLから取り込む" },
+  { href: "/discovery/items", label: "見つかった補助金" },
+  { href: "/discovery/review", label: "整理済み候補" },
+  { href: "/discovery/import-url", label: "URLから追加" },
 ];
 
 export function DiscoveryNav() {
@@ -33,7 +33,7 @@ export function DiscoveryNav() {
       </div>
       <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
         補助金・助成金 自動探索レーダー（MVP）。信頼できる情報源を登録し、検知候補を
-        「未確認候補」として保存 → AIで抽出 → 人が公式情報を確認 → 正式登録、の安全フローで運用します。
+        「未確認候補」として保存 → 内容を整理 → 人が公式情報を確認 → 管理対象に登録、の安全フローで運用します。
         民間まとめサイト等の二次情報は、必ず公式サイト・公募要領PDFで確認してから本登録してください。
       </p>
     </div>

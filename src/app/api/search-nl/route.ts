@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     result_type: "grant",
   }));
 
-  // 自動検知候補（discovered_items）も検索対象にする（grants は維持）
+  // 見つかった補助金も検索対象にする（grants は維持）
   const discovered_results = await searchDiscovered(query, cond);
 
   const summary =

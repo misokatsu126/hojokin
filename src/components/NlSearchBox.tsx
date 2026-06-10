@@ -30,7 +30,7 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "抽出に失敗しました");
-      alert(`AI抽出しました（${d.engine === "ai" ? "AI" : "ルールベース"}）。「自動探索 → AI抽出候補」で確認・正式登録できます。`);
+      alert(`AI抽出しました（${d.engine === "ai" ? "AI" : "ルールベース"}）。「自動探索 → 整理済み候補」で確認・管理対象に登録できます。`);
     } catch (e: any) {
       alert(`抽出に失敗しました：${e.message}`);
     } finally {
@@ -109,7 +109,7 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
           {res.ingested && (
             <p className={`mb-2 rounded-md border p-2 text-xs ${res.ingested.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"}`}>
               {res.ingested.ok
-                ? `URLを取り込みました：「${res.ingested.title ?? "（無題）"}」（${res.ingested.inserted ? "新規" : "更新"}）。下の「自動検知候補」に表示しています。`
+                ? `URLを取り込みました：「${res.ingested.title ?? "（無題）"}」（${res.ingested.inserted ? "新規" : "更新"}）。下の「見つかった補助金」に表示しています。`
                 : `URLの取り込みに失敗しました：${res.ingested.error ?? "不明"}`}
             </p>
           )}
@@ -127,7 +127,7 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
               <div key={item.grant_id} className="rounded-lg border bg-white p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800">正式登録済み</span>
+                    <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800">管理対象に登録済み</span>
                     <Link href={`/grants/${item.grant_id}`} className="truncate font-semibold text-ink hover:text-accent hover:underline">
                       {item.grant_name}
                     </Link>
@@ -159,7 +159,7 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
 
           {res.discovered_results && res.discovered_results.length > 0 && (
             <div className="mt-4">
-              <h4 className="mb-1.5 text-sm font-semibold text-ink">自動検知候補（未確認・要確認）</h4>
+              <h4 className="mb-1.5 text-sm font-semibold text-ink">見つかった補助金（未確認・要確認）</h4>
               <div className="space-y-2">
                 {res.discovered_results.map((d) => (
                   <div key={d.id} className="rounded-lg border bg-white p-3">
@@ -179,17 +179,17 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
                       {(d.official_url || d.url) && (
-                        <a href={d.official_url ?? d.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:opacity-90">本物を見る ↗</a>
+                        <a href={d.official_url ?? d.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:opacity-90">公式ページを見る ↗</a>
                       )}
                       <button onClick={() => extract(d.id)} disabled={extracting === d.id} className="rounded border px-2 py-1 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-                        {extracting === d.id ? "抽出中…" : "AIで抽出する"}
+                        {extracting === d.id ? "抽出中…" : "内容を整理する"}
                       </button>
-                      <Link href="/discovery/items" className="rounded border px-2 py-1 text-gray-600 hover:bg-gray-50">候補一覧で確認・正式登録</Link>
+                      <Link href="/discovery/items" className="rounded border px-2 py-1 text-gray-600 hover:bg-gray-50">候補一覧で確認・管理対象に登録</Link>
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-amber-700">※ 自動検知候補は未確認の情報です。必ず「本物を見る」で公式ページを確認してください。</p>
+              <p className="mt-2 text-xs text-amber-700">※ 見つかった補助金は未確認の情報です。必ず「公式ページを見る」で公式ページを確認してください。</p>
             </div>
           )}
 

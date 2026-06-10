@@ -39,6 +39,7 @@ import { ChecklistPanel } from "@/components/ChecklistPanel";
 import { formatDate, formatAmount, daysUntil } from "@/lib/utils";
 import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags, scoreDiscoveredAgainstProfiles, ruleExtract, suggestNextActions, buildNormalizedKey } from "@/lib/discovery";
 import { isSampleDiscovered, sampleButtonsVisible } from "@/lib/sampleFilter";
+import { lifecycle, extractStartDate } from "@/lib/lifecycle";
 import { SAMPLE_DISCOVERED_ITEMS } from "@/lib/samples";
 
 type AddForm = {
@@ -89,7 +90,19 @@ export default function DiscoveredPage() {
   const [fProfile, setFProfile] = useState("");
   const [fSource, setFSource] = useState("");
   const [fRegion, setFRegion] = useState("");
+  const [fStartToday, setFStartToday] = useState(false);
+  const [fStartSoon, setFStartSoon] = useState(false);
   const [showSamples, setShowSamples] = useState(false);
+
+  // トップの各カードからの遷移（?view=...）でフィルター初期化
+  useEffect(() => {
+    const view = new URLSearchParams(window.location.search).get("view");
+    if (view === "today-start") setFStartToday(true);
+    else if (view === "soon-start") setFStartSoon(true);
+    else if (view === "deadline") setFDeadline(true);
+    else if (view === "high") setFHigh(true);
+    else if (view === "unreviewed") setFUnreviewed(true);
+  }, []);
   // メモ編集・トースト
   const [noteEditId, setNoteEditId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -126,10 +139,14 @@ export default function DiscoveredPage() {
   function view(item: DiscoveredItem) {
     const sc = scoreDiscoveredAgainstProfiles(item, profiles);
     const ex = ruleExtract(item);
+    const start = extractStartDate(item.raw_text);
+    const deadline = item.extracted_deadline ?? sc.deadline;
     return {
       score: item.match_score ?? sc.bestScore,
       profile: item.match_profile ?? sc.bestProfile,
-      deadline: item.extracted_deadline ?? sc.deadline,
+      deadline,
+      start,
+      lc: lifecycle(start, deadline),
       reason: item.match_reason ?? sc.reason,
       regions: ex.target_regions,
       maxAmount: ex.max_amount,
@@ -167,6 +184,8 @@ export default function DiscoveredPage() {
     return items.filter((it) => {
       const v = viewMap.get(it.id)!;
       if (!showSamples && isSampleDiscovered(it)) return false; // サンプル除外（既定）
+      if (fStartToday && v.lc.key !== "today_start") return false;
+      if (fStartSoon && v.lc.key !== "today_start" && v.lc.key !== "soon_start") return false;
       if (fHigh && v.score < 70) return false;
       if (fDeadline) {
         const d = daysUntil(v.deadline);
@@ -182,7 +201,7 @@ export default function DiscoveredPage() {
       if (fRegion && !v.regions.includes(fRegion)) return false;
       return true;
     });
-  }, [items, viewMap, fHigh, fDeadline, fUnreviewed, fApplicant, fProfile, fSource, siteMap, fRegion, showSamples]);
+  }, [items, viewMap, fHigh, fDeadline, fUnreviewed, fApplicant, fProfile, fSource, siteMap, fRegion, showSamples, fStartToday, fStartSoon]);
 
   async function setReview(item: DiscoveredItem, state: ReviewState) {
     try {
@@ -290,7 +309,7 @@ export default function DiscoveredPage() {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "抽出に失敗しました");
       const engineLabel = data.engine === "ai" ? "AI" : "ルールベース";
-      let m = `「${item.title}」を${engineLabel}で抽出しました（確信度${data.confidence_score}）。AI抽出候補画面で確認できます。`;
+      let m = `「${item.title}」を${engineLabel}で抽出しました（確信度${data.confidence_score}）。整理済み候補画面で確認できます。`;
       if (data.fetch_attempted && !data.fetch_succeeded) {
         m += ` ※URLからの本文取得に失敗（${data.fetch_reason ?? "不明"}）。精度を上げるには、この候補を編集して本文を貼り付けてから再抽出してください。`;
       } else if (data.fetch_succeeded) {
@@ -318,7 +337,7 @@ export default function DiscoveredPage() {
       await updateDiscoveredItem(item.id, { raw_text: editText || null });
       setEditTextId(null);
       setEditText("");
-      setMsg("本文を保存しました。「AIで抽出」を押すと、この本文から抽出します。");
+      setMsg("本文を保存しました。「内容を整理」を押すと、この本文から抽出します。");
       await load();
     } catch (e: any) {
       alert(`保存に失敗しました: ${e.message}`);
@@ -335,7 +354,7 @@ export default function DiscoveredPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("この検知候補を削除しますか？関連するAI抽出候補も削除されます。")) return;
+    if (!confirm("この検知候補を削除しますか？関連する整理済み候補も削除されます。")) return;
     try {
       await deleteDiscoveredItem(id);
       await load();
@@ -377,24 +396,24 @@ export default function DiscoveredPage() {
       )}
 
       <HelpBox title="この画面でできること">
-        集まった補助金の「候補」が並ぶ画面です。各候補は、まだ下書き段階の情報です。中身を確認し、使えそうなものは「AIで抽出」で条件を整理してから、次の確認画面（AI抽出候補）へ進めます。
+        集まった補助金の「候補」が並ぶ画面です。各候補は、まだ下書き段階の情報です。中身を確認し、使えそうなものは「内容を整理」で条件を整理してから、次の確認画面（整理済み候補）へ進めます。
         紹介サイトや記事で見つけた補助金は「＋ 手動で候補を追加」から登録できます。
       </HelpBox>
 
       <ButtonGuide
         items={[
-          { label: "AIで抽出 → 候補化", desc: "候補の文章やURLから、補助金の対象・金額・締切などをAI（鍵が無ければ簡易ルール）が読み取って整理します。整理後はAI抽出候補の画面に並びます。" },
+          { label: "内容を整理する", desc: "候補の文章やURLから、補助金の対象・金額・締切などをAI（鍵が無ければ簡易ルール）が読み取って整理します。整理後は整理済み候補の画面に並びます。" },
           { label: "本文を貼り付け/編集", desc: "URLからうまく本文が取れないとき、ページの文章を自分で貼り付けて、抽出の精度を上げられます。" },
-          { label: "抽出候補を見る", desc: "整理済みの候補（AI抽出候補）の確認画面へ移動します。" },
+          { label: "抽出候補を見る", desc: "整理済みの候補（整理済み候補）の確認画面へ移動します。" },
           { label: "無視 / 却下", desc: "今は不要な候補を、一覧で目立たないように分類します（削除ではありません）。" },
           { label: "削除", desc: "この候補を一覧から完全に消します。" },
-          { label: "＋ 手動で候補を追加", desc: "見つけた補助金のタイトル・URL・本文を貼り付けて、候補として登録します（この時点では正式登録ではありません）。" },
+          { label: "＋ 手動で候補を追加", desc: "見つけた補助金のタイトル・URL・本文を貼り付けて、候補として登録します（この時点では管理対象に登録ではありません）。" },
           { label: "サンプル3件を登録", desc: "動作確認用に、見本の候補を3件登録します（お試し用）。" },
         ]}
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold text-ink">自動検知候補（discovered_items）</h1>
+        <h1 className="text-xl font-bold text-ink">見つかった補助金</h1>
         <div className="flex gap-2">
           {sampleButtonsVisible() && (
             <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
@@ -478,6 +497,8 @@ export default function DiscoveredPage() {
       {items.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-white p-3 text-xs">
           <span className="font-semibold text-gray-600">絞り込み：</span>
+          <button onClick={() => setFStartToday((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fStartToday ? "border-blue-400 bg-blue-50 text-blue-800" : "text-gray-600 hover:bg-gray-50"}`}>本日開始</button>
+          <button onClick={() => setFStartSoon((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fStartSoon ? "border-sky-400 bg-sky-50 text-sky-800" : "text-gray-600 hover:bg-gray-50"}`}>近日開始</button>
           <button onClick={() => setFHigh((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fHigh ? "border-green-400 bg-green-50 text-green-800" : "text-gray-600 hover:bg-gray-50"}`}>高相性のみ(70+)</button>
           <button onClick={() => setFDeadline((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fDeadline ? "border-red-400 bg-red-50 text-red-700" : "text-gray-600 hover:bg-gray-50"}`}>締切30日以内</button>
           <button onClick={() => setFUnreviewed((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fUnreviewed ? "border-sky-400 bg-sky-50 text-sky-800" : "text-gray-600 hover:bg-gray-50"}`}>未確認のみ</button>
@@ -494,8 +515,8 @@ export default function DiscoveredPage() {
             <option value="">地域（すべて）</option>
             {COLLECT_TARGET_REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          {(fHigh || fDeadline || fUnreviewed || fApplicant || fProfile || fSource || fRegion) && (
-            <button onClick={() => { setFHigh(false); setFDeadline(false); setFUnreviewed(false); setFApplicant(false); setFProfile(""); setFSource(""); setFRegion(""); }} className="rounded-full border px-2.5 py-1 text-gray-500 hover:bg-gray-50">クリア</button>
+          {(fHigh || fDeadline || fUnreviewed || fApplicant || fProfile || fSource || fRegion || fStartToday || fStartSoon) && (
+            <button onClick={() => { setFHigh(false); setFDeadline(false); setFUnreviewed(false); setFApplicant(false); setFProfile(""); setFSource(""); setFRegion(""); setFStartToday(false); setFStartSoon(false); }} className="rounded-full border px-2.5 py-1 text-gray-500 hover:bg-gray-50">クリア</button>
           )}
           <label className="ml-auto flex items-center gap-1 text-gray-500">
             <input type="checkbox" checked={showSamples} onChange={(e) => setShowSamples(e.target.checked)} className="h-3.5 w-3.5" />
@@ -537,6 +558,7 @@ export default function DiscoveredPage() {
                     {attribution && <div className="mt-0.5 text-[11px] text-gray-500">{attribution}</div>}
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${v.lc.tone}`}>{v.lc.label}</span>
                     {v.score > 0 && (
                       <span className="rounded-md bg-green-100 px-2 py-0.5 text-sm font-bold text-green-800">相性 {v.score}</span>
                     )}
@@ -596,7 +618,7 @@ export default function DiscoveredPage() {
                       className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
                       title="この候補の元になった実際のページを新しいタブで開きます"
                     >
-                      本物を見る ↗
+                      公式ページを見る ↗
                     </a>
                   )}
                   {item.url && (
@@ -623,7 +645,7 @@ export default function DiscoveredPage() {
                 {editTextId === item.id && (
                   <div className="mb-3 rounded-md border bg-slate-50 p-3">
                     <p className="mb-1 text-xs text-gray-500">
-                      本文を貼り付け（URL取得が失敗した場合のフォールバック）。保存後に「AIで抽出」してください。
+                      本文を貼り付け（URL取得が失敗した場合のフォールバック）。保存後に「内容を整理」してください。
                     </p>
                     <textarea
                       value={editText}
@@ -689,7 +711,7 @@ export default function DiscoveredPage() {
                       className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
                       title="元になった実際のページを開きます"
                     >
-                      本物を見る ↗
+                      公式ページを見る ↗
                     </a>
                   )}
                   <button
@@ -697,7 +719,7 @@ export default function DiscoveredPage() {
                     disabled={extractingId === item.id}
                     className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                   >
-                    {extractingId === item.id ? "抽出中…" : "AIで抽出 → 候補化"}
+                    {extractingId === item.id ? "抽出中…" : "内容を整理する"}
                   </button>
                   <button
                     onClick={() => startEditText(item)}

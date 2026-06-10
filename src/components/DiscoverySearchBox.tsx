@@ -60,7 +60,7 @@ export function DiscoverySearchBox() {
         {engine && <span className="text-xs text-gray-400">{engine === "ai" ? "AI解釈" : "ルール解釈"}</span>}
       </div>
       <p className="mb-2 text-xs text-gray-400">
-        例：「名古屋の小売店で使える店舗改装の補助金」。grants（正式登録済み）に加え、未確認候補・AI抽出候補も状態付きで横断検索します。
+        例：「名古屋の小売店で使える店舗改装の補助金」。grants（管理対象に登録済み）に加え、未確認候補・整理済み候補も状態付きで横断検索します。
       </p>
       <div className="flex gap-2">
         <input

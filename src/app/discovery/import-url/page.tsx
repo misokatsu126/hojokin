@@ -55,7 +55,7 @@ export default function ImportUrlPage() {
   return (
     <div>
       <DiscoveryNav />
-      <HelpBox title="URLから取り込む">
+      <HelpBox title="URLから追加">
         J-Net21の記事URLや自治体の補助金ページURLを貼って「取り込む」を押すと、ページを読み取って補助金候補として登録します。
         例：<span className="break-all">https://j-net21.smrj.go.jp/snavi2/articles/179830</span>
       </HelpBox>
@@ -71,7 +71,7 @@ export default function ImportUrlPage() {
             className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm"
           />
           <button onClick={run} disabled={busy} className="rounded-md bg-accent px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
-            {busy ? "取り込み中…" : "URLから取り込む"}
+            {busy ? "取り込み中…" : "URLから追加"}
           </button>
         </div>
 
@@ -88,10 +88,10 @@ export default function ImportUrlPage() {
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
                   {(res.official_url || res.source_url) && (
-                    <a href={res.official_url ?? res.source_url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 font-medium text-white hover:opacity-90">本物を見る ↗</a>
+                    <a href={res.official_url ?? res.source_url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 font-medium text-white hover:opacity-90">公式ページを見る ↗</a>
                   )}
-                  <Link href="/discovery/items" className="rounded border px-3 py-1.5 text-gray-700 hover:bg-white">自動検知候補を見る</Link>
-                  <Link href="/discovery/review" className="rounded border px-3 py-1.5 text-gray-700 hover:bg-white">AI抽出・正式登録へ</Link>
+                  <Link href="/discovery/items" className="rounded border px-3 py-1.5 text-gray-700 hover:bg-white">見つかった補助金を見る</Link>
+                  <Link href="/discovery/review" className="rounded border px-3 py-1.5 text-gray-700 hover:bg-white">AI抽出・管理対象に登録へ</Link>
                 </div>
               </div>
             ) : (

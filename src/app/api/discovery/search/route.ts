@@ -50,7 +50,7 @@ function scoreHaystack(haystack: string, terms: string[]): number {
 /**
  * 自然文で grants / discovered_items / extracted_grant_candidates を横断検索する拡張版。
  * 既存の /api/search-nl は変更せず、別エンドポイントとして提供する。
- * 結果には必ず情報の状態（正式登録済み/未確認候補/公式未確認/AI抽出済み/過年度候補/重複候補）を付与する。
+ * 結果には必ず情報の状態（管理対象に登録済み/未確認候補/公式未確認/AI抽出済み/過年度候補/重複候補）を付与する。
  */
 export async function POST(req: NextRequest) {
   let query = "";
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       source: "grant",
       id: g.id,
       name: g.name,
-      state: "正式登録済み",
+      state: "管理対象に登録済み",
       state_tone: "green",
       official_url: g.official_url,
       detail_href: `/grants/${g.id}`,
