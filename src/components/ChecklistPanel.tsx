@@ -1,12 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchChecklistByDiscovered, upsertChecklist } from "@/lib/supabase";
+import {
+  fetchChecklistByDiscovered,
+  upsertChecklist,
+  fetchChecklistByGrant,
+  upsertChecklistByGrant,
+} from "@/lib/supabase";
 import type { ApplicationChecklist, DiscoveredItem } from "@/lib/types";
 import { CHECKLIST_ITEMS, CHECKLIST_STATUSES, type ChecklistKey, type ChecklistStatus } from "@/lib/constants";
 
-// discovered_item に紐づく「申請前の公式確認チェックリスト」
-export function ChecklistPanel({ item }: { item: DiscoveredItem }) {
+// 申請前の公式確認チェックリスト。discovered_item か grant のどちらかに紐づけて使う。
+//   後方互換：item（DiscoveredItem）を渡すと従来どおり discovered_item 用。
+export function ChecklistPanel({
+  item,
+  discoveredItemId,
+  grantId,
+  officialUrl,
+  sourceUrl,
+}: {
+  item?: DiscoveredItem;
+  discoveredItemId?: string;
+  grantId?: string;
+  officialUrl?: string | null;
+  sourceUrl?: string | null;
+}) {
+  const did = discoveredItemId ?? item?.id;
+  const official = officialUrl ?? item?.official_url ?? null;
+  const src = sourceUrl ?? item?.url ?? null;
+
   const [cl, setCl] = useState<ApplicationChecklist | null>(null);
   const [memo, setMemo] = useState("");
   const [loading, setLoading] = useState(true);
@@ -14,22 +36,29 @@ export function ChecklistPanel({ item }: { item: DiscoveredItem }) {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  async function read(): Promise<ApplicationChecklist | null> {
+    if (grantId) return fetchChecklistByGrant(grantId);
+    if (did) return fetchChecklistByDiscovered(did);
+    return null;
+  }
+  async function write(p: Partial<ApplicationChecklist>): Promise<ApplicationChecklist> {
+    if (grantId) return upsertChecklistByGrant(grantId, p);
+    return upsertChecklist(did as string, p);
+  }
+
   useEffect(() => {
-    fetchChecklistByDiscovered(item.id)
-      .then((c) => {
-        setCl(c);
-        setMemo(c?.memo ?? "");
-      })
+    read()
+      .then((c) => { setCl(c); setMemo(c?.memo ?? ""); })
       .catch((e) => setError(e.message ?? "読み込みに失敗しました"))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id]);
+  }, [did, grantId]);
 
   async function patch(p: Partial<ApplicationChecklist>) {
     setSaving(true);
     setError(null);
     try {
-      const saved = await upsertChecklist(item.id, p);
+      const saved = await write(p);
       setCl(saved);
       setSavedAt(new Date().toLocaleTimeString("ja-JP"));
     } catch (e: any) {
@@ -50,14 +79,10 @@ export function ChecklistPanel({ item }: { item: DiscoveredItem }) {
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold text-ink">公式ページ確認チェックリスト（{checkedCount}/{CHECKLIST_ITEMS.length}）</span>
         <span className="flex items-center gap-2">
-          {(item.official_url || item.url) && (
-            <a href={item.official_url ?? item.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90">公式ページを見る ↗</a>
+          {(official || src) && (
+            <a href={official ?? src ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90">公式ページを見る ↗</a>
           )}
-          <select
-            value={status}
-            onChange={(e) => patch({ status: e.target.value as ChecklistStatus })}
-            className="rounded-md border px-2 py-0.5 text-xs"
-          >
+          <select value={status} onChange={(e) => patch({ status: e.target.value as ChecklistStatus })} className="rounded-md border px-2 py-0.5 text-xs">
             {CHECKLIST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </span>

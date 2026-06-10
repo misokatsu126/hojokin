@@ -8,6 +8,7 @@ import {
   findOrCreateSourceSite,
   fetchSourceSites,
   fetchProfiles,
+  fetchCollectSettings,
 } from "./supabase";
 import { htmlToText, scoreDiscoveredAgainstProfiles, buildNormalizedKey } from "./discovery";
 import { isSampleDiscovered } from "./sampleFilter";
@@ -292,7 +293,25 @@ export async function runJgrantsSync(opts?: {
     // source_sites が無い環境でも収集自体は継続（ログだけ諦める）
   }
 
-  const keywords = opts?.keywords?.length ? opts.keywords : JGRANTS_DEFAULT_KEYWORDS;
+  // 収集設定（キーワード・地域）。画面で未設定なら既定値。
+  let settings: { keywords: string[]; regions: string[] } | null = null;
+  try {
+    settings = await fetchCollectSettings();
+  } catch {
+    settings = null;
+  }
+  const keywords = opts?.keywords?.length
+    ? opts.keywords
+    : settings?.keywords?.length
+      ? settings.keywords
+      : JGRANTS_DEFAULT_KEYWORDS;
+  const effectiveRegions = settings?.regions?.length ? settings.regions : [...JGRANTS_AREAS].filter((a) => a !== "全国");
+  const areas = ["全国", ...effectiveRegions];
+  const keepRegion = (area: string | null | undefined): boolean => {
+    if (!area) return true;
+    if (area.includes("全国")) return true;
+    return effectiveRegions.some((r) => area.includes(r) || (r.length >= 2 && area.includes(r.slice(0, 2))));
+  };
   const maxListCalls = opts?.maxListCalls ?? 36;
   const maxDetail = opts?.maxDetail ?? 20;
 
@@ -304,7 +323,7 @@ export async function runJgrantsSync(opts?: {
   let lastError = "";
 
   try {
-    outer: for (const area of JGRANTS_AREAS) {
+    outer: for (const area of areas) {
       for (const kw of keywords) {
         if (!kw || kw.length < 2) continue;
         if (listCalls >= maxListCalls) break outer;
@@ -323,8 +342,8 @@ export async function runJgrantsSync(opts?: {
           if (!it.id || seen.has(it.id)) continue;
           seen.add(it.id);
           summary.scanned++;
-          // 対象地域でフィルタ（全国・空も対象）
-          if (!regionTextInTarget(it.target_area_search)) continue;
+          // 対象地域でフィルタ（全国・空も対象。設定の地域に基づく）
+          if (!keepRegion(it.target_area_search)) continue;
 
           const name = (it.name || it.title || "").trim() || "（名称不明のJグランツ補助金）";
           const baseLines = [

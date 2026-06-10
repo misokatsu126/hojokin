@@ -427,3 +427,11 @@ export type NotificationCandidate = {
   created_at: string;
   sent_at: string | null;
 };
+
+// 収集設定（キーワード・対象地域）
+export type CollectSettings = {
+  id: string;
+  keywords: string[];
+  regions: string[];
+  updated_at: string;
+};

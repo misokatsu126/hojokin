@@ -15,6 +15,7 @@ const GROUPS = [
     links: [
       { href: "/discovery", label: "補助金を探す（探索ホーム）", desc: "自動収集の状況・横断検索" },
       { href: "/discovery/sources", label: "情報源と収集", desc: "情報源の登録・今すぐ全収集" },
+      { href: "/settings/collect", label: "収集する補助金の条件", desc: "収集キーワード・対象地域の設定" },
       { href: "/discovery/items", label: "見つかった補助金", desc: "収集された候補の確認・整理" },
       { href: "/discovery/import-url", label: "URLから追加", desc: "記事URLから候補を取り込む" },
       { href: "/search", label: "AI検索", desc: "自然文で横断検索" },
