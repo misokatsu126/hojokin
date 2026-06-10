@@ -15,6 +15,7 @@ import { APPLICATION_STATUSES } from "@/lib/constants";
 import { NlSearchBox } from "@/components/NlSearchBox";
 import { AutoCollectSection } from "@/components/AutoCollectSection";
 import { TopQuickActions } from "@/components/TopQuickActions";
+import { TodayAdded } from "@/components/TodayAdded";
 import { AlertBadge, ScoreBadge, DeadlineBadge } from "@/components/Badges";
 
 export default function DashboardPage() {
@@ -262,6 +263,9 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* 本日追加された補助金・助成金 */}
+      <TodayAdded />
     </div>
   );
 }

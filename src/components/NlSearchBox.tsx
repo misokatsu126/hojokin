@@ -32,6 +32,26 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<NlSearchResponse | null>(null);
   const [extracting, setExtracting] = useState<string | null>(null);
+  const [ingestingUrl, setIngestingUrl] = useState(false);
+
+  // 関連しそうな既知URLを取り込む（取り込み後に同じ相談文で再検索）
+  async function ingestSuggested(url: string) {
+    setIngestingUrl(true);
+    try {
+      const r = await fetch("/api/discovery/import-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error ?? "取り込みに失敗しました");
+      await run(query); // 取り込み後に再検索して候補に反映
+    } catch (e: any) {
+      alert(`取り込みに失敗しました：${e.message}（このページは自動で読み取れない場合があります）`);
+    } finally {
+      setIngestingUrl(false);
+    }
+  }
 
   async function extract(discoveredItemId: string) {
     setExtracting(discoveredItemId);
@@ -183,6 +203,19 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
               </div>
             ))}
           </div>
+
+          {res.suggested_url && (
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+              <p className="mb-1 text-xs font-medium text-amber-800">関連しそうな公的ページがあります</p>
+              <p className="mb-2 text-xs text-amber-700">{res.suggested_url.label}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => ingestSuggested(res.suggested_url!.url)} disabled={ingestingUrl} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50">
+                  {ingestingUrl ? "取り込み中…" : "このURLを取り込む"}
+                </button>
+                <a href={res.suggested_url.url} target="_blank" rel="noopener noreferrer" className="text-xs text-amber-800 underline">ページを開く ↗</a>
+              </div>
+            </div>
+          )}
 
           {res.follow_up_questions && res.follow_up_questions.length > 0 && (
             <div className="mt-3 rounded-md border border-sky-200 bg-sky-50 p-3">

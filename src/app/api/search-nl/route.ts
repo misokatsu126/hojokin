@@ -43,6 +43,24 @@ function conditionsToProfile(cond: InterpretedConditions): BusinessProfile {
   };
 }
 
+// 関連しそうな既知URL（RSSに載らない個別記事など）。0件・不足時に取り込み導線として提示。
+const KNOWN_URLS: { url: string; label: string; keywords: string[] }[] = [
+  {
+    url: "https://j-net21.smrj.go.jp/snavi2/articles/179830",
+    label: "岐阜市「中心市街地活性化空き店舗活用事業」（J-Net21）",
+    keywords: ["岐阜", "空き店舗", "空店舗", "活性化", "中心市街地", "新店舗", "出店", "店舗改装"],
+  },
+];
+
+function suggestKnownUrl(query: string): { url: string; label: string } | null {
+  const q = (query ?? "").normalize("NFKC");
+  for (const k of KNOWN_URLS) {
+    if (q.includes(k.url)) continue; // すでにURLを貼っている場合は不要
+    if (k.keywords.some((w) => q.includes(w))) return { url: k.url, label: k.label };
+  }
+  return null;
+}
+
 // AI 抽出条件に、類義語辞書の展開結果（目的・経費・業種・キーワード）を重複なくマージする。
 function mergeExpansion(cond: InterpretedConditions, query: string): InterpretedConditions {
   const ex = expandQuery(query);
@@ -190,6 +208,10 @@ export async function POST(req: NextRequest) {
         ? `登録済みの制度では一致しませんでしたが、自動収集で見つかった候補が${discovered_results!.length}件あります。${whyText}`
         : `${results.length}件の使える可能性がある制度が見つかりました。${whyText}まずは上位から公式ページで確認してください。`;
 
+  // 候補が少ないときは、関連しそうな既知URL（J-Net21個別記事など）を取り込み導線として提示
+  const titleHit = (discovered_results ?? []).some((d) => d.url && KNOWN_URLS.some((k) => d.url === k.url));
+  const suggested_url = totalFound < 3 && !titleHit ? suggestKnownUrl(query) : null;
+
   await logSearch(query, cond, results.length);
 
   const response: NlSearchResponse = {
@@ -202,6 +224,7 @@ export async function POST(req: NextRequest) {
     ingested,
     why: whyText,
     follow_up_questions,
+    suggested_url,
   };
   return NextResponse.json(response);
 }

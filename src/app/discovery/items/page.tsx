@@ -564,11 +564,13 @@ export default function DiscoveredPage() {
           {(fHigh || fDeadline || fUnreviewed || fApplicant || fProfile || fSource || fRegion || fStartToday || fStartSoon || fUse) && (
             <button onClick={() => { setFHigh(false); setFDeadline(false); setFUnreviewed(false); setFApplicant(false); setFProfile(""); setFSource(""); setFRegion(""); setFStartToday(false); setFStartSoon(false); setFUse(""); }} className="rounded-full border px-2.5 py-1 text-gray-500 hover:bg-gray-50">クリア</button>
           )}
-          <label className="ml-auto flex items-center gap-1 text-gray-500">
-            <input type="checkbox" checked={showSamples} onChange={(e) => setShowSamples(e.target.checked)} className="h-3.5 w-3.5" />
-            サンプルも表示
-          </label>
-          <span className="text-gray-400">{filtered.length} / {items.length} 件</span>
+          {sampleButtonsVisible() && (
+            <label className="ml-auto flex items-center gap-1 text-gray-500">
+              <input type="checkbox" checked={showSamples} onChange={(e) => setShowSamples(e.target.checked)} className="h-3.5 w-3.5" />
+              サンプルも表示
+            </label>
+          )}
+          <span className={`text-gray-400 ${sampleButtonsVisible() ? "" : "ml-auto"}`}>{filtered.length} / {items.length} 件</span>
         </div>
       )}
 
@@ -589,11 +591,9 @@ export default function DiscoveredPage() {
       )}
 
       {items.length === 0 ? (
-        <p className="rounded-lg border bg-white p-8 text-center text-gray-400">
-          検知候補がまだありません。「サンプル3件を登録」または「手動で候補を追加」から登録してください。
-        </p>
+        <NoCandidates />
       ) : filtered.length === 0 ? (
-        <p className="rounded-lg border bg-white p-8 text-center text-gray-400">条件に合う候補がありません。フィルターを調整してください。</p>
+        <p className="rounded-lg border bg-white p-8 text-center text-gray-400">条件に合う候補がありません。絞り込みを変えるか、上の「クリア」で条件を外してください。</p>
       ) : (
         <div className="space-y-3">
           {filtered.map((item) => {
@@ -824,15 +824,15 @@ export default function DiscoveredPage() {
                   >
                     申請前チェック
                   </button>
-                  <button
-                    onClick={() => extract(item)}
-                    disabled={extractingId === item.id}
-                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    {extractingId === item.id ? "整理中…" : "対象・金額・締切を確認する"}
-                  </button>
                   {detailMode && (
                     <>
+                      <button
+                        onClick={() => extract(item)}
+                        disabled={extractingId === item.id}
+                        className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        {extractingId === item.id ? "整理中…" : "対象・金額・締切を確認する"}
+                      </button>
                       <button
                         onClick={() => startEditText(item)}
                         className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
@@ -869,6 +869,23 @@ export default function DiscoveredPage() {
           {toast.ok ? "✓ " : "⚠ "}{toast.text}
         </div>
       )}
+    </div>
+  );
+}
+
+// 候補0件のときの初心者向け案内（サンプルには触れず、次の行動を示す）
+function NoCandidates() {
+  return (
+    <div className="rounded-lg border bg-white p-8 text-center">
+      <div className="mb-2 text-3xl">🔎</div>
+      <p className="mb-1 font-semibold text-ink">まだ候補がありません</p>
+      <p className="mb-5 text-sm text-gray-500">次の方法で補助金・助成金を追加できます。</p>
+      <div className="mx-auto flex max-w-md flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
+        <Link href="/discovery/sources" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">新しい制度を探す</Link>
+        <Link href="/discovery/import-url" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">URLから追加する</Link>
+        <Link href="/search" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">相談して探す</Link>
+        <Link href="/setup" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">事業情報を登録する</Link>
+      </div>
     </div>
   );
 }

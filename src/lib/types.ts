@@ -222,6 +222,8 @@ export type NlSearchResponse = {
   why?: string;
   // 精度を上げるための確認質問（brief §9）
   follow_up_questions?: string[];
+  // 関連しそうな既知のJ-Net21/自治体URL（0件・不足時に「このURLを取り込む」導線として提示）
+  suggested_url?: { url: string; label: string } | null;
 };
 
 // =============================================================
