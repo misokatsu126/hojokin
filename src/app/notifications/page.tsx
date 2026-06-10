@@ -92,8 +92,8 @@ export default function NotificationsPage() {
           通知候補はありません。<Link href="/discovery/sources" className="text-accent hover:underline">情報源管理</Link>で「今すぐ全収集」を実行すると生成されます。
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-white">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border bg-white">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b bg-slate-50 text-left text-xs text-gray-500">
               <tr>
                 <th className="px-3 py-2">種別</th>
