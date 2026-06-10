@@ -1209,6 +1209,49 @@ async function scoreNewDiscovered(): Promise<{ scored: number; total: number }> 
   return { scored, total: items.length };
 }
 
+// ---------------- 固定URL巡回（RSSに載らない個別記事・自治体ページを定期取得） ----------------
+// RSS依存だと過去記事や個別ページを取りこぼすため、重要URLを直接 ingestUrl で取り込む。
+// 取得できないURLは safeFetch が理由付きで失敗するだけでアプリは落ちない（モック成功にはしない）。
+export const FIXED_SOURCE_URLS: string[] = [
+  // 岐阜市「中心市街地活性化空き店舗活用事業」（J-Net21 個別記事）
+  "https://j-net21.smrj.go.jp/snavi2/articles/179830",
+];
+
+/**
+ * 固定URLリストを順に ingestUrl で取り込む（J-Net21個別記事は専用パーサーで構造化抽出）。
+ * 取得失敗は理由付きでスキップ（モック成功にはしない）。重複は external_id で防止。
+ */
+export async function runFixedUrls(urls: string[] = FIXED_SOURCE_URLS): Promise<CollectSummary> {
+  const summary: CollectSummary = { source: "fixed_urls", ok: true, inserted: 0, updated: 0, scanned: 0 };
+  let tried = 0;
+  let failed = 0;
+  let lastError = "";
+  for (const url of urls) {
+    if (!url) continue;
+    tried++;
+    summary.scanned++;
+    try {
+      const r = await ingestUrl(url);
+      if (r.ok) {
+        if (r.inserted) summary.inserted++;
+        else summary.updated++;
+      } else {
+        failed++;
+        lastError = r.error ?? r.reason ?? "取得失敗";
+      }
+    } catch (e) {
+      failed++;
+      lastError = (e as Error).message;
+    }
+    await sleep(200);
+  }
+  if (tried > 0 && failed === tried) {
+    summary.ok = false;
+    summary.error = `固定URLの取得に全て失敗しました（${lastError || "ネットワーク不可"}）`;
+  }
+  return summary;
+}
+
 /**
  * 全収集をまとめて実行（Jグランツ + J-Net21 + ミラサポplus + アクティブな公式巡回/フィード）。
  * 収集後に discovered_items を事業プロフィールと自動照合する。
@@ -1223,6 +1266,8 @@ export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: {
   summaries.push(await runJnet21());
   // 3) ミラサポplus（補助金一覧HTML実取得）
   summaries.push(await runMirasapo());
+  // 3.5) 固定URL（RSSに載らない個別記事・自治体ページ）
+  summaries.push(await runFixedUrls());
 
   // 4) その他のアクティブな情報源（公式ページ巡回 / フィード）
   let sites: SourceSite[] = [];
