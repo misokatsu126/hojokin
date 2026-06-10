@@ -70,7 +70,7 @@ export default function CandidatesPage() {
     }
   }
 
-  // 正式登録：公式確認済みの候補だけ grants に本登録 → 全事業と自動照合
+  // 管理対象に登録：公式確認済みの候補だけ grants に本登録 → 全事業と自動照合
   async function approveImport(c: ExtractedGrantCandidate) {
     if (!officialConfirmed(c)) {
       alert(
@@ -88,7 +88,7 @@ export default function CandidatesPage() {
         extracted_grant_candidate_id: c.id,
         reviewer_name: reviewer || null,
         review_status: "approved",
-        review_note: "AI抽出候補から正式登録",
+        review_note: "整理済み候補から管理対象に登録",
         approved_grant_id: grant.id,
       });
       if (c.discovered_item_id) {
@@ -99,8 +99,8 @@ export default function CandidatesPage() {
       }
       setMsg(
         high == null
-          ? `「${c.name}」を正式登録しました（自動照合は確認できませんでした）。`
-          : `「${c.name}」を正式登録し、全事業と自動照合しました。高相性：${high}件。`
+          ? `「${c.name}」を管理対象に登録しました（自動照合は確認できませんでした）。`
+          : `「${c.name}」を管理対象に登録し、全事業と自動照合しました。高相性：${high}件。`
       );
       await load();
     } catch (e: any) {
@@ -160,7 +160,7 @@ export default function CandidatesPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("このAI抽出候補を削除しますか？")) return;
+    if (!confirm("この整理済み候補を削除しますか？")) return;
     try {
       await deleteExtractedCandidate(id);
       await load();
@@ -181,13 +181,13 @@ export default function CandidatesPage() {
       )}
 
       <HelpBox title="この画面でできること">
-        AIが整理した補助金の候補を最後に確認して、問題なければ「正式登録」する画面です。正式登録すると、補助金の正式リストに追加され、登録済みの全事業と自動で照合されます。
-        公式サイト・公募要領が未確認のものは、確認できるまで正式登録できないようになっています（誤った情報の登録を防ぐため）。
+        AIが整理した補助金の候補を最後に確認して、問題なければ「管理対象に登録」する画面です。管理対象に登録すると、補助金の正式リストに追加され、登録済みの全事業と自動で照合されます。
+        公式サイト・公募要領が未確認のものは、確認できるまで管理対象に登録できないようになっています（誤った情報の登録を防ぐため）。
       </HelpBox>
 
       <ButtonGuide
         items={[
-          { label: "正式登録する", desc: "この補助金を正式リストに追加し、登録済みの全事業と自動で照合します（高相性ならアラートが出ます）。公式情報の確認が済んでいるものだけ押せます。" },
+          { label: "管理対象に登録する", desc: "この補助金を正式リストに追加し、登録済みの全事業と自動で照合します（高相性ならアラートが出ます）。公式情報の確認が済んでいるものだけ押せます。" },
           { label: "要追加確認", desc: "情報が足りない・もう少し調べたい候補に印を付けます（メモを残せます）。" },
           { label: "重複として扱う", desc: "他で登録済みと同じ制度のとき、重複として記録し一覧から外します。" },
           { label: "却下する", desc: "使わない候補として記録します（理由メモを残せます）。" },
@@ -197,7 +197,7 @@ export default function CandidatesPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold text-ink">AI抽出候補の確認（extracted_grant_candidates）</h1>
+        <h1 className="text-xl font-bold text-ink">整理済み候補の確認</h1>
         <label className="flex items-center gap-2 text-xs text-gray-500">
           確認者
           <input value={reviewer} onChange={(e) => setReviewer(e.target.value)} placeholder="氏名（任意）" className="rounded-md border px-2 py-1 text-sm" />
@@ -208,9 +208,9 @@ export default function CandidatesPage() {
 
       {candidates.length === 0 ? (
         <p className="rounded-lg border bg-white p-8 text-center text-gray-400">
-          AI抽出候補がまだありません。
+          整理済み候補がまだありません。
           <Link href="/discovery/items" className="text-accent hover:underline"> 検知候補画面</Link>
-          で「AIで抽出 → 候補化」を実行してください。
+          で「内容を整理する」を実行してください。
         </p>
       ) : (
         <div className="space-y-4">
@@ -273,7 +273,7 @@ export default function CandidatesPage() {
                     title={!confirmed ? "公式URL/公募要領PDFの確認が必要です" : undefined}
                     className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                   >
-                    {busyId === c.id ? "処理中…" : "正式登録する"}
+                    {busyId === c.id ? "処理中…" : "管理対象に登録する"}
                   </button>
                   <button onClick={() => review(c, "needs_more_info")} disabled={busyId === c.id} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50">要追加確認</button>
                   <button onClick={() => markDuplicate(c)} disabled={busyId === c.id} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50">重複として扱う</button>
@@ -282,7 +282,7 @@ export default function CandidatesPage() {
                 </div>
                 {!confirmed && (
                   <p className="mt-2 text-xs text-orange-700">
-                    公式URL／公募要領PDFが未確認のため「正式登録」は無効です。検知候補画面で公式情報を確認してください。
+                    公式URL／公募要領PDFが未確認のため「管理対象に登録」は無効です。検知候補画面で公式情報を確認してください。
                   </p>
                 )}
               </div>

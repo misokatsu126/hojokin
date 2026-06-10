@@ -51,7 +51,7 @@ export function ChecklistPanel({ item }: { item: DiscoveredItem }) {
         <span className="text-xs font-semibold text-ink">公式ページ確認チェックリスト（{checkedCount}/{CHECKLIST_ITEMS.length}）</span>
         <span className="flex items-center gap-2">
           {(item.official_url || item.url) && (
-            <a href={item.official_url ?? item.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90">本物を見る ↗</a>
+            <a href={item.official_url ?? item.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90">公式ページを見る ↗</a>
           )}
           <select
             value={status}

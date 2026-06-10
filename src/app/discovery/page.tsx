@@ -143,7 +143,7 @@ export default function DiscoveryDashboardPage() {
           )}
         </Panel>
 
-        <Panel title="人間確認待ちのAI抽出候補" href="/discovery/review">
+        <Panel title="人間確認待ちの整理済み候補" href="/discovery/review">
           {awaitingReview.length === 0 ? (
             <Empty>確認待ちの抽出候補はありません。</Empty>
           ) : (
@@ -181,7 +181,7 @@ export default function DiscoveryDashboardPage() {
       <div className="mt-6 rounded-lg border border-dashed bg-white p-4 text-xs leading-relaxed text-gray-500">
         <p className="mb-1 font-semibold text-gray-600">巡回ステータスについて</p>
         自動巡回（クローリング）・PDF自動読取・Jグランツ連携・LINE/Slack/メール通知は本MVPでは未実装です。
-        現状は「情報源の管理」「手動での検知候補登録」「AI/ルールによる抽出」「人による公式確認と正式登録」までを提供します。
+        現状は「情報源の管理」「手動での検知候補登録」「AI/ルールによる抽出」「人による公式確認と管理対象に登録」までを提供します。
         将来、source_fetch_logs に巡回結果（成功／失敗／検知件数）を記録して、ここに巡回エラーを表示する設計です。
       </div>
     </div>

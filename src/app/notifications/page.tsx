@@ -67,7 +67,7 @@ export default function NotificationsPage() {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold text-ink">通知候補</h1>
+        <h1 className="text-xl font-bold text-ink">お知らせ候補</h1>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border p-0.5 text-xs">
             <button onClick={() => setTab("pending")} className={`rounded px-2.5 py-1 ${tab === "pending" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>未対応</button>
@@ -122,7 +122,7 @@ export default function NotificationsPage() {
                     <td className="px-3 py-2 text-xs">{n.deadline ? `${formatDate(n.deadline)}${dd != null && dd >= 0 ? `（あと${dd}日）` : ""}` : "—"}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
                       {(n.official_url || n.source_url) && (
-                        <a href={n.official_url ?? n.source_url ?? "#"} target="_blank" rel="noopener noreferrer" className="mr-2 rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white hover:opacity-90">本物を見る↗</a>
+                        <a href={n.official_url ?? n.source_url ?? "#"} target="_blank" rel="noopener noreferrer" className="mr-2 rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white hover:opacity-90">公式ページを見る↗</a>
                       )}
                       {n.status === "pending" && (
                         <>

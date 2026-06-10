@@ -48,7 +48,7 @@ export default function ReportsPage() {
     if (!profile) return;
     const out: ReportItem[] = [];
 
-    // 正式登録済み grants
+    // 管理対象に登録済み grants
     for (const g of grants) {
       if (isSampleGrant(g)) continue;
       if (!notExpired(g.application_deadline)) continue;
@@ -56,7 +56,7 @@ export default function ReportsPage() {
       if (m.match_score < 60) continue;
       out.push({
         kind: "grant",
-        kindLabel: "正式登録済み",
+        kindLabel: "管理対象に登録済み",
         title: g.name,
         source: g.organization || "登録済み",
         regions: g.regions,
@@ -71,7 +71,7 @@ export default function ReportsPage() {
       });
     }
 
-    // 自動検知候補 discovered_items
+    // 見つかった補助金 discovered_items
     for (const it of items) {
       if (isSampleDiscovered(it)) continue;
       if (it.status === "rejected" || it.status === "ignored" || it.status === "imported") continue;
@@ -81,7 +81,7 @@ export default function ReportsPage() {
       if (!notExpired(ex.deadline)) continue;
       out.push({
         kind: "discovered",
-        kindLabel: "自動検知候補（未確認）",
+        kindLabel: "見つかった補助金（未確認）",
         title: it.title ?? "（無題）",
         source: it.external_source === "jnet21" ? "J-Net21" : it.external_source === "mirasapo" ? "ミラサポplus" : it.external_source ?? "自動収集",
         regions: ex.target_regions,
@@ -96,14 +96,14 @@ export default function ReportsPage() {
       });
     }
 
-    // AI抽出候補 extracted_grant_candidates
+    // 整理済み候補 extracted_grant_candidates
     for (const c of candidates) {
       if (!notExpired(c.deadline)) continue;
       const sc = scoreCandidateAgainstProfiles(c, [profile]);
       if (sc.bestScore < 60) continue;
       out.push({
         kind: "candidate",
-        kindLabel: "AI抽出候補",
+        kindLabel: "整理済み候補",
         title: c.name ?? "（名称未抽出）",
         source: c.organizer || "AI抽出",
         regions: c.target_regions ?? [],
@@ -127,7 +127,7 @@ export default function ReportsPage() {
   return (
     <div>
       <div className="no-print">
-        <h1 className="mb-2 text-xl font-bold text-ink">顧客別レポート</h1>
+        <h1 className="mb-2 text-xl font-bold text-ink">お客様向けレポート</h1>
         <p className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
           事業（顧客）を選んで「レポート作成」を押すと、その事業に合いそうな補助金（相性60点以上・締切前）を一覧にします。「印刷 / PDF保存」でそのまま渡せます。
         </p>

@@ -18,7 +18,7 @@ export function StepGuide() {
     { no: "①", label: "情報源を登録", href: "/discovery/sources", desc: "どこから集めるか決める" },
     { no: "②", label: "全収集", href: "/discovery/sources", desc: "最新の補助金を取り込む" },
     { no: "③", label: "候補を確認", href: "/discovery/items", desc: "集まった候補を見る" },
-    { no: "④", label: "正式登録", href: "/discovery/review", desc: "正式リストに追加する" },
+    { no: "④", label: "管理対象に登録", href: "/discovery/review", desc: "正式リストに追加する" },
   ];
   return (
     <div className="mb-4 rounded-lg border bg-white p-3">

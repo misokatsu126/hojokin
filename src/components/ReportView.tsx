@@ -4,7 +4,7 @@ import { formatAmount, formatDate, daysUntil } from "@/lib/utils";
 
 export type ReportItem = {
   kind: "grant" | "discovered" | "candidate";
-  kindLabel: string; // 正式登録済み / 自動検知候補 / AI抽出候補
+  kindLabel: string; // 管理対象に登録済み / 見つかった補助金 / 整理済み候補
   title: string;
   source: string; // 出典
   regions: string[];
@@ -68,7 +68,7 @@ export function ReportView({
                 {it.nextActions.length > 0 && (
                   <p className="mt-0.5 text-xs text-orange-700"><span className="text-orange-400">次にやること：</span>{it.nextActions.join(" / ")}</p>
                 )}
-                {it.url && <p className="mt-0.5 text-xs"><span className="text-gray-400">本物を見る：</span><a href={it.url} target="_blank" rel="noopener noreferrer" className="text-accent underline">{it.url}</a></p>}
+                {it.url && <p className="mt-0.5 text-xs"><span className="text-gray-400">公式ページを見る：</span><a href={it.url} target="_blank" rel="noopener noreferrer" className="text-accent underline">{it.url}</a></p>}
               </li>
             );
           })}
@@ -77,7 +77,7 @@ export function ReportView({
 
       <p className="mt-4 border-t pt-3 text-[11px] leading-relaxed text-gray-400">
         ※ 本レポートは登録データ・自動収集候補に基づく一次判定です。申請可否・受給を保証するものではありません。
-        申請前に必ず公式情報・公募要領をご確認ください（各候補の「本物を見る」URL）。
+        申請前に必ず公式情報・公募要領をご確認ください（各候補の「公式ページを見る」URL）。
       </p>
     </div>
   );
