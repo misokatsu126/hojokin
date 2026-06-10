@@ -22,10 +22,12 @@ export function ReportView({
   profileName,
   generatedAt,
   items,
+  orgName,
 }: {
   profileName: string;
   generatedAt: string;
   items: ReportItem[];
+  orgName?: string;
 }) {
   const high = items.filter((i) => i.score >= 80);
   const deadlineSoon = items.filter((i) => {
@@ -35,10 +37,22 @@ export function ReportView({
 
   return (
     <div className="rounded-lg border bg-white p-6 print-block">
-      <div className="mb-4 border-b pb-3">
+      {/* ブランドヘッダー */}
+      <div className="mb-4 flex items-center justify-between border-b-2 border-accent pb-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-accent text-sm font-bold text-white">補</span>
+          <span className="text-base font-bold text-ink">補助金<span className="text-accent">レーダー</span></span>
+        </div>
+        <div className="text-right text-[11px] text-gray-500">
+          {orgName ? <div className="font-medium text-ink">{orgName}</div> : null}
+          <div>作成日：{generatedAt}</div>
+        </div>
+      </div>
+
+      <div className="mb-4">
         <h2 className="text-lg font-bold text-ink">補助金・助成金 候補レポート</h2>
-        <p className="text-sm text-gray-600">対象：{profileName}</p>
-        <p className="text-xs text-gray-400">作成日：{generatedAt}　／　候補件数：{items.length}件（高相性{high.length}・締切30日以内{deadlineSoon.length}）</p>
+        <p className="text-sm text-gray-600">対象（お客様・事業）：{profileName}</p>
+        <p className="text-xs text-gray-400">候補件数：{items.length}件（高相性{high.length}・締切30日以内{deadlineSoon.length}）</p>
       </div>
 
       {items.length === 0 ? (
