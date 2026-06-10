@@ -88,11 +88,11 @@ export default function DiscoveryDashboardPage() {
         </p>
       )}
 
-      <h1 className="mb-4 text-xl font-bold text-ink">自動探索ダッシュボード</h1>
+      <h1 className="mb-4 text-xl font-bold text-ink">自動収集の状況</h1>
 
       <HelpBox title="この画面でできること">
-        自動で集めた補助金の候補をまとめて見る画面です。今日の新着・未確認・締切が近いものなどがひと目で分かります。
-        まだ候補が無いときは、下の「①情報源を登録 → ②全収集」を順に進めると補助金が集まります。
+        自動で集めた補助金の候補の状況をまとめて見る画面です（管理者向け）。今日の新着・確認待ち・公式未確認などがひと目で分かります。
+        ふだんの確認は「候補を見る」、新しい制度の収集は下の「①情報源を登録 → ②全収集」から行えます。
       </HelpBox>
 
       <StepGuide />

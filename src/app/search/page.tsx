@@ -5,9 +5,9 @@ import { NlSearchBox } from "@/components/NlSearchBox";
 export default function SearchPage() {
   return (
     <div>
-      <h1 className="mb-1 text-xl font-bold text-ink">自然文AI検索</h1>
+      <h1 className="mb-1 text-xl font-bold text-ink">相談して探す</h1>
       <p className="mb-5 text-sm text-gray-500">
-        「何に使いたいか」を自然な文章で入力すると、登録済みの補助金・助成金から候補を一次判定します。
+        制度名を知らなくても大丈夫です。「ECサイトを作りたい」「空調を入れ替えたい」など、やりたいこと・困っていることをそのまま入力すると、使える可能性がある補助金・助成金を探します。
       </p>
 
       <div className="rounded-lg border bg-white p-5">

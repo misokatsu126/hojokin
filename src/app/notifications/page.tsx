@@ -89,7 +89,7 @@ export default function NotificationsPage() {
 
       {shown.length === 0 ? (
         <p className="rounded-lg border bg-white p-8 text-center text-gray-400">
-          通知候補はありません。<Link href="/discovery/sources" className="text-accent hover:underline">情報源管理</Link>で「今すぐ全収集」を実行すると生成されます。
+          お知らせ候補はありません。<Link href="/discovery/sources" className="text-accent hover:underline">情報源と収集</Link>で「今すぐ全収集」を実行すると生成されます。
         </p>
       ) : (
         <>

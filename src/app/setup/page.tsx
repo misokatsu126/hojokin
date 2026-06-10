@@ -76,7 +76,7 @@ export default function SetupPage() {
         <div className="mb-3 text-3xl">🎉</div>
         <h1 className="mb-2 text-xl font-bold text-ink">事業プロフィールを登録しました</h1>
         <p className="mb-6 text-sm text-gray-600">
-          これで、毎日自動で集まる補助金の中から「あなたの事業に合いそうなもの」を相性スコア付きで表示できます。
+          これで、毎日自動で集まる補助金の中から「あなたの事業に合いそうなもの」を、合いそう度付きで表示できます。
         </p>
         <div className="flex justify-center gap-2">
           <Link href="/" className="rounded-md bg-accent px-5 py-2 text-sm font-medium text-white hover:opacity-90">トップで今日の候補を見る</Link>
