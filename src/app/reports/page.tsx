@@ -128,6 +128,29 @@ export default function ReportsPage() {
     setGenerated({ name: profile.name, at: new Date().toLocaleDateString("ja-JP"), items: out, org: orgName });
   }
 
+  function emailReport() {
+    if (!generated) return;
+    const subject = `補助金候補レポート：${generated.name}（${generated.at}）`;
+    const lines = generated.items.slice(0, 30).map((it, i) => {
+      const parts = [
+        `${i + 1}. ${it.title}（相性${it.score}）`,
+        `   出典:${it.source} / 締切:${it.deadline ?? "通年・未定"}`,
+        it.url ? `   公式:${it.url}` : "",
+      ].filter(Boolean);
+      return parts.join("\n");
+    });
+    const body = [
+      `${generated.org || ""}`,
+      `対象（お客様・事業）：${generated.name}`,
+      `作成日：${generated.at}　候補件数：${generated.items.length}件`,
+      "",
+      ...lines,
+      "",
+      "※ 一次判定です。申請前に必ず公式情報・公募要領をご確認ください。",
+    ].join("\n");
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
   if (loading) return <p className="py-12 text-center text-gray-400">読み込み中…</p>;
 
   return (
@@ -152,7 +175,10 @@ export default function ReportsPage() {
             <input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="自社名・作成者（任意）" className="rounded-md border px-3 py-2 text-sm" />
             <button onClick={build} className="rounded-md bg-accent px-5 py-2 text-sm font-medium text-white hover:opacity-90">レポート作成</button>
             {generated && (
-              <button onClick={() => window.print()} className="rounded-md border px-5 py-2 text-sm text-gray-600 hover:bg-gray-50">印刷 / PDF保存</button>
+              <>
+                <button onClick={() => window.print()} className="rounded-md border px-5 py-2 text-sm text-gray-600 hover:bg-gray-50">印刷 / PDF保存</button>
+                <button onClick={emailReport} className="rounded-md border px-5 py-2 text-sm text-gray-600 hover:bg-gray-50">メールで送る</button>
+              </>
             )}
           </div>
         )}

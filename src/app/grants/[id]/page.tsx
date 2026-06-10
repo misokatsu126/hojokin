@@ -17,6 +17,7 @@ import { APPLICATION_STATUSES, RECRUITMENT_STATUSES } from "@/lib/constants";
 import { formatAmount, formatDate, deadlineState } from "@/lib/utils";
 import { DeadlineBadge, StatusBadge, Tag, PreApplicationWarning } from "@/components/Badges";
 import { MatchResultCard } from "@/components/MatchResultCard";
+import { ChecklistPanel } from "@/components/ChecklistPanel";
 
 export default function GrantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -170,6 +171,12 @@ export default function GrantDetailPage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* 申請前の公式確認チェックリスト */}
+      <section className="mt-6">
+        <h2 className="mb-3 text-lg font-bold text-ink">申請前の公式確認チェックリスト</h2>
+        <ChecklistPanel grantId={grant.id} officialUrl={grant.official_url} sourceUrl={grant.guideline_pdf_url} />
       </section>
     </div>
   );

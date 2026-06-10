@@ -536,3 +536,63 @@ export async function updateNotificationStatus(
   const { error } = await supabase.from("notification_candidates").update(patch).eq("id", id);
   if (error) throw error;
 }
+
+// grant に紐づくチェックリスト（discovered_item_id は null）
+export async function fetchChecklistByGrant(grantId: string): Promise<ApplicationChecklist | null> {
+  const { data, error } = await supabase
+    .from("application_checklists")
+    .select("*")
+    .eq("grant_id", grantId)
+    .is("discovered_item_id", null)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ApplicationChecklist) ?? null;
+}
+
+export async function upsertChecklistByGrant(
+  grantId: string,
+  patch: Partial<ApplicationChecklist>
+): Promise<ApplicationChecklist> {
+  const { data: existing } = await supabase
+    .from("application_checklists")
+    .select("id")
+    .eq("grant_id", grantId)
+    .is("discovered_item_id", null)
+    .maybeSingle();
+  if (existing) {
+    const { data, error } = await supabase
+      .from("application_checklists")
+      .update(patch)
+      .eq("id", (existing as any).id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as ApplicationChecklist;
+  }
+  const { data, error } = await supabase
+    .from("application_checklists")
+    .insert({ grant_id: grantId, ...patch })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ApplicationChecklist;
+}
+
+// ---------------- collect_settings（収集キーワード・地域） ----------------
+export async function fetchCollectSettings(): Promise<{ keywords: string[]; regions: string[] } | null> {
+  const { data, error } = await supabase.from("collect_settings").select("*").limit(1).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { keywords: (data as any).keywords ?? [], regions: (data as any).regions ?? [] };
+}
+
+export async function saveCollectSettings(keywords: string[], regions: string[]): Promise<void> {
+  const { data: existing } = await supabase.from("collect_settings").select("id").limit(1).maybeSingle();
+  if (existing) {
+    const { error } = await supabase.from("collect_settings").update({ keywords, regions, updated_at: new Date().toISOString() }).eq("id", (existing as any).id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from("collect_settings").insert({ keywords, regions });
+    if (error) throw error;
+  }
+}
