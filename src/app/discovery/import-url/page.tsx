@@ -84,14 +84,14 @@ export default function ImportUrlPage() {
                 </p>
                 <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-emerald-900">
                   {res.external_source && <span>出典：{res.external_source === "jnet21" ? "J-Net21" : res.external_source}</span>}
-                  {res.match_score != null && res.match_score > 0 && <span>相性スコア：{res.match_score}{res.match_profile ? `（${res.match_profile}）` : ""}</span>}
+                  {res.match_score != null && res.match_score > 0 && <span>合いそう度：{res.match_score}{res.match_profile ? `（${res.match_profile}）` : ""}</span>}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
                   {(res.official_url || res.source_url) && (
                     <a href={res.official_url ?? res.source_url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 font-medium text-white hover:opacity-90">公式ページを見る ↗</a>
                   )}
-                  <Link href="/discovery/items" className="rounded border px-3 py-1.5 text-gray-700 hover:bg-white">見つかった補助金を見る</Link>
-                  <Link href="/discovery/review" className="rounded border px-3 py-1.5 text-gray-700 hover:bg-white">AI抽出・管理対象に登録へ</Link>
+                  <Link href="/discovery/items" className="rounded border px-3 py-1.5 text-gray-700 hover:bg-white">候補を見る</Link>
+                  <Link href="/discovery/review" className="rounded border px-3 py-1.5 text-gray-700 hover:bg-white">AIの参考整理・登録へ</Link>
                 </div>
               </div>
             ) : (

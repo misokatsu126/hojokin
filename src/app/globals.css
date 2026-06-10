@@ -3,7 +3,25 @@
 @tailwind utilities;
 
 :root { color-scheme: light; }
-body { background: #f5f6f8; color: #1f2933; }
+body {
+  background: #f5f6f8;
+  color: #1f2933;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 見出しの字間を少し整える */
+h1, h2, h3 { letter-spacing: 0.01em; }
+
+/* キーボード操作時のフォーカスを分かりやすく（アクセント色のリング） */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid #2f6f5e;
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
+/* スマホではタップ領域を確保し、横スクロールを防ぐ */
+html { -webkit-text-size-adjust: 100%; }
 
 /* 印刷（顧客別レポートのPDF保存用）：ナビ・フッター・操作UIを隠す */
 @media print {

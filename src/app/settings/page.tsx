@@ -13,18 +13,18 @@ const GROUPS = [
   {
     title: "補助金を探す",
     links: [
-      { href: "/discovery", label: "補助金を探す（探索ホーム）", desc: "自動収集の状況・横断検索" },
+      { href: "/discovery", label: "自動収集の状況（管理者向け）", desc: "新着・確認待ち・公式未確認などの状況" },
       { href: "/discovery/sources", label: "情報源と収集", desc: "情報源の登録・今すぐ全収集" },
       { href: "/settings/collect", label: "収集する補助金の条件", desc: "収集キーワード・対象地域の設定" },
-      { href: "/discovery/items", label: "見つかった補助金", desc: "収集された候補の確認・整理" },
+      { href: "/discovery/items", label: "候補になった補助金・助成金", desc: "収集された候補の確認・整理" },
       { href: "/discovery/import-url", label: "URLから追加", desc: "記事URLから候補を取り込む" },
-      { href: "/search", label: "AI検索", desc: "自然文で横断検索" },
+      { href: "/search", label: "相談して探す", desc: "やりたいことから横断検索" },
     ],
   },
   {
     title: "お知らせ・ガイド",
     links: [
-      { href: "/notifications", label: "お知らせ候補", desc: "高相性・締切間近などの通知候補" },
+      { href: "/notifications", label: "お知らせ候補", desc: "特に合いそう・締切間近などのお知らせ" },
       { href: "/guide", label: "使い方ガイド", desc: "5ステップの使い方" },
     ],
   },

@@ -15,6 +15,7 @@ import {
 import type { Grant, BusinessProfile, GrantMatch, AppStatusRow, StatusNote, MatchResult } from "@/lib/types";
 import { APPLICATION_STATUSES, RECRUITMENT_STATUSES } from "@/lib/constants";
 import { formatAmount, formatDate, deadlineState } from "@/lib/utils";
+import { lifecycle, priority, feasibility, preparation } from "@/lib/lifecycle";
 import { DeadlineBadge, StatusBadge, Tag, PreApplicationWarning } from "@/components/Badges";
 import { MatchResultCard } from "@/components/MatchResultCard";
 import { ChecklistPanel } from "@/components/ChecklistPanel";
@@ -72,6 +73,17 @@ export default function GrantDetailPage() {
   const statusMap = new Map(statuses.map((s) => [s.profile_id, s.status]));
   const dState = deadlineState(grant.application_deadline);
 
+  // 判断サマリー：最高相性スコア → 優先度・今から間に合う？・準備の手間
+  const bestScore = matches.reduce((mx, m) => Math.max(mx, m.match_score), 0);
+  const lc = lifecycle(grant.application_start, grant.application_deadline);
+  const pr = priority(bestScore, lc.key);
+  const feas = feasibility(grant.application_deadline);
+  const prep = preparation({
+    text: `${grant.required_documents ?? ""} ${grant.notes ?? ""}`,
+    professional: grant.requires_professional,
+    preNg: grant.pre_application_ng,
+  });
+
   return (
     <div>
       <Link href="/grants" className="mb-4 inline-block text-sm text-accent hover:underline">← 一覧に戻る</Link>
@@ -88,6 +100,23 @@ export default function GrantDetailPage() {
         </div>
 
         <h1 className="mb-3 text-xl font-bold text-ink">{grant.name}</h1>
+
+        {/* 判断サマリー（優先度・今から間に合う？・準備の手間・公式ページ） */}
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 p-3">
+          {bestScore > 0 && (
+            <span className={`rounded px-2 py-1 text-xs font-bold ${pr.tone}`} title={pr.label}>{pr.rank}：{pr.label}</span>
+          )}
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${lc.tone}`}>{lc.icon} {lc.label}</span>
+          <span className="text-xs text-gray-400">今から間に合う？</span>
+          <span className={`rounded px-2 py-0.5 text-xs ${feas.tone}`}>{feas.label}</span>
+          <span className="text-xs text-gray-400">準備の手間</span>
+          <span className={`rounded px-2 py-0.5 text-xs ${prep.tone}`}>{prep.label}</span>
+          {grant.official_url && (
+            <a href={grant.official_url} target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+              🔗 公式ページを見る ↗
+            </a>
+          )}
+        </div>
 
         {/* 警告類 */}
         <div className="mb-4 space-y-2">
@@ -131,7 +160,7 @@ export default function GrantDetailPage() {
 
         <div className="mt-4 flex flex-wrap gap-4 border-t pt-4 text-sm">
           {grant.official_url && (
-            <a href={grant.official_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">公式サイト ↗</a>
+            <a href={grant.official_url} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 hover:underline">公式ページを見る ↗</a>
           )}
           {grant.guideline_pdf_url && (
             <a href={grant.guideline_pdf_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">公募要領PDF ↗</a>
@@ -143,7 +172,7 @@ export default function GrantDetailPage() {
       {/* 事業プロフィール別の対象可能性 */}
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-ink">事業プロフィール別の対象可能性</h2>
+          <h2 className="text-lg font-bold text-ink">あなたの事業から見た可能性</h2>
           <button
             onClick={handleRematch}
             disabled={rematching}
@@ -173,9 +202,9 @@ export default function GrantDetailPage() {
         )}
       </section>
 
-      {/* 申請前の公式確認チェックリスト */}
+      {/* 申請前チェック */}
       <section className="mt-6">
-        <h2 className="mb-3 text-lg font-bold text-ink">申請前の公式確認チェックリスト</h2>
+        <h2 className="mb-3 text-lg font-bold text-ink">申請前チェック</h2>
         <ChecklistPanel grantId={grant.id} officialUrl={grant.official_url} sourceUrl={grant.guideline_pdf_url} />
       </section>
     </div>

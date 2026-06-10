@@ -141,15 +141,15 @@ export default function DashboardPage() {
 
       {/* サマリー数値 */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="高相性アラート" value={highAlerts.length} tone="green" />
-        <Stat label="未確認アラート" value={unread.length} tone="amber" />
+        <Stat label="特に合いそう" value={highAlerts.length} tone="green" />
+        <Stat label="未確認のお知らせ" value={unread.length} tone="amber" />
         <Stat label="30日以内に締切" value={within30} tone="red" />
         <Stat label="今月締切" value={thisMonth} tone="orange" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* 高相性アラート */}
-        <Panel title="高相性アラート（80点以上）" href="/grants">
+        {/* 特に合いそうな制度 */}
+        <Panel title="あなたに特に合いそうな制度（80点以上）" href="/grants">
           {highAlerts.length === 0 ? (
             <Empty>高相性のアラートはありません。</Empty>
           ) : (
@@ -181,8 +181,8 @@ export default function DashboardPage() {
           )}
         </Panel>
 
-        {/* 未確認アラート */}
-        <Panel title="未確認アラート" href="/grants">
+        {/* 未確認のお知らせ */}
+        <Panel title="未確認のお知らせ" href="/grants">
           {unread.length === 0 ? (
             <Empty>未確認のアラートはありません。</Empty>
           ) : (
@@ -234,7 +234,7 @@ export default function DashboardPage() {
       {/* 事業別おすすめ */}
       {perProfileTop.some((x) => x.matches.length > 0) && (
         <div className="mt-6">
-          <h2 className="mb-3 text-sm font-semibold text-ink">事業プロフィール別おすすめ補助金</h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink">事業ごとのおすすめ</h2>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {perProfileTop.map(({ profile, matches: ms }) => (
               <div key={profile.id} className="rounded-lg border bg-white p-3">
