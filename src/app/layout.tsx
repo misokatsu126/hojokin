@@ -19,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <nav className="flex flex-wrap gap-1 text-sm">
               <NavLink href="/" label="ホーム" />
+              <NavLink href="/calendar" label="カレンダー" />
               <NavLink href="/grants" label="補助金一覧・検索" />
               <NavLink href="/search" label="AI検索" />
               <NavLink href="/profiles" label="事業プロフィール" />

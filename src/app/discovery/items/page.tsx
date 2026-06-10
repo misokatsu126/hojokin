@@ -39,7 +39,7 @@ import { ChecklistPanel } from "@/components/ChecklistPanel";
 import { formatDate, formatAmount, daysUntil } from "@/lib/utils";
 import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags, scoreDiscoveredAgainstProfiles, ruleExtract, suggestNextActions, buildNormalizedKey } from "@/lib/discovery";
 import { isSampleDiscovered, sampleButtonsVisible } from "@/lib/sampleFilter";
-import { lifecycle, extractStartDate } from "@/lib/lifecycle";
+import { lifecycle, extractStartDate, feasibility, preparation } from "@/lib/lifecycle";
 import { SAMPLE_DISCOVERED_ITEMS } from "@/lib/samples";
 
 type AddForm = {
@@ -151,6 +151,8 @@ export default function DiscoveredPage() {
       regions: ex.target_regions,
       maxAmount: ex.max_amount,
       subsidyRate: ex.subsidy_rate,
+      preNg: ex.pre_application_ng_risk,
+      professional: ex.professional_check_recommended,
       reviewState: (item.review_state ?? "ai_judged") as ReviewState,
     };
   }
@@ -580,6 +582,16 @@ export default function DiscoveredPage() {
                     <span className="font-medium text-slate-500">AI判定：</span>{v.reason}
                   </p>
                 )}
+
+                {/* 今から間に合う？ ／ 準備目安 */}
+                {(() => { const feas = feasibility(v.deadline); const prep = preparation({ text: item.raw_text, professional: v.professional, preNg: v.preNg }); return (
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="text-gray-400">間に合う？</span>
+                    <span className={`rounded px-1.5 py-0.5 ${feas.tone}`}>{feas.label}</span>
+                    <span className="ml-1 text-gray-400">準備目安</span>
+                    <span className={`rounded px-1.5 py-0.5 ${prep.tone}`}>{prep.label}</span>
+                  </div>
+                ); })()}
 
                 {/* 次にやること */}
                 <div className="mb-2 flex flex-wrap items-center gap-1">

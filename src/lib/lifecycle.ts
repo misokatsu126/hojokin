@@ -86,3 +86,20 @@ export function feasibility(deadline: string | null | undefined): { label: strin
   if (d >= 7) return { label: "かなり急ぎ", tone: "bg-orange-100 text-orange-800" };
   return { label: "かなり厳しい", tone: "bg-red-100 text-red-700" };
 }
+
+// 準備の重さ（軽い/普通/重い/要確認）をルールベースで判定
+export function preparation(opts: {
+  text?: string | null;
+  professional?: boolean;
+  preNg?: boolean;
+}): { label: string; tone: string } {
+  const t = opts.text ?? "";
+  if (!t && !opts.professional && !opts.preNg) return { label: "要確認", tone: "bg-slate-100 text-slate-500" };
+  const heavy = ["事業計画書", "収支計画", "決算書", "登記簿", "納税証明", "認定支援機関", "GビズID", "gBizID", "gビズ"].filter((k) => t.includes(k)).length;
+  const hasPlan = /事業計画|計画書/.test(t);
+  const hasEstimate = /見積/.test(t);
+  if (opts.professional || heavy >= 2) return { label: "重い：複数書類・専門家確認推奨", tone: "bg-red-100 text-red-700" };
+  if (hasPlan || heavy === 1) return { label: "普通：事業計画書が必要", tone: "bg-amber-100 text-amber-800" };
+  if (hasEstimate) return { label: "軽い：見積・簡易書類中心", tone: "bg-green-100 text-green-800" };
+  return { label: "要確認", tone: "bg-slate-100 text-slate-500" };
+}
