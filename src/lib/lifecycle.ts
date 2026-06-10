@@ -16,8 +16,20 @@ export type Lifecycle = {
   key: LifecycleKey;
   label: string;
   tone: string; // バッジ用 Tailwind クラス
+  icon: string; // 文字を読まなくても状態が分かるアイコン（色と併用）
   startDays: number | null;
   deadlineDays: number | null;
+};
+
+const ICON: Record<LifecycleKey, string> = {
+  ended: "－",
+  before: "🕒",
+  today_start: "🟦",
+  soon_start: "📅",
+  open: "✅",
+  deadline_7: "⚠️",
+  deadline_30: "⚠️",
+  unknown: "👀",
 };
 
 const TONE: Record<LifecycleKey, string> = {
@@ -53,7 +65,7 @@ export function lifecycle(start: string | null | undefined, deadline: string | n
   else if (dd != null && dd >= 0 && dd <= 30) key = "deadline_30";
   else if (dd != null || ds != null) key = "open";
   else key = "unknown";
-  return { key, label: LABEL[key], tone: TONE[key], startDays: ds, deadlineDays: dd };
+  return { key, label: LABEL[key], tone: TONE[key], icon: ICON[key], startDays: ds, deadlineDays: dd };
 }
 
 // 本文から「受付開始日」を推定（受付開始/募集開始/申請開始/開始日 の近くの日付）。無ければ null。

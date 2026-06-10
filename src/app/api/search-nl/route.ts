@@ -43,6 +43,19 @@ function conditionsToProfile(cond: InterpretedConditions): BusinessProfile {
   };
 }
 
+// AI 抽出条件に、類義語辞書の展開結果（目的・経費・業種・キーワード）を重複なくマージする。
+function mergeExpansion(cond: InterpretedConditions, query: string): InterpretedConditions {
+  const ex = expandQuery(query);
+  const uniq = (a: string[], b: string[]) => Array.from(new Set([...(a ?? []), ...b]));
+  return {
+    ...cond,
+    purposes: uniq(cond.purposes, ex.purposes),
+    eligible_expenses: uniq(cond.eligible_expenses, ex.expenses),
+    industries: uniq(cond.industries, ex.industries),
+    keywords: uniq(cond.keywords, ex.keywords),
+  };
+}
+
 export async function POST(req: NextRequest) {
   let query = "";
   try {
@@ -72,10 +85,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 条件抽出（AI 優先、失敗時ルールベース）
+  // 条件抽出（AI 優先、失敗時ルールベース）。
+  //   AI が抽出した場合でも、類義語辞書（synonyms.ts）の展開結果を必ずマージして
+  //   「ECサイト」「空調」などの言い換えから目的・経費・キーワードを取りこぼさないようにする。
   const aiCond = await aiExtractConditions(query);
-  const cond: InterpretedConditions = aiCond ?? ruleExtractConditions(query);
   const engine: "ai" | "rule" = aiCond ? "ai" : "rule";
+  const cond: InterpretedConditions = aiCond ? mergeExpansion(aiCond, query) : ruleExtractConditions(query);
 
   // 登録済み補助金を取得
   const { data, error } = await supabase.from("grants").select("*");

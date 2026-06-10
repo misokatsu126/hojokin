@@ -569,7 +569,7 @@ export default function DiscoveredPage() {
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                     <span className={`rounded px-2 py-0.5 text-xs font-bold ${v.pr.tone}`} title={v.pr.label}>{v.pr.rank}：{v.pr.label}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${v.lc.tone}`}>{v.lc.label}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${v.lc.tone}`}>{v.lc.icon} {v.lc.label}</span>
                     {v.score > 0 && (
                       <span className="rounded-md bg-green-100 px-2 py-0.5 text-sm font-bold text-green-800" title="あなたに合いそう度">合いそう {v.score}</span>
                     )}
