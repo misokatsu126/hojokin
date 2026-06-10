@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, logSearch } from "@/lib/supabase";
+import { supabase, logSearch, fetchProfiles } from "@/lib/supabase";
 import { aiExtractConditions } from "@/lib/ai";
 import { ruleExtractConditions, filterGrantsByConditions } from "@/lib/nlsearch";
 import { ruleMatch, classify } from "@/lib/matching";
 import { ingestUrl } from "@/lib/collect";
 import { isSampleGrant, isSampleDiscovered } from "@/lib/sampleFilter";
 import { deadlineState } from "@/lib/utils";
+import { expandQuery, followUpQuestions } from "@/lib/synonyms";
+import { lifecycle, priority } from "@/lib/lifecycle";
 import type {
   Grant,
   BusinessProfile,
@@ -101,37 +103,77 @@ export async function POST(req: NextRequest) {
     if (cond.regions.length) relaxed_search_suggestions.push("地域条件を緩和しました（全国・近隣も含む）。");
   }
 
-  // スコアリング
+  // スコアリング：相談文（仮想プロフィール）×登録済み事業プロフィールの両面で評価し、
+  //   最も相性の良いスコアを採用する（brief §11：検索文 × 事業プロフィール）。
   const vProfile = conditionsToProfile(cond);
+  let profiles: BusinessProfile[] = [];
+  try {
+    profiles = await fetchProfiles();
+  } catch {
+    profiles = [];
+  }
   const scored = used
     .map((g) => {
-      const m = ruleMatch(g, vProfile);
-      return { g, m };
+      let best = ruleMatch(g, vProfile);
+      let bestProfileName = "";
+      for (const p of profiles) {
+        const m = ruleMatch(g, p);
+        if (m.match_score > best.match_score) {
+          best = m;
+          bestProfileName = p.name;
+        }
+      }
+      return { g, m: best, bestProfileName };
     })
     .filter(({ m }) => m.match_score >= 30)
-    .sort((a, b) => b.m.match_score - a.m.match_score);
+    .sort((a, b) => {
+      const pa = priority(a.m.match_score, lifecycle(a.g.application_start, a.g.application_deadline).key).sort;
+      const pb = priority(b.m.match_score, lifecycle(b.g.application_start, b.g.application_deadline).key).sort;
+      return pb - pa;
+    });
 
-  const results: NlSearchResultItem[] = scored.map(({ g, m }) => ({
-    grant_id: g.id,
-    grant_name: g.name,
-    match_score: m.match_score,
-    recommendation: classify(m.match_score, m.status === "not_applicable").recommendation,
-    matched_reasons: m.matched_reasons,
-    possible_uses: m.possible_uses,
-    concerns: m.exclusion_risks,
-    next_actions: m.next_actions,
-    official_url: g.official_url,
-    source_type: "grant",
-    result_type: "grant",
-  }));
+  // 「なぜ出たか」：相談文から展開したカテゴリ（類義語辞書）の説明文
+  const whyReasons = expandQuery(query).reasons;
+  const whyText =
+    whyReasons.length > 0
+      ? `${whyReasons.join("／")} に関係する可能性があるため表示しています。`
+      : "相談文と事業プロフィールから、関係する可能性がある制度を表示しています。";
+
+  const results: NlSearchResultItem[] = scored.map(({ g, m, bestProfileName }) => {
+    const lc = lifecycle(g.application_start, g.application_deadline);
+    const pr = priority(m.match_score, lc.key);
+    const why = m.matched_reasons.slice(0, 2).join("／") ||
+      (bestProfileName ? `登録事業「${bestProfileName}」との相性で表示しています。` : whyText);
+    return {
+      grant_id: g.id,
+      grant_name: g.name,
+      match_score: m.match_score,
+      recommendation: classify(m.match_score, m.status === "not_applicable").recommendation,
+      matched_reasons: m.matched_reasons,
+      possible_uses: m.possible_uses,
+      concerns: m.exclusion_risks,
+      next_actions: m.next_actions,
+      official_url: g.official_url,
+      source_type: "grant",
+      result_type: "grant",
+      why,
+      priority: pr.rank,
+    };
+  });
 
   // 見つかった補助金も検索対象にする（grants は維持）
   const discovered_results = await searchDiscovered(query, cond);
 
+  // 精度を上げるための確認質問（候補は出したうえで追加で尋ねる：brief §9）
+  const follow_up_questions = followUpQuestions(query, cond);
+
+  const totalFound = results.length + (discovered_results?.length ?? 0);
   const summary =
-    results.length === 0
-      ? "条件に合う登録済みの制度は見つかりませんでした。条件を変えるか、補助金を登録してください。"
-      : `${results.length}件の候補が見つかりました。上位は「${results[0].grant_name}」です。これは登録済みデータに基づく一次判定です。`;
+    totalFound === 0
+      ? "完全に一致する制度は見つかりませんでしたが、条件を広げて近い可能性のある制度を探しました。公式URLを貼ると、その制度も候補として確認できます。"
+      : results.length === 0
+        ? `登録済みの制度では一致しませんでしたが、自動収集で見つかった候補が${discovered_results!.length}件あります。${whyText}`
+        : `${results.length}件の使える可能性がある制度が見つかりました。${whyText}まずは上位から公式ページで確認してください。`;
 
   await logSearch(query, cond, results.length);
 
@@ -143,6 +185,8 @@ export async function POST(req: NextRequest) {
     engine,
     discovered_results,
     ingested,
+    why: whyText,
+    follow_up_questions,
   };
   return NextResponse.json(response);
 }

@@ -90,17 +90,17 @@ export function AutoCollectSection() {
   if (loading || unavailable) return null;
 
   const cards = [
-    { title: "本日開始", tone: "blue", rows: todayStart, href: "/discovery/items?view=today-start" },
+    { title: "まず確認すべき", tone: "green", rows: high, href: "/discovery/items?view=high" },
+    { title: "締切が近い", tone: "red", rows: deadlineSoon, href: "/discovery/items?view=deadline" },
+    { title: "本日から受付", tone: "blue", rows: todayStart, href: "/discovery/items?view=today-start" },
     { title: "近日開始", tone: "sky", rows: soonStart, href: "/discovery/items?view=soon-start" },
-    { title: "締切間近", tone: "red", rows: deadlineSoon, href: "/discovery/items?view=deadline" },
-    { title: "自社に合う", tone: "green", rows: high, href: "/discovery/items?view=high" },
-    { title: "確認待ち", tone: "amber", rows: waiting, href: "/discovery/items?view=unreviewed" },
+    { title: "新しく見つかった", tone: "amber", rows: waiting, href: "/discovery/items?view=unreviewed" },
   ];
 
   return (
     <div className="mb-6 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-bold text-ink">今日の補助金チェック</h2>
+        <h2 className="text-base font-bold text-ink">あなたが確認する価値がある制度</h2>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border p-0.5 text-xs">
             {(["all", "business", "individual"] as AudienceFilter[]).map((f) => (

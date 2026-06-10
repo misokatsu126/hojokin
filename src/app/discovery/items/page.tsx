@@ -39,7 +39,7 @@ import { ChecklistPanel } from "@/components/ChecklistPanel";
 import { formatDate, formatAmount, daysUntil } from "@/lib/utils";
 import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags, scoreDiscoveredAgainstProfiles, ruleExtract, suggestNextActions, buildNormalizedKey } from "@/lib/discovery";
 import { isSampleDiscovered, sampleButtonsVisible } from "@/lib/sampleFilter";
-import { lifecycle, extractStartDate, feasibility, preparation } from "@/lib/lifecycle";
+import { lifecycle, extractStartDate, feasibility, preparation, priority } from "@/lib/lifecycle";
 import { SAMPLE_DISCOVERED_ITEMS } from "@/lib/samples";
 
 type AddForm = {
@@ -93,6 +93,8 @@ export default function DiscoveredPage() {
   const [fStartToday, setFStartToday] = useState(false);
   const [fStartSoon, setFStartSoon] = useState(false);
   const [showSamples, setShowSamples] = useState(false);
+  // 表示モード：初心者モード（既定）＝判断に必要な情報だけ／詳細モード＝管理・検証用情報も表示
+  const [detailMode, setDetailMode] = useState(false);
 
   // トップの各カードからの遷移（?view=...）でフィルター初期化
   useEffect(() => {
@@ -141,12 +143,15 @@ export default function DiscoveredPage() {
     const ex = ruleExtract(item);
     const start = extractStartDate(item.raw_text);
     const deadline = item.extracted_deadline ?? sc.deadline;
+    const score = item.match_score ?? sc.bestScore;
+    const lc = lifecycle(start, deadline);
     return {
-      score: item.match_score ?? sc.bestScore,
+      score,
       profile: item.match_profile ?? sc.bestProfile,
       deadline,
       start,
-      lc: lifecycle(start, deadline),
+      lc,
+      pr: priority(score, lc.key),
       reason: item.match_reason ?? sc.reason,
       regions: ex.target_regions,
       maxAmount: ex.max_amount,
@@ -181,7 +186,7 @@ export default function DiscoveredPage() {
   const isCrossDup = (it: DiscoveredItem) =>
     crossDupKeys.has(it.normalized_key ?? buildNormalizedKey(it.title));
 
-  // フィルター適用後の候補
+  // フィルター適用後の候補（既定で「使えそうな順／確認すべき順」に並べる：brief §13）
   const filtered = useMemo(() => {
     return items.filter((it) => {
       const v = viewMap.get(it.id)!;
@@ -202,7 +207,7 @@ export default function DiscoveredPage() {
       }
       if (fRegion && !v.regions.includes(fRegion)) return false;
       return true;
-    });
+    }).sort((a, b) => viewMap.get(b.id)!.pr.sort - viewMap.get(a.id)!.pr.sort);
   }, [items, viewMap, fHigh, fDeadline, fUnreviewed, fApplicant, fProfile, fSource, siteMap, fRegion, showSamples, fStartToday, fStartSoon]);
 
   async function setReview(item: DiscoveredItem, state: ReviewState) {
@@ -398,25 +403,28 @@ export default function DiscoveredPage() {
       )}
 
       <HelpBox title="この画面でできること">
-        集まった補助金の「候補」が並ぶ画面です。各候補は、まだ下書き段階の情報です。中身を確認し、使えそうなものは「内容を整理」で条件を整理してから、次の確認画面（整理済み候補）へ進めます。
-        紹介サイトや記事で見つけた補助金は「＋ 手動で候補を追加」から登録できます。
+        あなたが使えるかもしれない補助金・助成金の「候補」が、確認すべき順（S/A/B/C/D）に並びます。
+        各候補は公式情報の確認前の下書きです。気になるものは「公式ページを見る」で確認し、使えそうなら「申請を検討する」、不要なら「今回は使わない」に整理できます。
+        既定は<strong>初心者モード</strong>（判断に必要な情報だけ表示）。管理・検証用の情報を見たいときは右上の<strong>詳細モード</strong>に切り替えてください。
       </HelpBox>
 
       <ButtonGuide
         items={[
-          { label: "内容を整理する", desc: "候補の文章やURLから、補助金の対象・金額・締切などをAI（鍵が無ければ簡易ルール）が読み取って整理します。整理後は整理済み候補の画面に並びます。" },
-          { label: "本文を貼り付け/編集", desc: "URLからうまく本文が取れないとき、ページの文章を自分で貼り付けて、抽出の精度を上げられます。" },
-          { label: "抽出候補を見る", desc: "整理済みの候補（整理済み候補）の確認画面へ移動します。" },
-          { label: "無視 / 却下", desc: "今は不要な候補を、一覧で目立たないように分類します（削除ではありません）。" },
-          { label: "削除", desc: "この候補を一覧から完全に消します。" },
-          { label: "＋ 手動で候補を追加", desc: "見つけた補助金のタイトル・URL・本文を貼り付けて、候補として登録します（この時点では管理対象に登録ではありません）。" },
-          { label: "サンプル3件を登録", desc: "動作確認用に、見本の候補を3件登録します（お試し用）。" },
+          { label: "公式ページを見る", desc: "この候補の元になった公式ページ・公募要領を新しいタブで開きます。最終判断は必ずここで確認してください。" },
+          { label: "申請を検討する / 今回は使わない", desc: "使えそうな候補は「申請を検討する」、不要な候補は「今回は使わない」で整理します（削除ではありません）。" },
+          { label: "対象・金額・締切を確認する", desc: "候補の文章やURLから、補助金の対象・金額・締切などをAI（鍵が無ければ簡易ルール）が読み取って整理します。" },
+          { label: "申請前チェック", desc: "公式ページで確認すべき項目（対象地域・締切・対象経費・事前着手の可否など）をチェックリストで確認できます。" },
+          { label: "（詳細モード）本文を貼り付け/編集・無視/却下・削除", desc: "本文の貼り付けや、管理用の分類・削除は詳細モードで操作できます。" },
         ]}
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold text-ink">見つかった補助金</h1>
-        <div className="flex gap-2">
+        <h1 className="text-xl font-bold text-ink">候補になった補助金・助成金</h1>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border p-0.5 text-xs">
+            <button onClick={() => setDetailMode(false)} className={`rounded px-2.5 py-1 transition ${!detailMode ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>初心者モード</button>
+            <button onClick={() => setDetailMode(true)} className={`rounded px-2.5 py-1 transition ${detailMode ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>詳細モード</button>
+          </div>
           {sampleButtonsVisible() && (
             <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
               サンプル3件を登録
@@ -560,13 +568,16 @@ export default function DiscoveredPage() {
                     {attribution && <div className="mt-0.5 text-[11px] text-gray-500">{attribution}</div>}
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <span className={`rounded px-2 py-0.5 text-xs font-bold ${v.pr.tone}`} title={v.pr.label}>{v.pr.rank}：{v.pr.label}</span>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${v.lc.tone}`}>{v.lc.label}</span>
                     {v.score > 0 && (
-                      <span className="rounded-md bg-green-100 px-2 py-0.5 text-sm font-bold text-green-800">相性 {v.score}</span>
+                      <span className="rounded-md bg-green-100 px-2 py-0.5 text-sm font-bold text-green-800" title="あなたに合いそう度">合いそう {v.score}</span>
                     )}
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${REVIEW_STATE_COLORS[v.reviewState]}`}>
-                      {REVIEW_STATE_LABEL[v.reviewState]}
-                    </span>
+                    {detailMode && (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${REVIEW_STATE_COLORS[v.reviewState]}`}>
+                        {REVIEW_STATE_LABEL[v.reviewState]}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -579,7 +590,7 @@ export default function DiscoveredPage() {
                 </div>
                 {v.reason && (
                   <p className="mb-2 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600">
-                    <span className="font-medium text-slate-500">AI判定：</span>{v.reason}
+                    <span className="font-medium text-slate-500">なぜ候補に出たか：</span>{v.reason}
                   </p>
                 )}
 
@@ -601,14 +612,16 @@ export default function DiscoveredPage() {
                   ))}
                 </div>
 
-                <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                  <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
-                    {DETECTION_TYPE_LABEL[item.detection_type]}
-                  </span>
-                  <SourceTypeBadge type={category} />
-                  <TrustBadge level={item.trust_level} />
-                  <VerificationBadge status={item.verification_status} />
-                </div>
+                {detailMode && (
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                      {DETECTION_TYPE_LABEL[item.detection_type]}
+                    </span>
+                    <SourceTypeBadge type={category} />
+                    <TrustBadge level={item.trust_level} />
+                    <VerificationBadge status={item.verification_status} />
+                  </div>
+                )}
 
                 {(item.duplicate_of || isCrossDup(item)) && (
                   <p className="mb-2 inline-block rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
@@ -633,21 +646,21 @@ export default function DiscoveredPage() {
                       公式ページを見る ↗
                     </a>
                   )}
-                  {item.url && (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">検知元URL ↗</a>
-                  )}
-                  {item.official_url && (
-                    <a href={item.official_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">公式URL ↗</a>
-                  )}
                   {(item.official_pdf_url || item.pdf_url) && (
                     <a href={item.official_pdf_url ?? item.pdf_url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">公募要領PDF ↗</a>
                   )}
-                  {item.fetched_at && (
+                  {detailMode && item.url && (
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">検知元URL ↗</a>
+                  )}
+                  {detailMode && item.official_url && (
+                    <a href={item.official_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">公式URL ↗</a>
+                  )}
+                  {detailMode && item.fetched_at && (
                     <span className="text-gray-400">取得 {formatDate(item.fetched_at)}{item.extraction_confidence != null ? `・確信度${item.extraction_confidence}` : ""}</span>
                   )}
                 </div>
 
-                {item.raw_text && <p className="mb-2 line-clamp-2 text-sm text-gray-600">{item.raw_text}</p>}
+                {detailMode && item.raw_text && <p className="mb-2 line-clamp-2 text-sm text-gray-600">{item.raw_text}</p>}
 
                 <div className="mb-3 space-y-2">
                   <SecondarySourceWarning show={secondary} />
@@ -701,18 +714,35 @@ export default function DiscoveredPage() {
                 </div>
 
                 {/* 状態の変更（AI判定と人間確認を区別） */}
-                <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="text-gray-400">状態：</span>
-                  {(["unconfirmed", "human_ok", "applicant", "not_needed"] as ReviewState[]).map((st) => (
+                {detailMode ? (
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-gray-400">状態：</span>
+                    {(["unconfirmed", "human_ok", "applicant", "not_needed"] as ReviewState[]).map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => setReview(item, st)}
+                        className={`rounded-full border px-2.5 py-0.5 ${v.reviewState === st ? REVIEW_STATE_COLORS[st] + " border-transparent font-medium" : "text-gray-600 hover:bg-gray-50"}`}
+                      >
+                        {REVIEW_STATE_LABEL[st]}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                     <button
-                      key={st}
-                      onClick={() => setReview(item, st)}
-                      className={`rounded-full border px-2.5 py-0.5 ${v.reviewState === st ? REVIEW_STATE_COLORS[st] + " border-transparent font-medium" : "text-gray-600 hover:bg-gray-50"}`}
+                      onClick={() => setReview(item, "applicant")}
+                      className={`rounded-md px-3 py-1.5 font-medium ${v.reviewState === "applicant" ? "bg-purple-600 text-white" : "border border-purple-300 text-purple-700 hover:bg-purple-50"}`}
                     >
-                      {REVIEW_STATE_LABEL[st]}
+                      📝 申請を検討する
                     </button>
-                  ))}
-                </div>
+                    <button
+                      onClick={() => setReview(item, "not_needed")}
+                      className={`rounded-md px-3 py-1.5 ${v.reviewState === "not_needed" ? "bg-gray-400 text-white" : "border border-gray-300 text-gray-500 hover:bg-gray-50"}`}
+                    >
+                      － 今回は使わない
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-2 text-sm">
                   {(item.official_url || item.url) && (
@@ -727,34 +757,38 @@ export default function DiscoveredPage() {
                     </a>
                   )}
                   <button
+                    onClick={() => setChecklistId((id) => (id === item.id ? null : item.id))}
+                    className={`rounded-md border px-3 py-1.5 text-xs ${checklistId === item.id ? "border-accent bg-accent/5 text-accent" : "text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    申請前チェック
+                  </button>
+                  <button
                     onClick={() => extract(item)}
                     disabled={extractingId === item.id}
                     className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                   >
-                    {extractingId === item.id ? "抽出中…" : "内容を整理する"}
+                    {extractingId === item.id ? "整理中…" : "対象・金額・締切を確認する"}
                   </button>
-                  <button
-                    onClick={() => startEditText(item)}
-                    className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
-                  >
-                    本文を貼り付け/編集
-                  </button>
-                  <Link href="/discovery/review" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">
-                    抽出候補を見る
-                  </Link>
-                  <button
-                    onClick={() => setChecklistId((id) => (id === item.id ? null : item.id))}
-                    className={`rounded-md border px-3 py-1.5 text-xs ${checklistId === item.id ? "border-accent bg-accent/5 text-accent" : "text-gray-600 hover:bg-gray-50"}`}
-                  >
-                    公式確認チェックリスト
-                  </button>
-                  {item.status !== "ignored" && (
-                    <button onClick={() => setStatus(item, "ignored")} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">無視</button>
+                  {detailMode && (
+                    <>
+                      <button
+                        onClick={() => startEditText(item)}
+                        className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                      >
+                        本文を貼り付け/編集
+                      </button>
+                      <Link href="/discovery/review" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">
+                        AIの参考整理を見る
+                      </Link>
+                      {item.status !== "ignored" && (
+                        <button onClick={() => setStatus(item, "ignored")} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">無視</button>
+                      )}
+                      {item.status !== "rejected" && (
+                        <button onClick={() => setStatus(item, "rejected")} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">却下</button>
+                      )}
+                      <button onClick={() => remove(item.id)} className="rounded-md border px-3 py-1.5 text-xs text-red-500 hover:bg-red-50">削除</button>
+                    </>
                   )}
-                  {item.status !== "rejected" && (
-                    <button onClick={() => setStatus(item, "rejected")} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">却下</button>
-                  )}
-                  <button onClick={() => remove(item.id)} className="rounded-md border px-3 py-1.5 text-xs text-red-500 hover:bg-red-50">削除</button>
                 </div>
 
                 {checklistId === item.id && (

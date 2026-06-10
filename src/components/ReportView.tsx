@@ -52,7 +52,7 @@ export function ReportView({
       <div className="mb-4">
         <h2 className="text-lg font-bold text-ink">補助金・助成金 候補レポート</h2>
         <p className="text-sm text-gray-600">対象（お客様・事業）：{profileName}</p>
-        <p className="text-xs text-gray-400">候補件数：{items.length}件（高相性{high.length}・締切30日以内{deadlineSoon.length}）</p>
+        <p className="text-xs text-gray-400">候補件数：{items.length}件（まず確認すべき{high.length}・締切30日以内{deadlineSoon.length}）</p>
       </div>
 
       {items.length === 0 ? (
@@ -69,7 +69,7 @@ export function ReportView({
                     <span className="text-sm font-semibold text-ink">{it.title}</span>
                     <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{it.kindLabel}</span>
                   </div>
-                  <span className="shrink-0 rounded bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">相性 {it.score}</span>
+                  <span className="shrink-0 rounded bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">合いそう度 {it.score}</span>
                 </div>
                 <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-600 sm:grid-cols-4">
                   <span>出典：{it.source}</span>

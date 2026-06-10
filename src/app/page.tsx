@@ -86,25 +86,58 @@ export default function DashboardPage() {
 
   const empty = grants.length === 0 && profiles.length === 0;
 
+  // 事業情報の登録不足を判定（brief §25）：未登録、または地域・業種が空のプロフィールしかない
+  const profileWeak =
+    profiles.length === 0 ||
+    profiles.every((p) => p.regions.length === 0 || p.industries.length === 0);
+
   return (
     <div>
-      <h1 className="mb-4 text-xl font-bold text-ink">ホーム</h1>
+      {/* ヒーロー：このサイトの主役は「あなたが使えるかもしれない補助金・助成金」 */}
+      <div className="mb-6 rounded-xl border bg-gradient-to-br from-sky-50 to-white p-5">
+        <h1 className="text-xl font-bold text-ink sm:text-2xl">あなたが使えるかもしれない補助金・助成金を探します</h1>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+          補助金・助成金は、どこの何が自分に使えるのか分かりにくいものです。
+          このサイトは、登録した事業情報をもとに使える可能性がある制度を自動で探し、確認すべき順番に並べます。
+          AI判定はあくまで候補探しの補助です。最終判断は必ず公式ページで確認してください。
+        </p>
+      </div>
 
-      <TopQuickActions />
+      {/* 事業情報の登録不足バナー（精度向上の導線） */}
+      {profileWeak && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="text-sm text-amber-900">
+            <p className="font-semibold">まだ事業情報が少ないため、候補の精度が低い可能性があります。</p>
+            <p className="mt-0.5 text-xs text-amber-700">所在地・業種・法人種別・やりたいことを登録すると、あなたに合う制度を見つけやすくなります。</p>
+          </div>
+          <Link href="/setup" className="shrink-0 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+            事業情報を登録する →
+          </Link>
+        </div>
+      )}
 
-      <AutoCollectSection />
-
+      {/* 相談して探す（主役の導線。検索ではなく“相談”） */}
       <div className="mb-6 rounded-lg border bg-white p-4">
+        <h2 className="mb-1 text-base font-bold text-ink">やりたいことから相談して探す</h2>
+        <p className="mb-3 text-xs text-gray-500">制度名を知らなくても大丈夫です。やりたいこと・困っていることを、そのまま入力してください。</p>
         <NlSearchBox />
       </div>
 
+      {/* あなたが使えるかもしれない制度（優先順位付きカード） */}
+      <AutoCollectSection />
+
+      <TopQuickActions />
+
       {empty && (
         <div className="mb-6 rounded-lg border border-dashed bg-white p-6 text-sm text-gray-500">
-          まずは <Link href="/profiles" className="text-accent hover:underline">事業プロフィール</Link> を登録し、
-          <Link href="/admin" className="text-accent hover:underline">補助金登録</Link> から補助金を追加してください。
-          登録時に全事業と自動照合され、ここに高相性アラートが表示されます。
+          まずは <Link href="/setup" className="text-accent hover:underline">事業プロフィール</Link> を登録し、
+          <Link href="/discovery/sources" className="text-accent hover:underline">補助金の自動収集</Link> を実行してください。
+          登録時に全事業と自動照合され、使える可能性がある制度がここに並びます。
         </div>
       )}
+
+      {/* ここから下は登録済み制度の管理状況（台帳） */}
+      <h2 className="mb-3 mt-8 border-t pt-6 text-sm font-semibold text-gray-500">登録済み制度の管理状況</h2>
 
       {/* サマリー数値 */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

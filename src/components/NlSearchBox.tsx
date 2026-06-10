@@ -5,12 +5,25 @@ import Link from "next/link";
 import type { NlSearchResponse } from "@/lib/types";
 import { ScoreBadge } from "./Badges";
 
+// 優先度ラベル（S/A/B/C/D）の色
+function priorityTone(rank: string): string {
+  switch (rank) {
+    case "S": return "bg-rose-600 text-white";
+    case "A": return "bg-green-600 text-white";
+    case "B": return "bg-amber-500 text-white";
+    case "C": return "bg-slate-400 text-white";
+    default: return "bg-gray-200 text-gray-500";
+  }
+}
+
 const EXAMPLES = [
-  "愛知県の小売店で、店舗改装に使える補助金は？",
-  "名古屋市でECサイト改善に使える補助金を探して",
-  "一般社団法人が健康イベントに使える助成金は？",
-  "AI導入や業務自動化に使える補助金は？",
-  "補助上限100万円以上で募集中の制度だけ出して",
+  "ECサイトを作りたい",
+  "新規事業を始めたい",
+  "空調を入れ替えたい",
+  "広告宣伝に使いたい",
+  "人を採用したい",
+  "店舗を改装したい",
+  "AIを導入したい",
 ];
 
 export function NlSearchBox({ compact = false }: { compact?: boolean }) {
@@ -71,15 +84,15 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && run()}
-          placeholder="自然文で検索：例「空調設備に使える補助金は？」"
+          placeholder="例：ECサイトを作りたい / 新規事業を始めたい / 空調を入れ替えたい"
           className="flex-1 rounded-md border px-3 py-2 text-sm"
         />
         <button
           onClick={() => run()}
           disabled={loading}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          className="shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
-          {loading ? "検索中…" : "AI検索"}
+          {loading ? "探しています…" : "使える可能性を探す"}
         </button>
       </div>
 
@@ -116,46 +129,69 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
 
           <InterpretedView res={res} />
 
+          {res.why && res.results.length > 0 && (
+            <p className="mb-2 rounded-md bg-sky-50 px-2 py-1 text-xs text-sky-800">
+              <span className="font-medium">なぜ出たか：</span>{res.why}
+            </p>
+          )}
+
           {res.relaxed_search_suggestions.length > 0 && (
             <p className="mb-2 text-xs text-amber-700">
               {res.relaxed_search_suggestions.join(" ")}
             </p>
           )}
 
+          {res.results.length > 0 && (
+            <h4 className="mb-1.5 text-sm font-semibold text-ink">この相談に近い補助金・助成金</h4>
+          )}
           <div className="space-y-2">
             {res.results.map((item) => (
               <div key={item.grant_id} className="rounded-lg border bg-white p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800">管理対象に登録済み</span>
+                    {item.priority && (
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${priorityTone(item.priority)}`}>{item.priority}</span>
+                    )}
                     <Link href={`/grants/${item.grant_id}`} className="truncate font-semibold text-ink hover:text-accent hover:underline">
                       {item.grant_name}
                     </Link>
                   </span>
                   <ScoreBadge score={item.match_score} recommendation={item.recommendation} />
                 </div>
-                {item.matched_reasons.length > 0 && (
-                  <p className="text-xs text-gray-500">該当理由：{item.matched_reasons.slice(0, 2).join(" / ")}</p>
+                {item.why && (
+                  <p className="text-xs text-gray-600"><span className="text-gray-400">理由：</span>{item.why}</p>
                 )}
                 {item.possible_uses.length > 0 && (
                   <p className="text-xs text-gray-500">使えそうな用途：{item.possible_uses.slice(0, 3).join("、")}</p>
                 )}
                 {item.concerns.length > 0 && (
-                  <p className="text-xs text-red-500">懸念点：{item.concerns[0]}</p>
+                  <p className="text-xs text-red-500">注意点：{item.concerns[0]}</p>
+                )}
+                {item.next_actions.length > 0 && (
+                  <p className="mt-0.5 text-xs text-orange-700">次にやること：{item.next_actions.slice(0, 3).join(" → ")}</p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-3 text-xs">
                   <Link href={`/grants/${item.grant_id}`} className="text-accent hover:underline">
                     詳細・事業別判定を見る →
                   </Link>
                   {item.official_url && (
-                    <a href={item.official_url} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:underline">
-                      公式サイト ↗
+                    <a href={item.official_url} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 hover:underline">
+                      公式ページを見る ↗
                     </a>
                   )}
                 </div>
               </div>
             ))}
           </div>
+
+          {res.follow_up_questions && res.follow_up_questions.length > 0 && (
+            <div className="mt-3 rounded-md border border-sky-200 bg-sky-50 p-3">
+              <p className="mb-1 text-xs font-medium text-sky-800">より正確に探すために、次の情報があると精度が上がります：</p>
+              <ul className="list-disc space-y-0.5 pl-5 text-xs text-sky-700">
+                {res.follow_up_questions.map((q) => <li key={q}>{q}</li>)}
+              </ul>
+            </div>
+          )}
 
           {res.discovered_results && res.discovered_results.length > 0 && (
             <div className="mt-4">

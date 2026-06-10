@@ -31,15 +31,15 @@ export function TopQuickActions() {
     <div className="mb-6 grid gap-4 lg:grid-cols-2">
       {/* URLから追加 */}
       <div className="rounded-lg border bg-white p-4">
-        <h2 className="mb-1 text-sm font-semibold text-ink">URLから補助金を追加</h2>
-        <p className="mb-2 text-xs text-gray-500">J-Net21や自治体ページのURLを貼るだけで候補に追加できます。</p>
+        <h2 className="mb-1 text-sm font-semibold text-ink">見つけた補助金ページを貼る</h2>
+        <p className="mb-2 text-xs text-gray-500">J-Net21や自治体ページのURLを貼ると、このツールに候補として追加できます。</p>
         <div className="flex flex-wrap gap-2">
           <input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && add()}
-            placeholder="https://j-net21.smrj.go.jp/snavi2/articles/..."
+            placeholder="J-Net21や市役所の補助金ページURLを貼ってください"
             className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm"
           />
           <button onClick={add} disabled={busy} className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
@@ -56,10 +56,10 @@ export function TopQuickActions() {
                   <a href={res.official_url ?? res.source_url ?? "#"} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 underline">公式ページを見る↗</a>
                 )}
                 {" ／ "}
-                <Link href="/discovery/items" className="font-medium text-emerald-700 underline">見つかった補助金を見る</Link>
+                <Link href="/discovery/items" className="font-medium text-emerald-700 underline">候補を見る</Link>
               </span>
             ) : (
-              <span>追加できませんでした：{res.error ?? "不明"}（取得できないページもあります）</span>
+              <span>このページは自動で読み取れませんでした：{res.error ?? "不明"}。ページ本文を貼り付けると確認できます（候補一覧の「本文を貼り付け」）。</span>
             )}
           </div>
         )}

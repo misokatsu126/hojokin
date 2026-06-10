@@ -1,9 +1,14 @@
 import type { Grant, InterpretedConditions } from "./types";
 import { REGIONS, INDUSTRIES, PURPOSES, ENTITY_TYPES, EXPENSE_CATEGORIES } from "./constants";
+import { expandQuery } from "./synonyms";
 
-// 自然文から検索条件をルールベースで抽出（OpenAI 未設定時のフォールバック）
+// 自然文から検索条件をルールベースで抽出（OpenAI 未設定時のフォールバック）。
+//   制度名を知らない初心者向けに、類義語辞書（synonyms.ts）で
+//   「やりたいこと・使いたい経費」を目的/経費/業種/キーワードに展開して補強する。
 export function ruleExtractConditions(text: string): InterpretedConditions {
   const found = (vocab: readonly string[]) => vocab.filter((v) => v !== "全国" && v !== "全業種" && text.includes(v));
+  const expanded = expandQuery(text);
+  const uniq = (a: string[], b: string[]) => Array.from(new Set([...a, ...b]));
 
   // 金額（「100万円以上」「上限100万」など）
   let min_grant_amount: number | null = null;
@@ -26,14 +31,14 @@ export function ruleExtractConditions(text: string): InterpretedConditions {
 
   return {
     regions: found(REGIONS),
-    industries: found(INDUSTRIES),
+    industries: uniq(found(INDUSTRIES), expanded.industries),
     business_types: found(ENTITY_TYPES),
-    purposes: found(PURPOSES),
-    eligible_expenses: found(EXPENSE_CATEGORIES),
+    purposes: uniq(found(PURPOSES), expanded.purposes),
+    eligible_expenses: uniq(found(EXPENSE_CATEGORIES), expanded.expenses),
     min_grant_amount,
     deadline_condition,
     status,
-    keywords: [],
+    keywords: expanded.keywords,
   };
 }
 

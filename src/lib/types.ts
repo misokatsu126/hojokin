@@ -176,6 +176,10 @@ export type NlSearchResultItem = {
   official_url: string | null;
   source_type?: "grant";
   result_type?: "grant";
+  // この相談文・事業プロフィールで「なぜ候補に出たか」の初心者向け説明
+  why?: string;
+  // 優先度ラベル（S/A/B/C/D）
+  priority?: string;
 };
 
 // 自然文検索で返す「自動検知候補（discovered_items）」側の結果
@@ -214,6 +218,10 @@ export type NlSearchResponse = {
   discovered_results?: DiscoveredSearchItem[];
   // 検索文にURLが含まれていた場合の直接取り込み結果（任意）
   ingested?: IngestResult;
+  // この相談文・事業プロフィールで「なぜこの候補群が出たか」の説明（brief §8）
+  why?: string;
+  // 精度を上げるための確認質問（brief §9）
+  follow_up_questions?: string[];
 };
 
 // =============================================================

@@ -87,6 +87,38 @@ export function feasibility(deadline: string | null | undefined): { label: strin
   return { label: "かなり厳しい", tone: "bg-red-100 text-red-700" };
 }
 
+// 優先度 S/A/B/C/D（brief §13）。
+//   相性スコアを軸に、締切が近い・本日開始など「急ぐ理由」があれば一段引き上げる。
+//   ※「申請できる」とは断定しない。あくまで“確認する価値”の高さ。
+export type Priority = { rank: "S" | "A" | "B" | "C" | "D"; label: string; tone: string; sort: number };
+const PRIORITY_LABEL: Record<Priority["rank"], string> = {
+  S: "最優先で確認",
+  A: "かなり確認する価値あり",
+  B: "条件次第で可能性あり",
+  C: "参考程度",
+  D: "今回は低そう",
+};
+const PRIORITY_TONE: Record<Priority["rank"], string> = {
+  S: "bg-rose-600 text-white",
+  A: "bg-green-600 text-white",
+  B: "bg-amber-500 text-white",
+  C: "bg-slate-400 text-white",
+  D: "bg-gray-200 text-gray-500",
+};
+export function priority(score: number, lc?: LifecycleKey | null): Priority {
+  const urgent = lc === "deadline_7" || lc === "deadline_30" || lc === "today_start";
+  const ended = lc === "ended";
+  let rank: Priority["rank"];
+  if (ended) rank = "D";
+  else if (score >= 80 && urgent) rank = "S";
+  else if (score >= 80) rank = "A";
+  else if (score >= 60) rank = urgent ? "A" : "B";
+  else if (score >= 40) rank = "C";
+  else rank = "D";
+  const sortBase: Record<Priority["rank"], number> = { S: 5, A: 4, B: 3, C: 2, D: 1 };
+  return { rank, label: PRIORITY_LABEL[rank], tone: PRIORITY_TONE[rank], sort: sortBase[rank] * 1000 + score };
+}
+
 // 準備の重さ（軽い/普通/重い/要確認）をルールベースで判定
 export function preparation(opts: {
   text?: string | null;

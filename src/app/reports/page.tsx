@@ -86,7 +86,7 @@ export default function ReportsPage() {
       if (!notExpired(ex.deadline)) continue;
       out.push({
         kind: "discovered",
-        kindLabel: "見つかった補助金（未確認）",
+        kindLabel: "候補になった制度（公式確認前）",
         title: it.title ?? "（無題）",
         source: it.external_source === "jnet21" ? "J-Net21" : it.external_source === "mirasapo" ? "ミラサポplus" : it.external_source ?? "自動収集",
         regions: ex.target_regions,
@@ -156,9 +156,9 @@ export default function ReportsPage() {
   return (
     <div>
       <div className="no-print">
-        <h1 className="mb-2 text-xl font-bold text-ink">お客様向けレポート</h1>
+        <h1 className="mb-2 text-xl font-bold text-ink">このお客様が確認すべき補助金・助成金</h1>
         <p className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
-          事業（顧客）を選んで「レポート作成」を押すと、その事業に合いそうな補助金（相性60点以上・締切前）を一覧にします。「印刷 / PDF保存」でそのまま渡せます。
+          事業（お客様）を選んで「レポート作成」を押すと、その事業に合いそうな制度（合いそう度60点以上・締切前）を確認すべき順に一覧にします。「印刷 / PDF保存」でそのままお客様に渡せます。
         </p>
 
         {error && <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
