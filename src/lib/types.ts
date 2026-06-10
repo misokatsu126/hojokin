@@ -12,6 +12,9 @@ import type {
   VerificationStatus,
   ReviewStatus,
   AudienceType,
+  ReviewState,
+  ChecklistStatus,
+  NotificationType,
 } from "./constants";
 
 export type Grant = {
@@ -171,6 +174,34 @@ export type NlSearchResultItem = {
   concerns: string[];
   next_actions: string[];
   official_url: string | null;
+  source_type?: "grant";
+  result_type?: "grant";
+};
+
+// 自然文検索で返す「自動検知候補（discovered_items）」側の結果
+export type DiscoveredSearchItem = {
+  source_type: "discovered_item";
+  result_type: "discovered_item";
+  id: string;
+  title: string;
+  url: string | null;
+  official_url: string | null;
+  external_source: string | null;
+  match_score: number | null;
+  match_profile: string | null;
+  status: string;
+  fetched_at: string | null;
+  score: number; // 検索関連度
+};
+
+// URL直接取り込みの結果（検索文にURLが含まれていた場合）
+export type IngestResult = {
+  ok: boolean;
+  title?: string;
+  url?: string;
+  official_url?: string | null;
+  inserted?: boolean;
+  error?: string;
 };
 
 export type NlSearchResponse = {
@@ -179,6 +210,10 @@ export type NlSearchResponse = {
   relaxed_search_suggestions: string[];
   summary: string;
   engine: "ai" | "rule";
+  // 自動検知候補（discovered_items）側の検索結果（任意・後方互換）
+  discovered_results?: DiscoveredSearchItem[];
+  // 検索文にURLが含まれていた場合の直接取り込み結果（任意）
+  ingested?: IngestResult;
 };
 
 // =============================================================
@@ -246,6 +281,19 @@ export type DiscoveredItem = {
   external_source?: string | null;
   // discovery_dedup_schema.sql で追加（情報源をまたいだ重複検知用の正規化キー）
   normalized_key?: string | null;
+  // discovery_fetch_schema.sql で追加（実HTTP取得メタ）
+  fetched_at?: string | null;
+  extraction_confidence?: number | null;
+  // discovery_match_schema.sql で追加（事業プロフィールとの自動照合結果）
+  match_score?: number | null;
+  match_profile?: string | null;
+  match_recommendation?: string | null;
+  extracted_deadline?: string | null;
+  // discovery_ui_schema.sql で追加（人による確認状態・相性理由）
+  review_state?: ReviewState | null;
+  match_reason?: string | null;
+  // discovery_note_schema.sql で追加（担当者メモ）
+  human_note?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -331,4 +379,51 @@ export type ExtractionResult = {
   professional_check_recommended: boolean;
   confidence_score: number;
   missing_fields: string[];
+};
+
+// 申請前 公式確認チェックリスト
+export type ApplicationChecklist = {
+  id: string;
+  grant_id: string | null;
+  discovered_item_id: string | null;
+  profile_id: string | null;
+  checked_official_page: boolean;
+  checked_guideline: boolean;
+  checked_deadline: boolean;
+  checked_target_area: boolean;
+  checked_target_business: boolean;
+  checked_entity_type: boolean;
+  checked_eligible_expenses: boolean;
+  checked_subsidy_rate: boolean;
+  checked_subsidy_amount: boolean;
+  checked_pre_application_rule: boolean;
+  checked_required_documents: boolean;
+  checked_gbizid: boolean;
+  checked_estimates: boolean;
+  checked_application_method: boolean;
+  checked_budget_limit: boolean;
+  checked_contact: boolean;
+  memo: string | null;
+  status: ChecklistStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+// 通知候補
+export type NotificationCandidate = {
+  id: string;
+  discovered_item_id: string | null;
+  grant_id: string | null;
+  profile_name: string | null;
+  notification_type: NotificationType | string;
+  title: string | null;
+  source: string | null;
+  source_url: string | null;
+  official_url: string | null;
+  match_score: number | null;
+  deadline: string | null;
+  message: string | null;
+  status: "pending" | "sent" | "dismissed" | "failed";
+  created_at: string;
+  sent_at: string | null;
 };

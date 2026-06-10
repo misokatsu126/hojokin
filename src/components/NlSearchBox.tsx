@@ -18,6 +18,25 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<NlSearchResponse | null>(null);
+  const [extracting, setExtracting] = useState<string | null>(null);
+
+  async function extract(discoveredItemId: string) {
+    setExtracting(discoveredItemId);
+    try {
+      const r = await fetch("/api/discovery/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ discovered_item_id: discoveredItemId }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "抽出に失敗しました");
+      alert(`AI抽出しました（${d.engine === "ai" ? "AI" : "ルールベース"}）。「自動探索 → AI抽出候補」で確認・正式登録できます。`);
+    } catch (e: any) {
+      alert(`抽出に失敗しました：${e.message}`);
+    } finally {
+      setExtracting(null);
+    }
+  }
 
   async function run(q?: string) {
     const text = (q ?? query).trim();
@@ -87,6 +106,14 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
             <span className="text-xs text-gray-400">{res.engine === "ai" ? "AI抽出" : "ルール抽出"}</span>
           </div>
 
+          {res.ingested && (
+            <p className={`mb-2 rounded-md border p-2 text-xs ${res.ingested.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"}`}>
+              {res.ingested.ok
+                ? `URLを取り込みました：「${res.ingested.title ?? "（無題）"}」（${res.ingested.inserted ? "新規" : "更新"}）。下の「自動検知候補」に表示しています。`
+                : `URLの取り込みに失敗しました：${res.ingested.error ?? "不明"}`}
+            </p>
+          )}
+
           <InterpretedView res={res} />
 
           {res.relaxed_search_suggestions.length > 0 && (
@@ -99,9 +126,12 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
             {res.results.map((item) => (
               <div key={item.grant_id} className="rounded-lg border bg-white p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <Link href={`/grants/${item.grant_id}`} className="font-semibold text-ink hover:text-accent hover:underline">
-                    {item.grant_name}
-                  </Link>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800">正式登録済み</span>
+                    <Link href={`/grants/${item.grant_id}`} className="truncate font-semibold text-ink hover:text-accent hover:underline">
+                      {item.grant_name}
+                    </Link>
+                  </span>
                   <ScoreBadge score={item.match_score} recommendation={item.recommendation} />
                 </div>
                 {item.matched_reasons.length > 0 && (
@@ -126,6 +156,42 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
               </div>
             ))}
           </div>
+
+          {res.discovered_results && res.discovered_results.length > 0 && (
+            <div className="mt-4">
+              <h4 className="mb-1.5 text-sm font-semibold text-ink">自動検知候補（未確認・要確認）</h4>
+              <div className="space-y-2">
+                {res.discovered_results.map((d) => (
+                  <div key={d.id} className="rounded-lg border bg-white p-3">
+                    <div className="mb-1 flex items-start justify-between gap-2">
+                      <span className="text-sm font-semibold text-ink">{d.title}</span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        {d.external_source === "jnet21" && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-800">J-Net21</span>}
+                        {d.external_source === "mirasapo" && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-800">ミラサポplus</span>}
+                        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] text-sky-800">{d.status === "unreviewed" ? "未確認" : d.status}</span>
+                        {d.match_score != null && d.match_score > 0 && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">相性{d.match_score}</span>}
+                      </span>
+                    </div>
+                    {d.match_profile && <p className="text-xs text-gray-500">相性の良い事業：{d.match_profile}</p>}
+                    <p className="text-[11px] text-gray-400">
+                      {d.external_source === "jnet21" ? "出典：J-Net21" : d.external_source === "mirasapo" ? "出典：ミラサポplus" : d.external_source ? `出典：${d.external_source}` : ""}
+                      {d.fetched_at ? `　取得：${new Date(d.fetched_at).toLocaleDateString("ja-JP")}` : ""}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      {(d.official_url || d.url) && (
+                        <a href={d.official_url ?? d.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:opacity-90">本物を見る ↗</a>
+                      )}
+                      <button onClick={() => extract(d.id)} disabled={extracting === d.id} className="rounded border px-2 py-1 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                        {extracting === d.id ? "抽出中…" : "AIで抽出する"}
+                      </button>
+                      <Link href="/discovery/items" className="rounded border px-2 py-1 text-gray-600 hover:bg-gray-50">候補一覧で確認・正式登録</Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-amber-700">※ 自動検知候補は未確認の情報です。必ず「本物を見る」で公式ページを確認してください。</p>
+            </div>
+          )}
 
           <p className="mt-3 text-xs text-gray-400">
             ※ 登録済みデータに対する一次判定です。申請可否・受給を保証するものではありません。

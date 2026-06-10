@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchGrants, fetchMatches, fetchStatuses } from "@/lib/supabase";
+import { isSampleGrant } from "@/lib/sampleFilter";
 import type { Grant, GrantMatch, AppStatusRow } from "@/lib/types";
 import {
   REGIONS,
@@ -56,6 +57,7 @@ export default function GrantsPage() {
   const [error, setError] = useState<string | null>(null);
   const [f, setF] = useState<Filters>(EMPTY);
   const [showNl, setShowNl] = useState(false);
+  const [showSamples, setShowSamples] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchGrants(), fetchMatches(), fetchStatuses()])
@@ -88,8 +90,8 @@ export default function GrantsPage() {
   }, [statuses]);
 
   const filtered = useMemo(
-    () => applyFilters(grants, f, bestByGrant, statusByGrant),
-    [grants, f, bestByGrant, statusByGrant]
+    () => applyFilters(grants.filter((g) => showSamples || !isSampleGrant(g)), f, bestByGrant, statusByGrant),
+    [grants, f, bestByGrant, statusByGrant, showSamples]
   );
 
   const set = (k: keyof Filters, v: any) => setF((p) => ({ ...p, [k]: v }));
@@ -161,7 +163,13 @@ export default function GrantsPage() {
           </div>
           <div className="mt-3 flex items-center justify-between">
             <span className="text-sm text-gray-500">{filtered.length} 件</span>
-            <button onClick={() => setF(EMPTY)} className="text-sm text-accent hover:underline">条件をリセット</button>
+            <span className="flex items-center gap-3">
+              <label className="flex items-center gap-1 text-xs text-gray-500">
+                <input type="checkbox" checked={showSamples} onChange={(e) => setShowSamples(e.target.checked)} className="h-3.5 w-3.5" />
+                サンプルも表示
+              </label>
+              <button onClick={() => setF(EMPTY)} className="text-sm text-accent hover:underline">条件をリセット</button>
+            </span>
           </div>
         </div>
       )}

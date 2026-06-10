@@ -9,14 +9,20 @@ import {
   deleteDiscoveredItem,
   fetchSourceSites,
   fetchGrants,
+  fetchProfiles,
 } from "@/lib/supabase";
-import type { DiscoveredItem, DiscoveredItemInput, SourceSite, Grant } from "@/lib/types";
+import type { DiscoveredItem, DiscoveredItemInput, SourceSite, Grant, BusinessProfile } from "@/lib/types";
 import {
   DETECTION_TYPES,
   DETECTION_TYPE_LABEL,
   SOURCE_TYPES,
   SOURCE_TYPE_LABEL,
+  COLLECT_TARGET_REGIONS,
+  REVIEW_STATES,
+  REVIEW_STATE_LABEL,
+  REVIEW_STATE_COLORS,
   type SourceType,
+  type ReviewState,
 } from "@/lib/constants";
 import { TextField, TextArea } from "@/components/Form";
 import {
@@ -29,8 +35,10 @@ import {
 } from "@/components/Badges";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { HelpBox, ButtonGuide } from "@/components/DiscoveryHelp";
-import { formatDate } from "@/lib/utils";
-import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags } from "@/lib/discovery";
+import { ChecklistPanel } from "@/components/ChecklistPanel";
+import { formatDate, formatAmount, daysUntil } from "@/lib/utils";
+import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags, scoreDiscoveredAgainstProfiles, ruleExtract, suggestNextActions, buildNormalizedKey } from "@/lib/discovery";
+import { isSampleDiscovered, sampleButtonsVisible } from "@/lib/sampleFilter";
 import { SAMPLE_DISCOVERED_ITEMS } from "@/lib/samples";
 
 type AddForm = {
@@ -63,6 +71,7 @@ export default function DiscoveredPage() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [sites, setSites] = useState<SourceSite[]>([]);
   const [grants, setGrants] = useState<Grant[]>([]);
+  const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
   const [form, setForm] = useState<AddForm>(blank);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -72,16 +81,36 @@ export default function DiscoveredPage() {
   const [editText, setEditText] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // フィルター
+  const [fHigh, setFHigh] = useState(false);
+  const [fDeadline, setFDeadline] = useState(false);
+  const [fUnreviewed, setFUnreviewed] = useState(false);
+  const [fApplicant, setFApplicant] = useState(false);
+  const [fProfile, setFProfile] = useState("");
+  const [fSource, setFSource] = useState("");
+  const [fRegion, setFRegion] = useState("");
+  const [showSamples, setShowSamples] = useState(false);
+  // メモ編集・トースト
+  const [noteEditId, setNoteEditId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [checklistId, setChecklistId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
+  function showToast(text: string, ok = true) {
+    setToast({ text, ok });
+    setTimeout(() => setToast(null), 2600);
+  }
 
   async function load() {
-    const [it, ss, gr] = await Promise.all([
+    const [it, ss, gr, pr] = await Promise.all([
       fetchDiscoveredItems(),
       fetchSourceSites(),
       fetchGrants(),
+      fetchProfiles(),
     ]);
     setItems(it);
     setSites(ss);
     setGrants(gr);
+    setProfiles(pr);
   }
   useEffect(() => {
     load()
@@ -91,6 +120,95 @@ export default function DiscoveredPage() {
 
   const siteMap = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
   const set = (k: keyof AddForm, v: any) => setForm((p) => ({ ...p, [k]: v }));
+
+  // 候補ごとの表示用データ（相性スコア・地域・締切・補助額/補助率・理由）。
+  //   保存済みの自動照合結果を優先し、無ければクライアントで即時計算（フォールバック）。
+  function view(item: DiscoveredItem) {
+    const sc = scoreDiscoveredAgainstProfiles(item, profiles);
+    const ex = ruleExtract(item);
+    return {
+      score: item.match_score ?? sc.bestScore,
+      profile: item.match_profile ?? sc.bestProfile,
+      deadline: item.extracted_deadline ?? sc.deadline,
+      reason: item.match_reason ?? sc.reason,
+      regions: ex.target_regions,
+      maxAmount: ex.max_amount,
+      subsidyRate: ex.subsidy_rate,
+      reviewState: (item.review_state ?? "ai_judged") as ReviewState,
+    };
+  }
+
+  const viewMap = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof view>>();
+    for (const it of items) m.set(it.id, view(it));
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, profiles]);
+
+  // 複数ソースから来た同名候補（正規化キーが複数の external_source に跨る）を「重複可能性あり」とする
+  const crossDupKeys = useMemo(() => {
+    const bySource = new Map<string, Set<string>>();
+    for (const it of items) {
+      const key = it.normalized_key ?? buildNormalizedKey(it.title);
+      if (!key) continue;
+      const src = it.external_source ?? "manual";
+      if (!bySource.has(key)) bySource.set(key, new Set());
+      bySource.get(key)!.add(src);
+    }
+    const dup = new Set<string>();
+    for (const [key, srcs] of bySource) if (srcs.size >= 2) dup.add(key);
+    return dup;
+  }, [items]);
+  const isCrossDup = (it: DiscoveredItem) =>
+    crossDupKeys.has(it.normalized_key ?? buildNormalizedKey(it.title));
+
+  // フィルター適用後の候補
+  const filtered = useMemo(() => {
+    return items.filter((it) => {
+      const v = viewMap.get(it.id)!;
+      if (!showSamples && isSampleDiscovered(it)) return false; // サンプル除外（既定）
+      if (fHigh && v.score < 70) return false;
+      if (fDeadline) {
+        const d = daysUntil(v.deadline);
+        if (d == null || d < 0 || d > 30) return false;
+      }
+      if (fUnreviewed && it.status !== "unreviewed") return false;
+      if (fApplicant && v.reviewState !== "applicant") return false;
+      if (fProfile && v.profile !== fProfile) return false;
+      if (fSource) {
+        const cat = it.source_category ?? siteMap.get(it.source_site_id ?? "")?.source_type ?? "";
+        if (cat !== fSource) return false;
+      }
+      if (fRegion && !v.regions.includes(fRegion)) return false;
+      return true;
+    });
+  }, [items, viewMap, fHigh, fDeadline, fUnreviewed, fApplicant, fProfile, fSource, siteMap, fRegion, showSamples]);
+
+  async function setReview(item: DiscoveredItem, state: ReviewState) {
+    try {
+      await updateDiscoveredItem(item.id, { review_state: state });
+      showToast(`状態を「${REVIEW_STATE_LABEL[state]}」に保存しました`);
+      await load();
+    } catch (e: any) {
+      showToast(`保存に失敗しました（${e.message ?? "不明"}）`, false);
+    }
+  }
+
+  function startNote(item: DiscoveredItem) {
+    setNoteEditId(item.id);
+    setNoteText(item.human_note ?? "");
+  }
+  async function saveNote(item: DiscoveredItem) {
+    try {
+      await updateDiscoveredItem(item.id, { human_note: noteText || null });
+      setNoteEditId(null);
+      setNoteText("");
+      showToast("メモを保存しました");
+      await load();
+    } catch (e: any) {
+      showToast(`メモの保存に失敗しました（${e.message ?? "不明"}）`, false);
+    }
+  }
 
   // 情報源を選ぶとカテゴリを引き継ぐ
   function selectSite(id: string) {
@@ -278,7 +396,7 @@ export default function DiscoveredPage() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">自動検知候補（discovered_items）</h1>
         <div className="flex gap-2">
-          {items.length === 0 && (
+          {sampleButtonsVisible() && (
             <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
               サンプル3件を登録
             </button>
@@ -356,13 +474,47 @@ export default function DiscoveredPage() {
         </div>
       )}
 
+      {/* フィルター */}
+      {items.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-white p-3 text-xs">
+          <span className="font-semibold text-gray-600">絞り込み：</span>
+          <button onClick={() => setFHigh((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fHigh ? "border-green-400 bg-green-50 text-green-800" : "text-gray-600 hover:bg-gray-50"}`}>高相性のみ(70+)</button>
+          <button onClick={() => setFDeadline((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fDeadline ? "border-red-400 bg-red-50 text-red-700" : "text-gray-600 hover:bg-gray-50"}`}>締切30日以内</button>
+          <button onClick={() => setFUnreviewed((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fUnreviewed ? "border-sky-400 bg-sky-50 text-sky-800" : "text-gray-600 hover:bg-gray-50"}`}>未確認のみ</button>
+          <button onClick={() => setFApplicant((v) => !v)} className={`rounded-full border px-2.5 py-1 ${fApplicant ? "border-amber-400 bg-amber-50 text-amber-800" : "text-gray-600 hover:bg-gray-50"}`}>申請候補のみ</button>
+          <select value={fProfile} onChange={(e) => setFProfile(e.target.value)} className="rounded-md border px-2 py-1">
+            <option value="">事業プロフィール（すべて）</option>
+            {profiles.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+          </select>
+          <select value={fSource} onChange={(e) => setFSource(e.target.value)} className="rounded-md border px-2 py-1">
+            <option value="">情報源（すべて）</option>
+            {SOURCE_TYPES.map((t) => <option key={t} value={t}>{SOURCE_TYPE_LABEL[t]}</option>)}
+          </select>
+          <select value={fRegion} onChange={(e) => setFRegion(e.target.value)} className="rounded-md border px-2 py-1">
+            <option value="">地域（すべて）</option>
+            {COLLECT_TARGET_REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          {(fHigh || fDeadline || fUnreviewed || fApplicant || fProfile || fSource || fRegion) && (
+            <button onClick={() => { setFHigh(false); setFDeadline(false); setFUnreviewed(false); setFApplicant(false); setFProfile(""); setFSource(""); setFRegion(""); }} className="rounded-full border px-2.5 py-1 text-gray-500 hover:bg-gray-50">クリア</button>
+          )}
+          <label className="ml-auto flex items-center gap-1 text-gray-500">
+            <input type="checkbox" checked={showSamples} onChange={(e) => setShowSamples(e.target.checked)} className="h-3.5 w-3.5" />
+            サンプルも表示
+          </label>
+          <span className="text-gray-400">{filtered.length} / {items.length} 件</span>
+        </div>
+      )}
+
       {items.length === 0 ? (
         <p className="rounded-lg border bg-white p-8 text-center text-gray-400">
           検知候補がまだありません。「サンプル3件を登録」または「手動で候補を追加」から登録してください。
         </p>
+      ) : filtered.length === 0 ? (
+        <p className="rounded-lg border bg-white p-8 text-center text-gray-400">条件に合う候補がありません。フィルターを調整してください。</p>
       ) : (
         <div className="space-y-3">
-          {items.map((item) => {
+          {filtered.map((item) => {
+            const v = viewMap.get(item.id)!;
             const site = item.source_site_id ? siteMap.get(item.source_site_id) : null;
             const category = item.source_category ?? site?.source_type ?? null;
             const secondary = isSecondarySource(category);
@@ -378,26 +530,55 @@ export default function DiscoveredPage() {
               <div key={item.id} className="rounded-lg border bg-white p-4">
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="font-medium text-ink">{item.title}</h3>
+                    <h3 className="text-base font-semibold text-ink">{item.title}</h3>
                     <div className="mt-0.5 text-xs text-gray-400">
                       {site?.name ?? "情報源未指定"}・検知 {formatDate(item.detected_at)}
                     </div>
                     {attribution && <div className="mt-0.5 text-[11px] text-gray-500">{attribution}</div>}
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                      {DETECTION_TYPE_LABEL[item.detection_type]}
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    {v.score > 0 && (
+                      <span className="rounded-md bg-green-100 px-2 py-0.5 text-sm font-bold text-green-800">相性 {v.score}</span>
+                    )}
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${REVIEW_STATE_COLORS[v.reviewState]}`}>
+                      {REVIEW_STATE_LABEL[v.reviewState]}
                     </span>
-                    <SourceTypeBadge type={category} />
-                    <TrustBadge level={item.trust_level} />
-                    <VerificationBadge status={item.verification_status} />
-                    <DiscoveredStatusBadge status={item.status} />
                   </div>
                 </div>
 
-                {item.duplicate_of && (
+                {/* 大きく見せる要点（地域・締切・補助額/率・対象事業） */}
+                <div className="mb-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+                  <KeyVal label="対象地域" value={v.regions.slice(0, 3).join("・") || "—"} />
+                  <KeyVal label="締切" value={v.deadline ? `${formatDate(v.deadline)}${daysUntil(v.deadline) != null && daysUntil(v.deadline)! >= 0 ? `（あと${daysUntil(v.deadline)}日）` : ""}` : "—"} highlight={(() => { const d = daysUntil(v.deadline); return d != null && d >= 0 && d <= 14; })()} />
+                  <KeyVal label="補助額/補助率" value={v.maxAmount != null ? formatAmount(v.maxAmount) : v.subsidyRate || "—"} />
+                  <KeyVal label="対象事業" value={v.profile || "—"} />
+                </div>
+                {v.reason && (
+                  <p className="mb-2 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                    <span className="font-medium text-slate-500">AI判定：</span>{v.reason}
+                  </p>
+                )}
+
+                {/* 次にやること */}
+                <div className="mb-2 flex flex-wrap items-center gap-1">
+                  <span className="text-[11px] font-medium text-orange-700">次にやること：</span>
+                  {suggestNextActions(item).map((a) => (
+                    <span key={a} className="rounded bg-orange-50 px-1.5 py-0.5 text-[11px] text-orange-800 ring-1 ring-orange-100">{a}</span>
+                  ))}
+                </div>
+
+                <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                    {DETECTION_TYPE_LABEL[item.detection_type]}
+                  </span>
+                  <SourceTypeBadge type={category} />
+                  <TrustBadge level={item.trust_level} />
+                  <VerificationBadge status={item.verification_status} />
+                </div>
+
+                {(item.duplicate_of || isCrossDup(item)) && (
                   <p className="mb-2 inline-block rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
-                    重複候補（既存と類似）
+                    {isCrossDup(item) ? "重複可能性あり（複数の情報源で同名）" : "重複候補（既存と類似）"}
                   </p>
                 )}
                 {item.source_warning && (
@@ -406,7 +587,18 @@ export default function DiscoveredPage() {
                   </p>
                 )}
 
-                <div className="mb-2 flex flex-wrap gap-3 text-xs">
+                <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
+                  {(item.official_url || item.url) && (
+                    <a
+                      href={item.official_url ?? item.url ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                      title="この候補の元になった実際のページを新しいタブで開きます"
+                    >
+                      本物を見る ↗
+                    </a>
+                  )}
                   {item.url && (
                     <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">検知元URL ↗</a>
                   )}
@@ -415,6 +607,9 @@ export default function DiscoveredPage() {
                   )}
                   {(item.official_pdf_url || item.pdf_url) && (
                     <a href={item.official_pdf_url ?? item.pdf_url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">公募要領PDF ↗</a>
+                  )}
+                  {item.fetched_at && (
+                    <span className="text-gray-400">取得 {formatDate(item.fetched_at)}{item.extraction_confidence != null ? `・確信度${item.extraction_confidence}` : ""}</span>
                   )}
                 </div>
 
@@ -444,7 +639,59 @@ export default function DiscoveredPage() {
                   </div>
                 )}
 
+                {/* 担当者メモ */}
+                <div className="mb-2">
+                  {noteEditId === item.id ? (
+                    <div className="rounded-md border bg-amber-50 p-2">
+                      <textarea
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        rows={2}
+                        className="w-full rounded-md border px-2 py-1 text-sm"
+                        placeholder="例：市役所確認済み／対象外だった／来年度狙う"
+                      />
+                      <div className="mt-1 flex gap-2">
+                        <button onClick={() => saveNote(item)} className="rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:opacity-90">メモを保存</button>
+                        <button onClick={() => { setNoteEditId(null); setNoteText(""); }} className="rounded-md border px-3 py-1 text-xs text-gray-600 hover:bg-gray-50">キャンセル</button>
+                      </div>
+                    </div>
+                  ) : item.human_note ? (
+                    <div className="flex items-start gap-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900">
+                      <span className="font-medium">📝メモ：</span>
+                      <span className="flex-1 whitespace-pre-wrap">{item.human_note}</span>
+                      <button onClick={() => startNote(item)} className="shrink-0 text-amber-700 hover:underline">編集</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => startNote(item)} className="text-xs text-gray-500 hover:text-accent hover:underline">＋ メモを追加</button>
+                  )}
+                </div>
+
+                {/* 状態の変更（AI判定と人間確認を区別） */}
+                <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-gray-400">状態：</span>
+                  {(["unconfirmed", "human_ok", "applicant", "not_needed"] as ReviewState[]).map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => setReview(item, st)}
+                      className={`rounded-full border px-2.5 py-0.5 ${v.reviewState === st ? REVIEW_STATE_COLORS[st] + " border-transparent font-medium" : "text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {REVIEW_STATE_LABEL[st]}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="flex flex-wrap gap-2 text-sm">
+                  {(item.official_url || item.url) && (
+                    <a
+                      href={item.official_url ?? item.url ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                      title="元になった実際のページを開きます"
+                    >
+                      本物を見る ↗
+                    </a>
+                  )}
                   <button
                     onClick={() => extract(item)}
                     disabled={extractingId === item.id}
@@ -461,6 +708,12 @@ export default function DiscoveredPage() {
                   <Link href="/discovery/review" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">
                     抽出候補を見る
                   </Link>
+                  <button
+                    onClick={() => setChecklistId((id) => (id === item.id ? null : item.id))}
+                    className={`rounded-md border px-3 py-1.5 text-xs ${checklistId === item.id ? "border-accent bg-accent/5 text-accent" : "text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    公式確認チェックリスト
+                  </button>
                   {item.status !== "ignored" && (
                     <button onClick={() => setStatus(item, "ignored")} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">無視</button>
                   )}
@@ -469,11 +722,32 @@ export default function DiscoveredPage() {
                   )}
                   <button onClick={() => remove(item.id)} className="rounded-md border px-3 py-1.5 text-xs text-red-500 hover:bg-red-50">削除</button>
                 </div>
+
+                {checklistId === item.id && (
+                  <div className="mt-3">
+                    <ChecklistPanel item={item} />
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
+
+      {toast && (
+        <div className={`fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md px-4 py-2 text-sm font-medium text-white shadow-lg ${toast.ok ? "bg-emerald-600" : "bg-red-600"}`}>
+          {toast.ok ? "✓ " : "⚠ "}{toast.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KeyVal({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] text-gray-400">{label}</div>
+      <div className={`truncate text-sm ${highlight ? "font-semibold text-red-600" : "text-ink"}`}>{value}</div>
     </div>
   );
 }

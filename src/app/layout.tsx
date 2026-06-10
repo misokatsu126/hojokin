@@ -24,6 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavLink href="/profiles" label="事業プロフィール" />
               <NavLink href="/admin" label="補助金登録" />
               <NavLink href="/discovery" label="自動探索" />
+              <NavLink href="/notifications" label="通知候補" />
+              <NavLink href="/reports" label="顧客別レポート" />
+              <NavLink href="/setup" label="初期設定" />
             </nav>
           </div>
         </header>

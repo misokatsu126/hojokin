@@ -4,6 +4,8 @@ import type {
   ExtractionResult,
   ExtractedGrantCandidate,
   GrantInput,
+  Grant,
+  BusinessProfile,
 } from "./types";
 import {
   REGIONS,
@@ -11,6 +13,7 @@ import {
   EXPENSE_CATEGORIES,
   ENTITY_TYPES,
   GRANT_TYPES,
+  PURPOSES,
   SECONDARY_SOURCE_TYPES,
   SOURCE_TYPE_DEFAULT_TRUST,
   SECONDARY_SOURCE_WARNING_TEXT,
@@ -18,6 +21,19 @@ import {
   type SourceType,
   type TrustLevel,
 } from "./constants";
+import { ruleMatch } from "./matching";
+
+// 情報源をまたいだ重複検知用の正規化キー（補助金名ベース）。
+//   公式名称は情報源（Jグランツ/ミラサポ/J-Net21/自治体）が違っても概ね共通なため、
+//   名称を NFKC 正規化＋空白記号除去して突き合わせる（実施主体やドメインはあえて含めない）。
+export function buildNormalizedKey(name: string | null | undefined): string {
+  if (!name) return "";
+  return name
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\s　]/g, "")
+    .replace(/[、。・,.\-―ー–—_()（）「」『』【】\[\]"'’“”:：;；/／|｜~〜!！?？#＃&＆＊*]/g, "");
+}
 
 // HTML をプレーンテキストに変換（サーバー側のURL取得用・依存ライブラリなし）
 export function htmlToText(html: string): string {
@@ -259,4 +275,132 @@ export function detectDuplicateFlags(
     }
   }
   return { duplicateOfId, isOldYear };
+}
+
+/**
+ * 自動収集したAI抽出候補（extracted_grant_candidates）を、登録済みの事業プロフィールと
+ * ルールベースで照合し、最も相性の良いスコア・事業名・おすすめ度を返す。
+ * （正式登録前でもダッシュボードで「高相性候補」を目立たせるための簡易スコアリング）
+ */
+export function scoreCandidateAgainstProfiles(
+  c: ExtractedGrantCandidate,
+  profiles: BusinessProfile[]
+): { bestScore: number; bestProfile: string; recommendation: string } {
+  if (!profiles || profiles.length === 0) return { bestScore: 0, bestProfile: "", recommendation: "D" };
+  // 候補本文から目的カテゴリを推定（candidateToGrantInput は purposes 空のため補完）
+  const hay = [c.name ?? "", c.notes ?? "", ...(c.target_industries ?? []), ...(c.eligible_expenses ?? [])].join(" ");
+  const purposes = PURPOSES.filter((p) => hay.includes(p));
+  const grant = {
+    ...candidateToGrantInput(c),
+    purposes,
+    id: "",
+    created_at: "",
+    updated_at: "",
+  } as Grant;
+  let bestScore = 0;
+  let bestProfile = "";
+  let recommendation = "D";
+  for (const p of profiles) {
+    const m = ruleMatch(grant, p);
+    if (m.match_score > bestScore) {
+      bestScore = m.match_score;
+      bestProfile = p.name;
+      recommendation = m.recommendation;
+    }
+  }
+  return { bestScore, bestProfile, recommendation };
+}
+
+/**
+ * 収集した discovered_item（生の検知候補）を、ルールベースで構造化抽出してから
+ * 事業プロフィールと照合し、最高相性スコア・事業名・おすすめ度・推定締切を返す。
+ * 人手の「AI抽出」前でも自動照合できるようにするための関数（OpenAI不要）。
+ */
+export function scoreDiscoveredAgainstProfiles(
+  item: DiscoveredItem,
+  profiles: BusinessProfile[]
+): {
+  bestScore: number;
+  bestProfile: string;
+  recommendation: string;
+  deadline: string | null;
+  regions: string[];
+  reason: string;
+} {
+  const ex = ruleExtract(item); // raw_text/title から地域・業種・経費・締切等を抽出
+  if (!profiles || profiles.length === 0) {
+    return { bestScore: 0, bestProfile: "", recommendation: "D", deadline: ex.deadline, regions: ex.target_regions, reason: "" };
+  }
+  const hay = [item.title ?? "", item.raw_text ?? "", ...ex.target_industries, ...ex.eligible_expenses].join(" ");
+  const purposes = PURPOSES.filter((p) => hay.includes(p));
+  const grant = {
+    id: "",
+    name: ex.name,
+    grant_type: ex.grant_type,
+    organization: ex.organizer,
+    org_type: null,
+    regions: ex.target_regions,
+    industries: ex.target_industries,
+    entity_types: ex.target_business_types,
+    target_audience: ex.target_people,
+    expense_categories: ex.eligible_expenses,
+    subsidy_rate: ex.subsidy_rate,
+    min_amount: ex.min_amount,
+    max_amount: ex.max_amount,
+    application_start: ex.application_start_date,
+    application_deadline: ex.deadline,
+    recruitment_status: ex.application_status,
+    application_method: ex.application_method,
+    required_documents: ex.required_documents,
+    official_url: ex.official_url,
+    guideline_pdf_url: ex.official_pdf_url,
+    notes: ex.notes,
+    pre_application_ng: ex.pre_application_ng_risk,
+    requires_professional: ex.professional_check_recommended,
+    keywords: [],
+    purposes,
+    exclusion_conditions: null,
+    early_termination_risk: false,
+    selection_type: "不明",
+    difficulty: "不明",
+    source: item.external_source ?? null,
+    fetched_at: item.fetched_at ?? null,
+    created_at: "",
+    updated_at: "",
+  } as Grant;
+  let bestScore = 0;
+  let bestProfile = "";
+  let recommendation = "D";
+  let reason = "";
+  for (const p of profiles) {
+    const m = ruleMatch(grant, p);
+    if (m.match_score > bestScore) {
+      bestScore = m.match_score;
+      bestProfile = p.name;
+      recommendation = m.recommendation;
+      reason = (m.matched_reasons ?? []).slice(0, 2).join("／") || m.summary || "";
+    }
+  }
+  return { bestScore, bestProfile, recommendation, deadline: ex.deadline, regions: ex.target_regions, reason };
+}
+
+/**
+ * 候補ごとの「次にやること」を本文・抽出結果から提案する（実務の確認手順）。
+ */
+export function suggestNextActions(item: DiscoveredItem): string[] {
+  const ex = ruleExtract(item);
+  const text = `${item.title ?? ""}\n${item.raw_text ?? ""}`;
+  const out: string[] = [];
+  out.push("募集要項（公募要領）を確認");
+  out.push(ex.deadline ? "申請期限を確認" : "申請期限・募集状況を確認");
+  if (ex.pre_application_ng_risk || /(交付決定前|着手|契約.{0,4}前|発注.{0,4}前)/.test(text)) {
+    out.push("交付決定前の着手可否を確認");
+  }
+  out.push("対象経費を確認");
+  if (/(商店街|推薦書)/.test(text)) out.push("商店街推薦書の要否を確認");
+  if (ex.professional_check_recommended || /(社会保険労務士|社労士|行政書士|認定支援機関|税理士)/.test(text)) {
+    out.push("専門家（士業）へ相談");
+  }
+  // 重複なしで最大4件
+  return Array.from(new Set(out)).slice(0, 4);
 }

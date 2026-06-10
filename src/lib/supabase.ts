@@ -18,6 +18,8 @@ import type {
   ExtractedGrantCandidateInput,
   ImportReview,
   SourceFetchLog,
+  ApplicationChecklist,
+  NotificationCandidate,
 } from "./types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -471,4 +473,66 @@ export async function fetchRecentFetchLogs(limit = 50): Promise<SourceFetchLog[]
     .limit(limit);
   if (error) throw error;
   return (data ?? []) as SourceFetchLog[];
+}
+
+// ---------------- application_checklists（公式確認チェックリスト） ----------------
+export async function fetchChecklistByDiscovered(
+  discoveredItemId: string
+): Promise<ApplicationChecklist | null> {
+  const { data, error } = await supabase
+    .from("application_checklists")
+    .select("*")
+    .eq("discovered_item_id", discoveredItemId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ApplicationChecklist) ?? null;
+}
+
+export async function upsertChecklist(
+  discoveredItemId: string,
+  patch: Partial<ApplicationChecklist>
+): Promise<ApplicationChecklist> {
+  const { data: existing } = await supabase
+    .from("application_checklists")
+    .select("id")
+    .eq("discovered_item_id", discoveredItemId)
+    .maybeSingle();
+  if (existing) {
+    const { data, error } = await supabase
+      .from("application_checklists")
+      .update(patch)
+      .eq("discovered_item_id", discoveredItemId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as ApplicationChecklist;
+  }
+  const { data, error } = await supabase
+    .from("application_checklists")
+    .insert({ discovered_item_id: discoveredItemId, ...patch })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ApplicationChecklist;
+}
+
+// ---------------- notification_candidates（通知候補） ----------------
+export async function fetchNotificationCandidates(
+  status?: string
+): Promise<NotificationCandidate[]> {
+  let q = supabase.from("notification_candidates").select("*").order("created_at", { ascending: false });
+  if (status) q = q.eq("status", status);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as NotificationCandidate[];
+}
+
+export async function updateNotificationStatus(
+  id: string,
+  status: "pending" | "sent" | "dismissed" | "failed"
+): Promise<void> {
+  const patch: Record<string, unknown> = { status };
+  if (status === "sent") patch.sent_at = new Date().toISOString();
+  const { error } = await supabase.from("notification_candidates").update(patch).eq("id", id);
+  if (error) throw error;
 }
