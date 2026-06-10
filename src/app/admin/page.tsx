@@ -291,8 +291,8 @@ function AdminInner() {
           補助金がまだありません。「サンプル6件を登録」または「新規登録」から追加してください。
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-white">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border bg-white">
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="border-b bg-slate-50 text-left text-xs text-gray-500">
               <tr>
                 <th className="px-3 py-2">名称</th>
