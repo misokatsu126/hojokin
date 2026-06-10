@@ -14,6 +14,7 @@ import { deadlineState, daysUntil, formatDate } from "@/lib/utils";
 import { APPLICATION_STATUSES } from "@/lib/constants";
 import { NlSearchBox } from "@/components/NlSearchBox";
 import { AutoCollectSection } from "@/components/AutoCollectSection";
+import { TopQuickActions } from "@/components/TopQuickActions";
 import { AlertBadge, ScoreBadge, DeadlineBadge } from "@/components/Badges";
 
 export default function DashboardPage() {
@@ -87,13 +88,15 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-bold text-ink">ダッシュボード</h1>
+      <h1 className="mb-4 text-xl font-bold text-ink">ホーム</h1>
+
+      <TopQuickActions />
+
+      <AutoCollectSection />
 
       <div className="mb-6 rounded-lg border bg-white p-4">
         <NlSearchBox />
       </div>
-
-      <AutoCollectSection />
 
       {empty && (
         <div className="mb-6 rounded-lg border border-dashed bg-white p-6 text-sm text-gray-500">
