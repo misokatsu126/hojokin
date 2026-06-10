@@ -6,6 +6,7 @@ import { fetchDiscoveredItems, fetchProfiles } from "@/lib/supabase";
 import type { DiscoveredItem, BusinessProfile } from "@/lib/types";
 import { AUDIENCE_TYPE_LABEL, AUDIENCE_TYPE_COLORS, type AudienceType } from "@/lib/constants";
 import { scoreDiscoveredAgainstProfiles, suggestNextActions } from "@/lib/discovery";
+import { isSampleDiscovered } from "@/lib/sampleFilter";
 import { daysUntil, formatDate } from "@/lib/utils";
 
 type AudienceFilter = "all" | "business" | "individual";
@@ -45,7 +46,7 @@ export function AutoCollectSection() {
 
   const scored: Scored[] = useMemo(() => {
     return items
-      .filter((i) => matchAudience(i.audience_type, filter) && i.status !== "imported" && i.status !== "rejected")
+      .filter((i) => matchAudience(i.audience_type, filter) && i.status !== "imported" && i.status !== "rejected" && !isSampleDiscovered(i))
       .map((i) => {
         const r = scoreDiscoveredAgainstProfiles(i, profiles);
         return {

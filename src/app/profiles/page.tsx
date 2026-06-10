@@ -21,6 +21,7 @@ import {
 import { CheckboxGroup, TextField, SelectField, TextArea, CommaField } from "@/components/Form";
 import { Tag } from "@/components/Badges";
 import { SAMPLE_PROFILES } from "@/lib/samples";
+import { sampleButtonsVisible } from "@/lib/sampleFilter";
 
 const blank: BusinessProfileInput = {
   name: "",
@@ -138,7 +139,7 @@ export default function ProfilesPage() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">事業プロフィール管理</h1>
         <div className="flex gap-2">
-          {profiles.length === 0 && (
+          {profiles.length === 0 && sampleButtonsVisible() && (
             <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
               サンプル5件を登録
             </button>

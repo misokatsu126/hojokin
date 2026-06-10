@@ -29,6 +29,7 @@ import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { HelpBox, ButtonGuide } from "@/components/DiscoveryHelp";
 import { formatDate } from "@/lib/utils";
 import { SAMPLE_SOURCE_SITES, SAMPLE_COLLECT_SOURCES } from "@/lib/samples";
+import { sampleButtonsVisible } from "@/lib/sampleFilter";
 
 const blank: SourceSiteInput = {
   name: "",
@@ -312,7 +313,7 @@ export default function SourcesPage() {
           <button onClick={runAllCollect} disabled={running !== null} className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
             {running === "all" ? "全収集中…" : "今すぐ全収集"}
           </button>
-          {sites.length === 0 && (
+          {sites.length === 0 && sampleButtonsVisible() && (
             <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
               サンプル8件を登録
             </button>

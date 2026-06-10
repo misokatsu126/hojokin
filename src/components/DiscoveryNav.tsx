@@ -8,6 +8,7 @@ const TABS = [
   { href: "/discovery/sources", label: "情報源管理" },
   { href: "/discovery/items", label: "検知候補" },
   { href: "/discovery/review", label: "AI抽出候補" },
+  { href: "/discovery/import-url", label: "URLから取り込む" },
 ];
 
 export function DiscoveryNav() {

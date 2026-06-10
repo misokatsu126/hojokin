@@ -26,6 +26,7 @@ import {
 import { CheckboxGroup, TextField, SelectField, TextArea, Toggle, CommaField } from "@/components/Form";
 import { DeadlineBadge, Tag } from "@/components/Badges";
 import { SAMPLE_GRANTS } from "@/lib/samples";
+import { sampleButtonsVisible } from "@/lib/sampleFilter";
 
 const blank: GrantInput = {
   name: "",
@@ -210,9 +211,11 @@ function AdminInner() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">補助金・助成金 登録／管理</h1>
         <div className="flex gap-2">
-          <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-            サンプル6件を登録
-          </button>
+          {sampleButtonsVisible() && (
+            <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+              サンプル6件を登録
+            </button>
+          )}
           <button onClick={startNew} className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">
             ＋ 新規登録
           </button>

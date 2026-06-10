@@ -126,9 +126,12 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
             {res.results.map((item) => (
               <div key={item.grant_id} className="rounded-lg border bg-white p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <Link href={`/grants/${item.grant_id}`} className="font-semibold text-ink hover:text-accent hover:underline">
-                    {item.grant_name}
-                  </Link>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800">正式登録済み</span>
+                    <Link href={`/grants/${item.grant_id}`} className="truncate font-semibold text-ink hover:text-accent hover:underline">
+                      {item.grant_name}
+                    </Link>
+                  </span>
                   <ScoreBadge score={item.match_score} recommendation={item.recommendation} />
                 </div>
                 {item.matched_reasons.length > 0 && (
@@ -170,6 +173,10 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
                       </span>
                     </div>
                     {d.match_profile && <p className="text-xs text-gray-500">相性の良い事業：{d.match_profile}</p>}
+                    <p className="text-[11px] text-gray-400">
+                      {d.external_source === "jnet21" ? "出典：J-Net21" : d.external_source === "mirasapo" ? "出典：ミラサポplus" : d.external_source ? `出典：${d.external_source}` : ""}
+                      {d.fetched_at ? `　取得：${new Date(d.fetched_at).toLocaleDateString("ja-JP")}` : ""}
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
                       {(d.official_url || d.url) && (
                         <a href={d.official_url ?? d.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:opacity-90">本物を見る ↗</a>

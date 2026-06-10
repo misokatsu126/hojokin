@@ -4,6 +4,7 @@ import { aiExtractConditions } from "@/lib/ai";
 import { ruleExtractConditions, filterGrantsByConditions } from "@/lib/nlsearch";
 import { ruleMatch, classify } from "@/lib/matching";
 import { ingestUrl } from "@/lib/collect";
+import { isSampleGrant, isSampleDiscovered } from "@/lib/sampleFilter";
 import { deadlineState } from "@/lib/utils";
 import type {
   Grant,
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
   // 登録済み補助金を取得
   const { data, error } = await supabase.from("grants").select("*");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const grants = (data ?? []) as Grant[];
+  const grants = ((data ?? []) as Grant[]).filter((g) => !isSampleGrant(g)); // サンプル除外
 
   // 締切条件のフィルタ
   const passDeadline = (g: Grant) => {
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
     next_actions: m.next_actions,
     official_url: g.official_url,
     source_type: "grant",
+    result_type: "grant",
   }));
 
   // 自動検知候補（discovered_items）も検索対象にする（grants は維持）
@@ -173,6 +175,7 @@ async function searchDiscovered(query: string, cond: InterpretedConditions): Pro
   const out: DiscoveredSearchItem[] = [];
   for (const it of items) {
     if (it.status === "rejected") continue;
+    if (isSampleDiscovered(it)) continue; // サンプル除外
     const hay = [
       it.title,
       it.raw_text,
@@ -189,6 +192,7 @@ async function searchDiscovered(query: string, cond: InterpretedConditions): Pro
     const score = hits * 10 + Math.round((it.match_score ?? 0) / 5);
     out.push({
       source_type: "discovered_item",
+      result_type: "discovered_item",
       id: it.id,
       title: it.title ?? "（無題）",
       url: it.url ?? null,
@@ -197,6 +201,7 @@ async function searchDiscovered(query: string, cond: InterpretedConditions): Pro
       match_score: it.match_score ?? null,
       match_profile: it.match_profile ?? null,
       status: it.status,
+      fetched_at: it.fetched_at ?? null,
       score,
     });
   }

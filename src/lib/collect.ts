@@ -873,6 +873,8 @@ export type Jnet21Article = {
   organization: string | null; // 実施機関
   notice: string | null; // 実施機関からのお知らせ
   period: string | null; // 受付期間
+  target: string | null; // 対象者
+  expenses: string | null; // 対象経費
   postedDate: string | null; // 掲載日
   detailUrl: string | null; // 詳細情報を見る
 };
@@ -887,6 +889,8 @@ export function parseJnet21Article(html: string, url: string): Jnet21Article {
     organization: labelValue(html, "実施機関"),
     notice: labelValue(html, "実施機関からのお知らせ"),
     period: labelValue(html, "受付期間"),
+    target: labelValue(html, "対象者"),
+    expenses: labelValue(html, "対象経費"),
     postedDate: labelValue(html, "掲載日"),
     detailUrl: detailLink(html, url),
   };
@@ -899,10 +903,15 @@ function isJnet21Article(url: string): boolean {
 export type IngestSummary = {
   ok: boolean;
   inserted?: boolean;
+  discovered_item_id?: string | null;
   title?: string;
   url?: string;
   official_url?: string | null;
+  match_score?: number | null;
+  match_profile?: string | null;
+  external_source?: string;
   error?: string;
+  reason?: string; // http_failed / forbidden / js_rendered / parse_failed
 };
 
 /**
@@ -913,7 +922,13 @@ export async function ingestUrl(url: string): Promise<IngestSummary> {
   const fetchedAt = new Date().toISOString();
   const r = await safeFetch(url, { timeoutMs: 15000 });
   if (!r.ok || !r.text) {
-    return { ok: false, url, error: `取得に失敗しました（HTTP ${r.status}${r.error ? ` / ${r.error}` : ""}）` };
+    const reason = r.error === "timeout" ? "timeout" : r.status === 403 ? "forbidden" : "http_failed";
+    return {
+      ok: false,
+      url,
+      error: `取得に失敗しました（HTTP ${r.status}${r.error ? ` / ${r.error}` : ""}）`,
+      reason,
+    };
   }
   const html = r.text;
   const jnet = isJnet21Article(url);
@@ -957,6 +972,8 @@ export async function ingestUrl(url: string): Promise<IngestSummary> {
       a.field ? `分野: ${a.field}` : "",
       a.region ? `地域: ${a.region}` : "",
       a.organization ? `実施機関: ${a.organization}` : "",
+      a.target ? `対象者: ${a.target}` : "",
+      a.expenses ? `対象経費: ${a.expenses}` : "",
       a.notice ? `お知らせ: ${a.notice}` : "",
       a.period ? `受付期間: ${a.period}` : "",
       a.postedDate ? `掲載日: ${a.postedDate}` : "",
@@ -971,7 +988,8 @@ export async function ingestUrl(url: string): Promise<IngestSummary> {
     rawText = htmlToText(html).slice(0, 4000);
   }
 
-  const externalId = `jnet21:${url}`; // 仕様どおり jnet21:<url>（一般URLでもJ-Net21導線に合わせる）
+  const externalSource = jnet ? "jnet21" : "official_url_import";
+  const externalId = jnet ? `jnet21:${url}` : `url:${url}`;
   const normalizedKey = buildNormalizedKey(title);
   const filled = [title, officialUrl, regions[0], rawText.length > 60].filter(Boolean).length;
   const confidence = Math.min(95, 40 + filled * 12 + (jnet ? 15 : 0));
@@ -981,8 +999,8 @@ export async function ingestUrl(url: string): Promise<IngestSummary> {
   try {
     const res = await upsertDiscoveredByExternal({
       external_id: externalId,
-      external_source: "jnet21",
-      source_site_id: site?.id ?? null,
+      external_source: externalSource,
+      source_site_id: jnet ? site?.id ?? null : null,
       title: title.slice(0, 200),
       url,
       raw_text: rawText,
@@ -1007,17 +1025,21 @@ export async function ingestUrl(url: string): Promise<IngestSummary> {
     });
     inserted = res.inserted;
     id = res.id;
-    await resolveCrossSourceDuplicate(id, normalizedKey, "jnet21");
+    await resolveCrossSourceDuplicate(id, normalizedKey, externalSource);
   } catch (e) {
-    return { ok: false, url, error: `保存に失敗しました（${(e as Error).message}）` };
+    return { ok: false, url, error: `保存に失敗しました（${(e as Error).message}）`, reason: "save_failed" };
   }
 
-  // 取り込んだ候補を即座に事業プロフィールと照合（検索で相性スコアを出すため）
+  // 取り込んだ候補を即座に事業プロフィールと照合（検索・レポートで相性スコアを出すため）
+  let matchScore: number | null = null;
+  let matchProfile: string | null = null;
   if (id) {
     try {
       const profiles = await fetchProfiles();
       if (profiles.length) {
         const sc = scoreDiscoveredAgainstProfiles({ title, raw_text: rawText } as any, profiles);
+        matchScore = sc.bestScore;
+        matchProfile = sc.bestProfile || null;
         await supabase
           .from("discovered_items")
           .update({
@@ -1043,7 +1065,17 @@ export async function ingestUrl(url: string): Promise<IngestSummary> {
       error_message: `URL直接取り込み: ${url}`,
     });
   }
-  return { ok: true, inserted, title, url, official_url: officialUrl };
+  return {
+    ok: true,
+    inserted,
+    discovered_item_id: id,
+    title,
+    url,
+    official_url: officialUrl,
+    match_score: matchScore,
+    match_profile: matchProfile,
+    external_source: externalSource,
+  };
 }
 
 /**

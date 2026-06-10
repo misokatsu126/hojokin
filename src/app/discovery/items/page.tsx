@@ -37,6 +37,7 @@ import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { HelpBox, ButtonGuide } from "@/components/DiscoveryHelp";
 import { formatDate, formatAmount, daysUntil } from "@/lib/utils";
 import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags, scoreDiscoveredAgainstProfiles, ruleExtract, suggestNextActions, buildNormalizedKey } from "@/lib/discovery";
+import { isSampleDiscovered, sampleButtonsVisible } from "@/lib/sampleFilter";
 import { SAMPLE_DISCOVERED_ITEMS } from "@/lib/samples";
 
 type AddForm = {
@@ -87,6 +88,7 @@ export default function DiscoveredPage() {
   const [fProfile, setFProfile] = useState("");
   const [fSource, setFSource] = useState("");
   const [fRegion, setFRegion] = useState("");
+  const [showSamples, setShowSamples] = useState(false);
   // メモ編集・トースト
   const [noteEditId, setNoteEditId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -162,6 +164,7 @@ export default function DiscoveredPage() {
   const filtered = useMemo(() => {
     return items.filter((it) => {
       const v = viewMap.get(it.id)!;
+      if (!showSamples && isSampleDiscovered(it)) return false; // サンプル除外（既定）
       if (fHigh && v.score < 70) return false;
       if (fDeadline) {
         const d = daysUntil(v.deadline);
@@ -177,7 +180,7 @@ export default function DiscoveredPage() {
       if (fRegion && !v.regions.includes(fRegion)) return false;
       return true;
     });
-  }, [items, viewMap, fHigh, fDeadline, fUnreviewed, fApplicant, fProfile, fSource, siteMap, fRegion]);
+  }, [items, viewMap, fHigh, fDeadline, fUnreviewed, fApplicant, fProfile, fSource, siteMap, fRegion, showSamples]);
 
   async function setReview(item: DiscoveredItem, state: ReviewState) {
     try {
@@ -391,7 +394,7 @@ export default function DiscoveredPage() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">自動検知候補（discovered_items）</h1>
         <div className="flex gap-2">
-          {items.length === 0 && (
+          {sampleButtonsVisible() && (
             <button onClick={seedSamples} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">
               サンプル3件を登録
             </button>
@@ -492,7 +495,11 @@ export default function DiscoveredPage() {
           {(fHigh || fDeadline || fUnreviewed || fApplicant || fProfile || fSource || fRegion) && (
             <button onClick={() => { setFHigh(false); setFDeadline(false); setFUnreviewed(false); setFApplicant(false); setFProfile(""); setFSource(""); setFRegion(""); }} className="rounded-full border px-2.5 py-1 text-gray-500 hover:bg-gray-50">クリア</button>
           )}
-          <span className="ml-auto text-gray-400">{filtered.length} / {items.length} 件</span>
+          <label className="ml-auto flex items-center gap-1 text-gray-500">
+            <input type="checkbox" checked={showSamples} onChange={(e) => setShowSamples(e.target.checked)} className="h-3.5 w-3.5" />
+            サンプルも表示
+          </label>
+          <span className="text-gray-400">{filtered.length} / {items.length} 件</span>
         </div>
       )}
 

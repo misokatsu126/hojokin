@@ -173,11 +173,13 @@ export type NlSearchResultItem = {
   next_actions: string[];
   official_url: string | null;
   source_type?: "grant";
+  result_type?: "grant";
 };
 
 // 自然文検索で返す「自動検知候補（discovered_items）」側の結果
 export type DiscoveredSearchItem = {
   source_type: "discovered_item";
+  result_type: "discovered_item";
   id: string;
   title: string;
   url: string | null;
@@ -186,6 +188,7 @@ export type DiscoveredSearchItem = {
   match_score: number | null;
   match_profile: string | null;
   status: string;
+  fetched_at: string | null;
   score: number; // 検索関連度
 };
 
