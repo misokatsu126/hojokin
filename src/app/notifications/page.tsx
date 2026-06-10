@@ -92,7 +92,41 @@ export default function NotificationsPage() {
           通知候補はありません。<Link href="/discovery/sources" className="text-accent hover:underline">情報源管理</Link>で「今すぐ全収集」を実行すると生成されます。
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-white">
+        <>
+        {/* スマホ：カード表示 */}
+        <div className="space-y-2 sm:hidden">
+          {shown.map((n) => {
+            const dd = daysUntil(n.deadline);
+            const t = n.notification_type as NotificationType;
+            return (
+              <div key={n.id} className="rounded-lg border bg-white p-3">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-ink">{n.title}</span>
+                  {n.match_score != null && <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[11px] font-bold text-green-800">{n.match_score}</span>}
+                </div>
+                <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+                  <span className={`rounded-full px-2 py-0.5 font-medium ${NOTIFICATION_TYPE_COLORS[t] ?? "bg-gray-100 text-gray-600"}`}>{NOTIFICATION_TYPE_LABEL[t] ?? n.notification_type}</span>
+                  {n.profile_name && <span>🏢{n.profile_name}</span>}
+                  {n.deadline && <span className={dd != null && dd <= 14 ? "text-red-600" : ""}>🗓{formatDate(n.deadline)}{dd != null && dd >= 0 ? `（あと${dd}日）` : ""}</span>}
+                  {n.status !== "pending" && <span>（{n.status === "sent" ? "通知済み" : n.status === "dismissed" ? "非表示" : n.status}）</span>}
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {(n.official_url || n.source_url) && (
+                    <a href={n.official_url ?? n.source_url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:opacity-90">公式ページを見る↗</a>
+                  )}
+                  {n.status === "pending" && (
+                    <>
+                      <button onClick={() => setStatus(n.id, "sent")} disabled={busy === n.id} className="rounded border px-2 py-1 text-accent hover:bg-gray-50 disabled:opacity-40">通知済みにする</button>
+                      <button onClick={() => setStatus(n.id, "dismissed")} disabled={busy === n.id} className="rounded border px-2 py-1 text-gray-500 hover:bg-gray-50 disabled:opacity-40">非表示</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* PC：テーブル表示 */}
+        <div className="hidden overflow-x-auto rounded-lg border bg-white sm:block">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b bg-slate-50 text-left text-xs text-gray-500">
               <tr>
@@ -137,6 +171,7 @@ export default function NotificationsPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

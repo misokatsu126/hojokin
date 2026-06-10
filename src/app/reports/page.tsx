@@ -25,9 +25,14 @@ export default function ReportsPage() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [candidates, setCandidates] = useState<ExtractedGrantCandidate[]>([]);
   const [profileId, setProfileId] = useState("");
-  const [generated, setGenerated] = useState<{ name: string; at: string; items: ReportItem[] } | null>(null);
+  const [orgName, setOrgName] = useState("");
+  const [generated, setGenerated] = useState<{ name: string; at: string; items: ReportItem[]; org: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") setOrgName(localStorage.getItem("report_org_name") ?? "");
+  }, []);
 
   useEffect(() => {
     Promise.all([fetchProfiles(), fetchGrants(), fetchDiscoveredItems(), fetchExtractedCandidates()])
@@ -119,7 +124,8 @@ export default function ReportsPage() {
     }
 
     out.sort((a, b) => b.score - a.score);
-    setGenerated({ name: profile.name, at: new Date().toLocaleDateString("ja-JP"), items: out });
+    if (typeof window !== "undefined") localStorage.setItem("report_org_name", orgName);
+    setGenerated({ name: profile.name, at: new Date().toLocaleDateString("ja-JP"), items: out, org: orgName });
   }
 
   if (loading) return <p className="py-12 text-center text-gray-400">読み込み中…</p>;
@@ -143,6 +149,7 @@ export default function ReportsPage() {
             <select value={profileId} onChange={(e) => setProfileId(e.target.value)} className="rounded-md border px-3 py-2 text-sm">
               {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+            <input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="自社名・作成者（任意）" className="rounded-md border px-3 py-2 text-sm" />
             <button onClick={build} className="rounded-md bg-accent px-5 py-2 text-sm font-medium text-white hover:opacity-90">レポート作成</button>
             {generated && (
               <button onClick={() => window.print()} className="rounded-md border px-5 py-2 text-sm text-gray-600 hover:bg-gray-50">印刷 / PDF保存</button>
@@ -151,7 +158,7 @@ export default function ReportsPage() {
         )}
       </div>
 
-      {generated && <ReportView profileName={generated.name} generatedAt={generated.at} items={generated.items} />}
+      {generated && <ReportView profileName={generated.name} generatedAt={generated.at} items={generated.items} orgName={generated.org} />}
     </div>
   );
 }
