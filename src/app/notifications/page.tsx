@@ -13,9 +13,31 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendMsg, setSendMsg] = useState<string | null>(null);
 
   async function load() {
     setItems(await fetchNotificationCandidates());
+  }
+
+  async function sendAll() {
+    setSending(true);
+    setSendMsg(null);
+    try {
+      const r = await fetch("/api/notifications/send", { method: "POST" });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error ?? "送信に失敗しました");
+      setSendMsg(
+        d.skipped > 0
+          ? `送信は未有効化です（NOTIFICATION_ENABLED 未設定）。対象 ${d.pending} 件は保持されています。LINE_USER_ID か NOTIFICATION_WEBHOOK_URL を設定すると送信できます。`
+          : `送信しました：成功 ${d.sent} 件・失敗 ${d.failed} 件（対象 ${d.pending} 件）。`
+      );
+      await load();
+    } catch (e: any) {
+      setSendMsg(`送信エラー：${e.message}`);
+    } finally {
+      setSending(false);
+    }
   }
   useEffect(() => {
     load()
@@ -46,11 +68,17 @@ export default function NotificationsPage() {
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink">通知候補</h1>
-        <div className="flex rounded-md border p-0.5 text-xs">
-          <button onClick={() => setTab("pending")} className={`rounded px-2.5 py-1 ${tab === "pending" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>未対応</button>
-          <button onClick={() => setTab("all")} className={`rounded px-2.5 py-1 ${tab === "all" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>すべて</button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border p-0.5 text-xs">
+            <button onClick={() => setTab("pending")} className={`rounded px-2.5 py-1 ${tab === "pending" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>未対応</button>
+            <button onClick={() => setTab("all")} className={`rounded px-2.5 py-1 ${tab === "all" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>すべて</button>
+          </div>
+          <button onClick={sendAll} disabled={sending} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            {sending ? "送信中…" : "未送信をまとめて送信"}
+          </button>
         </div>
       </div>
+      {sendMsg && <p className="mb-3 rounded-md border border-sky-200 bg-sky-50 p-2 text-xs text-sky-800">{sendMsg}</p>}
 
       <p className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
         毎日の自動収集で見つかった「お知らせすべき候補」（高相性80点以上・締切間近・新着・人間確認待ち）の一覧です。

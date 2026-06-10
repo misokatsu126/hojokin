@@ -4,3 +4,11 @@
 
 :root { color-scheme: light; }
 body { background: #f5f6f8; color: #1f2933; }
+
+/* 印刷（顧客別レポートのPDF保存用）：ナビ・フッター・操作UIを隠す */
+@media print {
+  header, footer, .no-print { display: none !important; }
+  body { background: #fff; }
+  main { max-width: none !important; padding: 0 !important; }
+  .print-block { break-inside: avoid; }
+}

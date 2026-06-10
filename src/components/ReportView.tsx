@@ -1,0 +1,84 @@
+"use client";
+
+import { formatAmount, formatDate, daysUntil } from "@/lib/utils";
+
+export type ReportItem = {
+  kind: "grant" | "discovered" | "candidate";
+  kindLabel: string; // 正式登録済み / 自動検知候補 / AI抽出候補
+  title: string;
+  source: string; // 出典
+  regions: string[];
+  amount: number | null;
+  rate: string | null;
+  deadline: string | null;
+  score: number;
+  reason: string;
+  concerns: string;
+  nextActions: string[];
+  url: string | null;
+};
+
+export function ReportView({
+  profileName,
+  generatedAt,
+  items,
+}: {
+  profileName: string;
+  generatedAt: string;
+  items: ReportItem[];
+}) {
+  const high = items.filter((i) => i.score >= 80);
+  const deadlineSoon = items.filter((i) => {
+    const d = daysUntil(i.deadline);
+    return d != null && d >= 0 && d <= 30;
+  });
+
+  return (
+    <div className="rounded-lg border bg-white p-6 print-block">
+      <div className="mb-4 border-b pb-3">
+        <h2 className="text-lg font-bold text-ink">補助金・助成金 候補レポート</h2>
+        <p className="text-sm text-gray-600">対象：{profileName}</p>
+        <p className="text-xs text-gray-400">作成日：{generatedAt}　／　候補件数：{items.length}件（高相性{high.length}・締切30日以内{deadlineSoon.length}）</p>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="py-6 text-center text-sm text-gray-400">条件に合う候補（相性60点以上・締切前）はありませんでした。</p>
+      ) : (
+        <ol className="space-y-3">
+          {items.map((it, idx) => {
+            const dd = daysUntil(it.deadline);
+            return (
+              <li key={idx} className="rounded-md border p-3 print-block">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="mr-1 text-xs text-gray-400">{idx + 1}.</span>
+                    <span className="text-sm font-semibold text-ink">{it.title}</span>
+                    <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{it.kindLabel}</span>
+                  </div>
+                  <span className="shrink-0 rounded bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">相性 {it.score}</span>
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-600 sm:grid-cols-4">
+                  <span>出典：{it.source}</span>
+                  <span>地域：{it.regions.slice(0, 3).join("・") || "—"}</span>
+                  <span>補助額：{it.amount != null ? formatAmount(it.amount) : it.rate || "—"}</span>
+                  <span className={dd != null && dd <= 14 ? "font-semibold text-red-600" : ""}>締切：{it.deadline ? `${formatDate(it.deadline)}${dd != null && dd >= 0 ? `（あと${dd}日）` : ""}` : "通年・未定"}</span>
+                </div>
+                {it.reason && <p className="mt-1 text-xs text-gray-700"><span className="text-gray-400">なぜ合いそうか：</span>{it.reason}</p>}
+                {it.concerns && <p className="mt-0.5 text-xs text-red-600"><span className="text-red-400">注意点：</span>{it.concerns}</p>}
+                {it.nextActions.length > 0 && (
+                  <p className="mt-0.5 text-xs text-orange-700"><span className="text-orange-400">次にやること：</span>{it.nextActions.join(" / ")}</p>
+                )}
+                {it.url && <p className="mt-0.5 text-xs"><span className="text-gray-400">本物を見る：</span><a href={it.url} target="_blank" rel="noopener noreferrer" className="text-accent underline">{it.url}</a></p>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      <p className="mt-4 border-t pt-3 text-[11px] leading-relaxed text-gray-400">
+        ※ 本レポートは登録データ・自動収集候補に基づく一次判定です。申請可否・受給を保証するものではありません。
+        申請前に必ず公式情報・公募要領をご確認ください（各候補の「本物を見る」URL）。
+      </p>
+    </div>
+  );
+}

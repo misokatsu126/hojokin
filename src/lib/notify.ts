@@ -133,13 +133,51 @@ export type SendableNotification = {
   official_url: string | null;
   notification_type: string;
 };
+async function postJson(url: string, body: unknown, headers: Record<string, string> = {}): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+    clearTimeout(t);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendNotification(
   n: SendableNotification
 ): Promise<{ ok: boolean; channel: NotifyChannel | "none"; skipped?: boolean; reason?: string }> {
   const enabled = process.env.NOTIFICATION_ENABLED === "true";
-  if (!enabled) return { ok: true, channel: "none", skipped: true, reason: "NOTIFICATION_ENABLED が未設定（送信は将来実装）" };
-  // TODO: メール（NOTIFICATION_EMAIL_TO）／LINE（LINE_CHANNEL_ACCESS_TOKEN, LINE_USER_ID）への送信を実装。
-  //   現状は設計のみ。送信処理を追加してもこの関数の戻り値契約を保つこと。
-  void n;
-  return { ok: false, channel: "none", reason: "送信処理は未実装です" };
+  if (!enabled) {
+    return { ok: false, channel: "none", skipped: true, reason: "NOTIFICATION_ENABLED が未設定（送信を有効化していません）" };
+  }
+  const text = [n.title, n.message, n.official_url].filter(Boolean).join("\n");
+
+  // 1) LINE push（LINE_CHANNEL_ACCESS_TOKEN + LINE_USER_ID があれば実送信）
+  const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  const lineUser = process.env.LINE_USER_ID;
+  if (lineToken && lineUser) {
+    const ok = await postJson(
+      "https://api.line.me/v2/bot/message/push",
+      { to: lineUser, messages: [{ type: "text", text: text.slice(0, 4900) }] },
+      { Authorization: `Bearer ${lineToken}` }
+    );
+    return ok ? { ok: true, channel: "line" } : { ok: false, channel: "line", reason: "LINE送信に失敗しました" };
+  }
+
+  // 2) 汎用Webhook（Slack/Discord等の Incoming Webhook URL）
+  const webhook = process.env.NOTIFICATION_WEBHOOK_URL;
+  if (webhook) {
+    const ok = await postJson(webhook, { text });
+    return ok ? { ok: true, channel: "slack" } : { ok: false, channel: "slack", reason: "Webhook送信に失敗しました" };
+  }
+
+  // 3) メールは送信プロバイダ未設定のためスタブ（NOTIFICATION_EMAIL_TO はあるが送信処理は将来）
+  return { ok: false, channel: "none", reason: "送信先が未設定です（LINE_USER_ID / NOTIFICATION_WEBHOOK_URL のいずれかを設定）" };
 }
