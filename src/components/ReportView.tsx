@@ -56,37 +56,12 @@ export function ReportView({
       </div>
 
       {items.length === 0 ? (
-        <p className="py-6 text-center text-sm text-gray-400">条件に合う候補（相性60点以上・締切前）はありませんでした。</p>
+        <p className="py-6 text-center text-sm text-gray-400">条件に合う候補（合いそう度60点以上・締切前）はありませんでした。</p>
       ) : (
-        <ol className="space-y-3">
-          {items.map((it, idx) => {
-            const dd = daysUntil(it.deadline);
-            return (
-              <li key={idx} className="rounded-md border p-3 print-block">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <span className="mr-1 text-xs text-gray-400">{idx + 1}.</span>
-                    <span className="text-sm font-semibold text-ink">{it.title}</span>
-                    <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{it.kindLabel}</span>
-                  </div>
-                  <span className="shrink-0 rounded bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">合いそう度 {it.score}</span>
-                </div>
-                <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-600 sm:grid-cols-4">
-                  <span>出典：{it.source}</span>
-                  <span>地域：{it.regions.slice(0, 3).join("・") || "—"}</span>
-                  <span>補助額：{it.amount != null ? formatAmount(it.amount) : it.rate || "—"}</span>
-                  <span className={dd != null && dd <= 14 ? "font-semibold text-red-600" : ""}>締切：{it.deadline ? `${formatDate(it.deadline)}${dd != null && dd >= 0 ? `（あと${dd}日）` : ""}` : "通年・未定"}</span>
-                </div>
-                {it.reason && <p className="mt-1 text-xs text-gray-700"><span className="text-gray-400">なぜ合いそうか：</span>{it.reason}</p>}
-                {it.concerns && <p className="mt-0.5 text-xs text-red-600"><span className="text-red-400">注意点：</span>{it.concerns}</p>}
-                {it.nextActions.length > 0 && (
-                  <p className="mt-0.5 text-xs text-orange-700"><span className="text-orange-400">次にやること：</span>{it.nextActions.join(" / ")}</p>
-                )}
-                {it.url && <p className="mt-0.5 text-xs"><span className="text-gray-400">公式ページを見る：</span><a href={it.url} target="_blank" rel="noopener noreferrer" className="text-accent underline">{it.url}</a></p>}
-              </li>
-            );
-          })}
-        </ol>
+        <div className="space-y-5">
+          <ReportSection title="まず確認すべき制度" desc="特に合いそう度が高く、優先して公式ページを確認する価値があります。" items={items.filter((i) => i.score >= 80)} />
+          <ReportSection title="条件次第で使えるかもしれない制度" desc="条件次第で対象になる可能性があります。気になるものは公式ページで確認してください。" items={items.filter((i) => i.score >= 60 && i.score < 80)} />
+        </div>
       )}
 
       <p className="mt-4 border-t pt-3 text-[11px] leading-relaxed text-gray-400">
@@ -94,5 +69,46 @@ export function ReportView({
         申請前に必ず公式情報・公募要領をご確認ください（各候補の「公式ページを見る」URL）。
       </p>
     </div>
+  );
+}
+
+function ReportSection({ title, desc, items }: { title: string; desc: string; items: ReportItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <section className="print-block">
+      <h3 className="mb-1 text-sm font-bold text-ink">{title}（{items.length}件）</h3>
+      <p className="mb-2 text-[11px] text-gray-500">{desc}</p>
+      <ol className="space-y-3">
+        {items.map((it, idx) => <ReportRow key={idx} it={it} idx={idx} />)}
+      </ol>
+    </section>
+  );
+}
+
+function ReportRow({ it, idx }: { it: ReportItem; idx: number }) {
+  const dd = daysUntil(it.deadline);
+  return (
+    <li className="rounded-md border p-3 print-block">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span className="mr-1 text-xs text-gray-400">{idx + 1}.</span>
+          <span className="text-sm font-semibold text-ink">{it.title}</span>
+          <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{it.kindLabel}</span>
+        </div>
+        <span className="shrink-0 rounded bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">合いそう度 {it.score}</span>
+      </div>
+      <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-600 sm:grid-cols-4">
+        <span>出典：{it.source}</span>
+        <span>地域：{it.regions.slice(0, 3).join("・") || "—"}</span>
+        <span>補助額：{it.amount != null ? formatAmount(it.amount) : it.rate || "—"}</span>
+        <span className={dd != null && dd <= 14 ? "font-semibold text-red-600" : ""}>締切：{it.deadline ? `${formatDate(it.deadline)}${dd != null && dd >= 0 ? `（あと${dd}日）` : ""}` : "通年・未定"}</span>
+      </div>
+      {it.reason && <p className="mt-1 text-xs text-gray-700"><span className="text-gray-400">なぜ合いそうか：</span>{it.reason}</p>}
+      {it.concerns && <p className="mt-0.5 text-xs text-red-600"><span className="text-red-400">注意点：</span>{it.concerns}</p>}
+      {it.nextActions.length > 0 && (
+        <p className="mt-0.5 text-xs text-orange-700"><span className="text-orange-400">次にやること：</span>{it.nextActions.join(" / ")}</p>
+      )}
+      {it.url && <p className="mt-0.5 text-xs"><span className="text-gray-400">公式ページを見る：</span><a href={it.url} target="_blank" rel="noopener noreferrer" className="text-accent underline">{it.url}</a></p>}
+    </li>
   );
 }

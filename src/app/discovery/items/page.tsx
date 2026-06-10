@@ -38,6 +38,8 @@ import { HelpBox, ButtonGuide } from "@/components/DiscoveryHelp";
 import { ChecklistPanel } from "@/components/ChecklistPanel";
 import { formatDate, formatAmount, daysUntil } from "@/lib/utils";
 import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags, scoreDiscoveredAgainstProfiles, ruleExtract, suggestNextActions, buildNormalizedKey } from "@/lib/discovery";
+import { expandQuery } from "@/lib/synonyms";
+import { PURPOSES } from "@/lib/constants";
 import { isSampleDiscovered, sampleButtonsVisible } from "@/lib/sampleFilter";
 import { lifecycle, extractStartDate, feasibility, preparation, priority } from "@/lib/lifecycle";
 import { SAMPLE_DISCOVERED_ITEMS } from "@/lib/samples";
@@ -68,6 +70,31 @@ const blank: AddForm = {
   official_source_confirmed: false,
 };
 
+// 使い道で絞る（brief §12）。メイン導線ではなく絞り込みとして配置する。
+const USE_GROUPS: { key: string; label: string; purposes: string[] }[] = [
+  { key: "renov", label: "店舗改装", purposes: ["店舗改装", "内装工事"] },
+  { key: "equip", label: "空調・設備", purposes: ["空調設備", "省エネ", "設備導入", "防犯カメラ", "POS導入", "省力化"] },
+  { key: "web", label: "ホームページ・EC", purposes: ["EC強化", "ホームページ制作", "予約システム"] },
+  { key: "ad", label: "広告宣伝", purposes: ["広告宣伝", "販路開拓"] },
+  { key: "hr", label: "採用・研修", purposes: ["スタッフ採用", "社員教育"] },
+  { key: "dx", label: "AI・DX", purposes: ["AI導入", "DX", "業務自動化"] },
+  { key: "event", label: "イベント", purposes: ["イベント開催", "地域活動"] },
+  { key: "startup", label: "創業・新店舗", purposes: ["創業", "新店舗出店", "商品開発"] },
+];
+
+// 申請前の注意（brief §24）。怖くしすぎず、初心者に分かる言葉で。
+function preApplicationWarnings(text: string, preNg: boolean, professional: boolean): string[] {
+  const t = text ?? "";
+  const out: string[] = [];
+  if (preNg || /(交付決定前|事前着手|着手前|契約.{0,4}前|発注.{0,4}前)/.test(t)) out.push("先に買うと対象外になる可能性");
+  if (/見積/.test(t)) out.push("見積書が必要な可能性");
+  if (/(GビズID|gBizID|gビズ|ｇビズ)/i.test(t)) out.push("GビズIDが必要な可能性");
+  if (/(事業計画|計画書)/.test(t)) out.push("事業計画書が必要な可能性");
+  if (/(予算上限|先着|早期終了|予算がなくなり|なくなり次第)/.test(t)) out.push("予算上限で早期終了の可能性");
+  if (professional || /(社会保険労務士|社労士|行政書士|認定支援機関|税理士)/.test(t)) out.push("専門家（士業）の確認がおすすめ");
+  return out.slice(0, 4);
+}
+
 export default function DiscoveredPage() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [sites, setSites] = useState<SourceSite[]>([]);
@@ -92,6 +119,7 @@ export default function DiscoveredPage() {
   const [fRegion, setFRegion] = useState("");
   const [fStartToday, setFStartToday] = useState(false);
   const [fStartSoon, setFStartSoon] = useState(false);
+  const [fUse, setFUse] = useState("");
   const [showSamples, setShowSamples] = useState(false);
   // 表示モード：初心者モード（既定）＝判断に必要な情報だけ／詳細モード＝管理・検証用情報も表示
   const [detailMode, setDetailMode] = useState(false);
@@ -145,6 +173,8 @@ export default function DiscoveredPage() {
     const deadline = item.extracted_deadline ?? sc.deadline;
     const score = item.match_score ?? sc.bestScore;
     const lc = lifecycle(start, deadline);
+    const ptext = `${item.title ?? ""}\n${item.raw_text ?? ""}`;
+    const purposes = Array.from(new Set([...expandQuery(ptext).purposes, ...PURPOSES.filter((p) => ptext.includes(p))]));
     return {
       score,
       profile: item.match_profile ?? sc.bestProfile,
@@ -152,6 +182,8 @@ export default function DiscoveredPage() {
       start,
       lc,
       pr: priority(score, lc.key),
+      purposes,
+      warnings: preApplicationWarnings(item.raw_text ?? "", ex.pre_application_ng_risk, ex.professional_check_recommended),
       reason: item.match_reason ?? sc.reason,
       regions: ex.target_regions,
       maxAmount: ex.max_amount,
@@ -206,9 +238,13 @@ export default function DiscoveredPage() {
         if (cat !== fSource) return false;
       }
       if (fRegion && !v.regions.includes(fRegion)) return false;
+      if (fUse) {
+        const grp = USE_GROUPS.find((g) => g.key === fUse);
+        if (grp && !grp.purposes.some((p) => v.purposes.includes(p))) return false;
+      }
       return true;
     }).sort((a, b) => viewMap.get(b.id)!.pr.sort - viewMap.get(a.id)!.pr.sort);
-  }, [items, viewMap, fHigh, fDeadline, fUnreviewed, fApplicant, fProfile, fSource, siteMap, fRegion, showSamples, fStartToday, fStartSoon]);
+  }, [items, viewMap, fHigh, fDeadline, fUnreviewed, fApplicant, fProfile, fSource, siteMap, fRegion, fUse, showSamples, fStartToday, fStartSoon]);
 
   async function setReview(item: DiscoveredItem, state: ReviewState) {
     try {
@@ -525,14 +561,30 @@ export default function DiscoveredPage() {
             <option value="">地域（すべて）</option>
             {COLLECT_TARGET_REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          {(fHigh || fDeadline || fUnreviewed || fApplicant || fProfile || fSource || fRegion || fStartToday || fStartSoon) && (
-            <button onClick={() => { setFHigh(false); setFDeadline(false); setFUnreviewed(false); setFApplicant(false); setFProfile(""); setFSource(""); setFRegion(""); setFStartToday(false); setFStartSoon(false); }} className="rounded-full border px-2.5 py-1 text-gray-500 hover:bg-gray-50">クリア</button>
+          {(fHigh || fDeadline || fUnreviewed || fApplicant || fProfile || fSource || fRegion || fStartToday || fStartSoon || fUse) && (
+            <button onClick={() => { setFHigh(false); setFDeadline(false); setFUnreviewed(false); setFApplicant(false); setFProfile(""); setFSource(""); setFRegion(""); setFStartToday(false); setFStartSoon(false); setFUse(""); }} className="rounded-full border px-2.5 py-1 text-gray-500 hover:bg-gray-50">クリア</button>
           )}
           <label className="ml-auto flex items-center gap-1 text-gray-500">
             <input type="checkbox" checked={showSamples} onChange={(e) => setShowSamples(e.target.checked)} className="h-3.5 w-3.5" />
             サンプルも表示
           </label>
           <span className="text-gray-400">{filtered.length} / {items.length} 件</span>
+        </div>
+      )}
+
+      {/* 使い道で絞る（メインではなく絞り込み。初心者に目的を最初から選ばせない） */}
+      {items.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="font-semibold text-gray-600">使い道で絞る：</span>
+          {USE_GROUPS.map((g) => (
+            <button
+              key={g.key}
+              onClick={() => setFUse((v) => (v === g.key ? "" : g.key))}
+              className={`rounded-full border px-2.5 py-1 ${fUse === g.key ? "border-accent bg-accent/10 text-accent" : "text-gray-600 hover:bg-gray-50"}`}
+            >
+              {g.label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -603,6 +655,16 @@ export default function DiscoveredPage() {
                     <span className={`rounded px-1.5 py-0.5 ${prep.tone}`}>{prep.label}</span>
                   </div>
                 ); })()}
+
+                {/* 申請前の注意（怖くしすぎず、確認を促す） */}
+                {v.warnings.length > 0 && (
+                  <div className="mb-2 flex flex-wrap items-center gap-1">
+                    <span className="text-[11px] font-medium text-amber-700">申請前の注意：</span>
+                    {v.warnings.map((w) => (
+                      <span key={w} className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800 ring-1 ring-amber-100">{w}</span>
+                    ))}
+                  </div>
+                )}
 
                 {/* 次にやること */}
                 <div className="mb-2 flex flex-wrap items-center gap-1">
