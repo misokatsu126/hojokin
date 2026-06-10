@@ -35,6 +35,7 @@ import {
 } from "@/components/Badges";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { HelpBox, ButtonGuide } from "@/components/DiscoveryHelp";
+import { ChecklistPanel } from "@/components/ChecklistPanel";
 import { formatDate, formatAmount, daysUntil } from "@/lib/utils";
 import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags, scoreDiscoveredAgainstProfiles, ruleExtract, suggestNextActions, buildNormalizedKey } from "@/lib/discovery";
 import { isSampleDiscovered, sampleButtonsVisible } from "@/lib/sampleFilter";
@@ -92,6 +93,7 @@ export default function DiscoveredPage() {
   // メモ編集・トースト
   const [noteEditId, setNoteEditId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
+  const [checklistId, setChecklistId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
   function showToast(text: string, ok = true) {
     setToast({ text, ok });
@@ -706,6 +708,12 @@ export default function DiscoveredPage() {
                   <Link href="/discovery/review" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">
                     抽出候補を見る
                   </Link>
+                  <button
+                    onClick={() => setChecklistId((id) => (id === item.id ? null : item.id))}
+                    className={`rounded-md border px-3 py-1.5 text-xs ${checklistId === item.id ? "border-accent bg-accent/5 text-accent" : "text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    公式確認チェックリスト
+                  </button>
                   {item.status !== "ignored" && (
                     <button onClick={() => setStatus(item, "ignored")} className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">無視</button>
                   )}
@@ -714,6 +722,12 @@ export default function DiscoveredPage() {
                   )}
                   <button onClick={() => remove(item.id)} className="rounded-md border px-3 py-1.5 text-xs text-red-500 hover:bg-red-50">削除</button>
                 </div>
+
+                {checklistId === item.id && (
+                  <div className="mt-3">
+                    <ChecklistPanel item={item} />
+                  </div>
+                )}
               </div>
             );
           })}

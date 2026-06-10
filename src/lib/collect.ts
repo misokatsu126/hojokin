@@ -10,8 +10,72 @@ import {
   fetchProfiles,
 } from "./supabase";
 import { htmlToText, scoreDiscoveredAgainstProfiles, buildNormalizedKey } from "./discovery";
+import { isSampleDiscovered } from "./sampleFilter";
 import { regionTextInTarget, type AudienceType } from "./constants";
 import type { SourceSite, DiscoveredItem } from "./types";
+
+// 通知候補を生成（discovered_items のスコア・締切から。重複は onConflict で防止）
+export async function generateNotificationCandidates(): Promise<number> {
+  let items: DiscoveredItem[] = [];
+  try {
+    const { data } = await supabase.from("discovered_items").select("*").limit(1000);
+    items = (data ?? []) as DiscoveredItem[];
+  } catch {
+    return 0;
+  }
+  const today = new Date();
+  const daysUntil = (iso: string | null | undefined): number | null => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const a = new Date(today); a.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
+    return Math.round((d.getTime() - a.getTime()) / 86400000);
+  };
+  const rows: Record<string, unknown>[] = [];
+  for (const it of items) {
+    if (it.status === "rejected" || it.status === "imported") continue;
+    if (isSampleDiscovered(it)) continue;
+    const score = it.match_score ?? 0;
+    const dd = daysUntil(it.extracted_deadline ?? null);
+    const detectedToday = daysUntil(it.detected_at) === 0;
+    const rs = it.review_state ?? "ai_judged";
+    const types: string[] = [];
+    if (detectedToday) types.push("new");
+    if (score >= 80) types.push("high_match");
+    if (dd != null && dd >= 0) {
+      if (dd <= 7) types.push("deadline_7");
+      else if (dd <= 14) types.push("deadline_14");
+      else if (dd <= 30) types.push("deadline_30");
+    }
+    if ((rs === "ai_judged" || rs === "unconfirmed") && score >= 70) types.push("review_waiting");
+    for (const t of types) {
+      rows.push({
+        discovered_item_id: it.id,
+        notification_type: t,
+        profile_name: it.match_profile ?? null,
+        title: it.title ?? null,
+        source: it.external_source ?? null,
+        source_url: it.url ?? null,
+        official_url: it.official_url ?? it.url ?? null,
+        match_score: it.match_score ?? null,
+        deadline: it.extracted_deadline ?? null,
+        message: `${it.title ?? ""}（${it.match_profile ?? "対象事業未判定"}・相性${score}${dd != null ? `・締切あと${dd}日` : ""}）`,
+        status: "pending",
+      });
+    }
+  }
+  if (rows.length === 0) return 0;
+  try {
+    // 既存(discovered_item_id, notification_type)は無視して新規のみ追加
+    const { error } = await supabase
+      .from("notification_candidates")
+      .upsert(rows, { onConflict: "discovered_item_id,notification_type", ignoreDuplicates: true });
+    if (error) return 0;
+  } catch {
+    return 0;
+  }
+  return rows.length;
+}
 
 // =============================================================
 // 自動収集（合法ルートのみ）
@@ -1164,6 +1228,13 @@ export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: {
 
   // 収集後に discovered_items を事業プロフィールと自動照合（相性スコア付与）
   const match = await scoreNewDiscovered();
+  // 通知候補を生成（高相性・締切間近・新着・確認待ち）
+  let notified = 0;
+  try {
+    notified = await generateNotificationCandidates();
+  } catch {
+    notified = 0;
+  }
 
   // run全体の実行ログを残す（Cron成否を後から追跡できるよう source_site_id=null で記録）
   const allFailed = summaries.length > 0 && summaries.every((s) => !s.ok);
@@ -1173,7 +1244,7 @@ export async function runAll(): Promise<{ summaries: CollectSummary[]; totals: {
       source_site_id: null,
       status: allFailed ? "error" : "success",
       detected_count: totals.inserted + totals.updated,
-      error_message: `run: ${summaryLine} / matched:${match.scored}/${match.total}`.slice(0, 500),
+      error_message: `run: ${summaryLine} / matched:${match.scored}/${match.total} / notify:${notified}`.slice(0, 500),
     });
   } catch {
     /* ログ保存失敗は無視 */

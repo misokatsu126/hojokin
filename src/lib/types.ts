@@ -13,6 +13,8 @@ import type {
   ReviewStatus,
   AudienceType,
   ReviewState,
+  ChecklistStatus,
+  NotificationType,
 } from "./constants";
 
 export type Grant = {
@@ -377,4 +379,51 @@ export type ExtractionResult = {
   professional_check_recommended: boolean;
   confidence_score: number;
   missing_fields: string[];
+};
+
+// 申請前 公式確認チェックリスト
+export type ApplicationChecklist = {
+  id: string;
+  grant_id: string | null;
+  discovered_item_id: string | null;
+  profile_id: string | null;
+  checked_official_page: boolean;
+  checked_guideline: boolean;
+  checked_deadline: boolean;
+  checked_target_area: boolean;
+  checked_target_business: boolean;
+  checked_entity_type: boolean;
+  checked_eligible_expenses: boolean;
+  checked_subsidy_rate: boolean;
+  checked_subsidy_amount: boolean;
+  checked_pre_application_rule: boolean;
+  checked_required_documents: boolean;
+  checked_gbizid: boolean;
+  checked_estimates: boolean;
+  checked_application_method: boolean;
+  checked_budget_limit: boolean;
+  checked_contact: boolean;
+  memo: string | null;
+  status: ChecklistStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+// 通知候補
+export type NotificationCandidate = {
+  id: string;
+  discovered_item_id: string | null;
+  grant_id: string | null;
+  profile_name: string | null;
+  notification_type: NotificationType | string;
+  title: string | null;
+  source: string | null;
+  source_url: string | null;
+  official_url: string | null;
+  match_score: number | null;
+  deadline: string | null;
+  message: string | null;
+  status: "pending" | "sent" | "dismissed" | "failed";
+  created_at: string;
+  sent_at: string | null;
 };

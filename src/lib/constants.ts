@@ -360,3 +360,54 @@ export function regionTextInTarget(areaText: string | null | undefined): boolean
 // 法務・士業に関する全体注意文
 export const LEGAL_DISCLAIMER_TEXT =
   "本サービスは補助金・助成金情報の検索・整理・一次判定を目的としたツールです。申請可否や受給を保証するものではありません。実際の申請前には、必ず公式情報・公募要領を確認し、必要に応じて行政書士、社会保険労務士、認定支援機関などの専門家へご相談ください。";
+
+// 申請前の公式確認チェックリスト項目（key は application_checklists の列名）
+export const CHECKLIST_ITEMS = [
+  { key: "checked_official_page", label: "公式ページを確認した" },
+  { key: "checked_guideline", label: "公募要領を確認した" },
+  { key: "checked_deadline", label: "受付期間を確認した" },
+  { key: "checked_target_area", label: "対象地域を確認した" },
+  { key: "checked_target_business", label: "対象事業者を確認した" },
+  { key: "checked_entity_type", label: "法人種別が対象か確認した" },
+  { key: "checked_eligible_expenses", label: "対象経費を確認した" },
+  { key: "checked_subsidy_rate", label: "補助率を確認した" },
+  { key: "checked_subsidy_amount", label: "補助上限額を確認した" },
+  { key: "checked_pre_application_rule", label: "事前着手不可か確認した" },
+  { key: "checked_required_documents", label: "必要書類を確認した" },
+  { key: "checked_gbizid", label: "GビズIDが必要か確認した" },
+  { key: "checked_estimates", label: "見積書が必要か確認した" },
+  { key: "checked_application_method", label: "申請方法を確認した" },
+  { key: "checked_budget_limit", label: "予算上限・早期終了リスクを確認した" },
+  { key: "checked_contact", label: "問い合わせ先を確認した" },
+] as const;
+export type ChecklistKey = (typeof CHECKLIST_ITEMS)[number]["key"];
+
+export const CHECKLIST_STATUSES = ["未確認", "確認中", "申請候補", "申請準備中", "見送り"] as const;
+export type ChecklistStatus = (typeof CHECKLIST_STATUSES)[number];
+
+// 通知タイプ
+export const NOTIFICATION_TYPES = [
+  "new",
+  "high_match",
+  "deadline_30",
+  "deadline_14",
+  "deadline_7",
+  "review_waiting",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
+  new: "新着",
+  high_match: "高相性80+",
+  deadline_30: "締切30日以内",
+  deadline_14: "締切14日以内",
+  deadline_7: "締切7日以内",
+  review_waiting: "人間確認待ち",
+};
+export const NOTIFICATION_TYPE_COLORS: Record<NotificationType, string> = {
+  new: "bg-violet-100 text-violet-800",
+  high_match: "bg-green-100 text-green-800",
+  deadline_30: "bg-amber-100 text-amber-800",
+  deadline_14: "bg-orange-100 text-orange-800",
+  deadline_7: "bg-red-100 text-red-700",
+  review_waiting: "bg-sky-100 text-sky-800",
+};

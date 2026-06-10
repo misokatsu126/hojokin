@@ -120,3 +120,26 @@ export async function dispatchNotifications(
   // 実送信は未実装（後日）。enabled かつ channels 設定時のみ将来送る。
   return { selected: items.length, sent: 0, skipped: items.length, channels: config.enabled ? config.channels : [] };
 }
+
+// 実送信スタブ（将来：メール / LINE / Slack）。現状は送信せず内容を返すのみ。
+//   想定 .env：
+//     NOTIFICATION_ENABLED=true|false
+//     NOTIFICATION_EMAIL_TO=...
+//     LINE_CHANNEL_ACCESS_TOKEN=...
+//     LINE_USER_ID=...
+export type SendableNotification = {
+  title: string | null;
+  message: string | null;
+  official_url: string | null;
+  notification_type: string;
+};
+export async function sendNotification(
+  n: SendableNotification
+): Promise<{ ok: boolean; channel: NotifyChannel | "none"; skipped?: boolean; reason?: string }> {
+  const enabled = process.env.NOTIFICATION_ENABLED === "true";
+  if (!enabled) return { ok: true, channel: "none", skipped: true, reason: "NOTIFICATION_ENABLED が未設定（送信は将来実装）" };
+  // TODO: メール（NOTIFICATION_EMAIL_TO）／LINE（LINE_CHANNEL_ACCESS_TOKEN, LINE_USER_ID）への送信を実装。
+  //   現状は設計のみ。送信処理を追加してもこの関数の戻り値契約を保つこと。
+  void n;
+  return { ok: false, channel: "none", reason: "送信処理は未実装です" };
+}
