@@ -172,6 +172,31 @@ export type NlSearchResultItem = {
   concerns: string[];
   next_actions: string[];
   official_url: string | null;
+  source_type?: "grant";
+};
+
+// 自然文検索で返す「自動検知候補（discovered_items）」側の結果
+export type DiscoveredSearchItem = {
+  source_type: "discovered_item";
+  id: string;
+  title: string;
+  url: string | null;
+  official_url: string | null;
+  external_source: string | null;
+  match_score: number | null;
+  match_profile: string | null;
+  status: string;
+  score: number; // 検索関連度
+};
+
+// URL直接取り込みの結果（検索文にURLが含まれていた場合）
+export type IngestResult = {
+  ok: boolean;
+  title?: string;
+  url?: string;
+  official_url?: string | null;
+  inserted?: boolean;
+  error?: string;
 };
 
 export type NlSearchResponse = {
@@ -180,6 +205,10 @@ export type NlSearchResponse = {
   relaxed_search_suggestions: string[];
   summary: string;
   engine: "ai" | "rule";
+  // 自動検知候補（discovered_items）側の検索結果（任意・後方互換）
+  discovered_results?: DiscoveredSearchItem[];
+  // 検索文にURLが含まれていた場合の直接取り込み結果（任意）
+  ingested?: IngestResult;
 };
 
 // =============================================================

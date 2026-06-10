@@ -821,6 +821,231 @@ export async function runMirasapo(): Promise<CollectSummary> {
   return summary;
 }
 
+// ---------------- URL直接取り込み（検索文にURLが含まれていた場合） ----------------
+
+function escRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function htmlH1(html: string): string {
+  const m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  return m ? htmlToText(m[1]) : "";
+}
+// dt/dd・th/td・「ラベル：値」からラベルに対応する値を取り出す
+function labelValue(html: string, label: string): string | null {
+  const L = escRe(label);
+  let m =
+    html.match(new RegExp(`<dt[^>]*>\\s*${L}[\\s\\S]*?</dt>\\s*<dd[^>]*>([\\s\\S]*?)</dd>`, "i")) ||
+    html.match(new RegExp(`<th[^>]*>\\s*${L}[\\s\\S]*?</th>\\s*<td[^>]*>([\\s\\S]*?)</td>`, "i"));
+  if (m) {
+    const v = htmlToText(m[1]).trim();
+    if (v) return v;
+  }
+  // 「ラベル：値」 / 「ラベル<br>値」形式のフォールバック
+  const text = htmlToText(html);
+  const tm = text.match(new RegExp(`${L}\\s*[:：]?\\s*([^\\n｜|]{1,120})`));
+  if (tm && tm[1]) return tm[1].trim();
+  return null;
+}
+// 「詳細情報を見る」等の外部公式リンクを探す
+function detailLink(html: string, baseUrl: string): string | null {
+  const re = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  let firstExternal: string | null = null;
+  while ((m = re.exec(html)) !== null) {
+    let abs: string;
+    try {
+      abs = new URL(m[1], baseUrl).toString();
+    } catch {
+      continue;
+    }
+    const text = htmlToText(m[2]);
+    if (/(詳細情報を見る|詳細を見る|公式|詳細はこちら)/.test(text)) return abs;
+    if (!firstExternal && !abs.includes("j-net21.smrj.go.jp") && /^https?:/.test(abs)) firstExternal = abs;
+  }
+  return firstExternal;
+}
+
+export type Jnet21Article = {
+  title: string;
+  kind: string | null; // 種類
+  field: string | null; // 分野
+  region: string | null; // 地域
+  organization: string | null; // 実施機関
+  notice: string | null; // 実施機関からのお知らせ
+  period: string | null; // 受付期間
+  postedDate: string | null; // 掲載日
+  detailUrl: string | null; // 詳細情報を見る
+};
+
+// J-Net21 個別記事ページ（/snavi2/articles/*）の構造化抽出
+export function parseJnet21Article(html: string, url: string): Jnet21Article {
+  return {
+    title: htmlH1(html) || labelValue(html, "補助金名") || "",
+    kind: labelValue(html, "種類"),
+    field: labelValue(html, "分野"),
+    region: labelValue(html, "地域"),
+    organization: labelValue(html, "実施機関"),
+    notice: labelValue(html, "実施機関からのお知らせ"),
+    period: labelValue(html, "受付期間"),
+    postedDate: labelValue(html, "掲載日"),
+    detailUrl: detailLink(html, url),
+  };
+}
+
+function isJnet21Article(url: string): boolean {
+  return /j-net21\.smrj\.go\.jp\/snavi2?\/articles\//i.test(url);
+}
+
+export type IngestSummary = {
+  ok: boolean;
+  inserted?: boolean;
+  title?: string;
+  url?: string;
+  official_url?: string | null;
+  error?: string;
+};
+
+/**
+ * 検索文に含まれていたURLを直接取得して discovered_items に取り込む。
+ * J-Net21の個別記事URLは専用パーサーで構造化抽出する。取得失敗時はモックにせず理由を返す。
+ */
+export async function ingestUrl(url: string): Promise<IngestSummary> {
+  const fetchedAt = new Date().toISOString();
+  const r = await safeFetch(url, { timeoutMs: 15000 });
+  if (!r.ok || !r.text) {
+    return { ok: false, url, error: `取得に失敗しました（HTTP ${r.status}${r.error ? ` / ${r.error}` : ""}）` };
+  }
+  const html = r.text;
+  const jnet = isJnet21Article(url);
+
+  // J-Net21 のソース（ログ・紐づけ用）
+  let site: SourceSite | null = null;
+  try {
+    site = await findOrCreateSourceSite(
+      { url: JNET21_SITE },
+      {
+        name: "J-Net21 支援情報ヘッドライン（中小機構）",
+        source_type: "semi_official",
+        trust_level: "B",
+        url: JNET21_SITE,
+        region: "全国",
+        priority: "high",
+        crawl_frequency: "daily",
+        is_active: true,
+        last_checked_at: null,
+        notes: "個別記事URLの直接取り込みにも対応。",
+        feed_url: "https://j-net21.smrj.go.jp/snavi/support/support.xml",
+      }
+    );
+  } catch {
+    /* 継続 */
+  }
+
+  let title: string;
+  let rawText: string;
+  let officialUrl: string;
+  let regions: string[] = [];
+
+  if (jnet) {
+    const a = parseJnet21Article(html, url);
+    title = a.title || "（名称未抽出のJ-Net21記事）";
+    officialUrl = a.detailUrl ?? url; // 外部公式があればそちら、無ければ記事URL
+    regions = a.region ? [a.region] : [];
+    rawText = [
+      title,
+      a.kind ? `種類: ${a.kind}` : "",
+      a.field ? `分野: ${a.field}` : "",
+      a.region ? `地域: ${a.region}` : "",
+      a.organization ? `実施機関: ${a.organization}` : "",
+      a.notice ? `お知らせ: ${a.notice}` : "",
+      a.period ? `受付期間: ${a.period}` : "",
+      a.postedDate ? `掲載日: ${a.postedDate}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  } else {
+    // J-Net21以外の一般URL：タイトル＋本文テキストを取り込み
+    const tm = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    title = (tm ? htmlToText(tm[1]) : "") || htmlH1(html) || url;
+    officialUrl = url;
+    rawText = htmlToText(html).slice(0, 4000);
+  }
+
+  const externalId = `jnet21:${url}`; // 仕様どおり jnet21:<url>（一般URLでもJ-Net21導線に合わせる）
+  const normalizedKey = buildNormalizedKey(title);
+  const filled = [title, officialUrl, regions[0], rawText.length > 60].filter(Boolean).length;
+  const confidence = Math.min(95, 40 + filled * 12 + (jnet ? 15 : 0));
+
+  let inserted = false;
+  let id: string | null = null;
+  try {
+    const res = await upsertDiscoveredByExternal({
+      external_id: externalId,
+      external_source: "jnet21",
+      source_site_id: site?.id ?? null,
+      title: title.slice(0, 200),
+      url,
+      raw_text: rawText,
+      raw_html: null,
+      pdf_url: null,
+      detection_type: "new",
+      status: "unreviewed",
+      source_category: "semi_official",
+      trust_level: "B",
+      original_source_url: url,
+      official_url: officialUrl,
+      official_pdf_url: null,
+      official_source_confirmed: false,
+      source_warning: null,
+      last_verified_at: null,
+      verification_status: officialUrl !== url ? "official_found" : "needs_review",
+      duplicate_of: null,
+      normalized_key: normalizedKey,
+      audience_type: inferAudience(rawText) === "unknown" ? "business" : inferAudience(rawText),
+      fetched_at: fetchedAt,
+      extraction_confidence: confidence,
+    });
+    inserted = res.inserted;
+    id = res.id;
+    await resolveCrossSourceDuplicate(id, normalizedKey, "jnet21");
+  } catch (e) {
+    return { ok: false, url, error: `保存に失敗しました（${(e as Error).message}）` };
+  }
+
+  // 取り込んだ候補を即座に事業プロフィールと照合（検索で相性スコアを出すため）
+  if (id) {
+    try {
+      const profiles = await fetchProfiles();
+      if (profiles.length) {
+        const sc = scoreDiscoveredAgainstProfiles({ title, raw_text: rawText } as any, profiles);
+        await supabase
+          .from("discovered_items")
+          .update({
+            match_score: sc.bestScore,
+            match_profile: sc.bestProfile || null,
+            match_recommendation: sc.recommendation,
+            extracted_deadline: sc.deadline,
+            match_reason: sc.reason || null,
+          })
+          .eq("id", id);
+      }
+    } catch {
+      /* スコア付与失敗は無視 */
+    }
+  }
+
+  if (site) {
+    await createSourceFetchLog({
+      source_site_id: site.id,
+      status: "success",
+      http_status: r.status,
+      detected_count: 1,
+      error_message: `URL直接取り込み: ${url}`,
+    });
+  }
+  return { ok: true, inserted, title, url, official_url: officialUrl };
+}
+
 /**
  * 収集済みの discovered_items（未確認）を、登録済み事業プロフィールと自動照合し、
  * 相性スコア・最適事業・推定締切を discovered_items に保存する（OpenAI不要のルールベース）。

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase, logSearch } from "@/lib/supabase";
-import { aiExtractConditions, hasOpenAI } from "@/lib/ai";
+import { aiExtractConditions } from "@/lib/ai";
 import { ruleExtractConditions, filterGrantsByConditions } from "@/lib/nlsearch";
 import { ruleMatch, classify } from "@/lib/matching";
+import { ingestUrl } from "@/lib/collect";
 import { deadlineState } from "@/lib/utils";
 import type {
   Grant,
@@ -10,6 +11,9 @@ import type {
   InterpretedConditions,
   NlSearchResultItem,
   NlSearchResponse,
+  DiscoveredItem,
+  DiscoveredSearchItem,
+  IngestResult,
 } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -44,6 +48,25 @@ export async function POST(req: NextRequest) {
     if (!query) throw new Error("query が空です");
   } catch {
     return NextResponse.json({ error: "検索文を入力してください。" }, { status: 400 });
+  }
+
+  // 検索文にURLが含まれていたら、そのURLを直接取得して discovered_items に取り込む
+  let ingested: IngestResult | undefined;
+  const urlMatch = query.match(/https?:\/\/[^\s　]+/);
+  if (urlMatch) {
+    try {
+      const r = await ingestUrl(urlMatch[0]);
+      ingested = {
+        ok: r.ok,
+        title: r.title,
+        url: r.url,
+        official_url: r.official_url ?? null,
+        inserted: r.inserted,
+        error: r.error,
+      };
+    } catch (e) {
+      ingested = { ok: false, url: urlMatch[0], error: (e as Error).message };
+    }
   }
 
   // 条件抽出（AI 優先、失敗時ルールベース）
@@ -97,7 +120,11 @@ export async function POST(req: NextRequest) {
     concerns: m.exclusion_risks,
     next_actions: m.next_actions,
     official_url: g.official_url,
+    source_type: "grant",
   }));
+
+  // 自動検知候補（discovered_items）も検索対象にする（grants は維持）
+  const discovered_results = await searchDiscovered(query, cond);
 
   const summary =
     results.length === 0
@@ -112,6 +139,66 @@ export async function POST(req: NextRequest) {
     relaxed_search_suggestions,
     summary,
     engine,
+    discovered_results,
+    ingested,
   };
   return NextResponse.json(response);
+}
+
+// discovered_items を title/raw_text/url/official_url/external_source/match_profile で検索
+async function searchDiscovered(query: string, cond: InterpretedConditions): Promise<DiscoveredSearchItem[]> {
+  let items: DiscoveredItem[] = [];
+  try {
+    const { data } = await supabase.from("discovered_items").select("*").limit(1000);
+    items = (data ?? []) as DiscoveredItem[];
+  } catch {
+    return [];
+  }
+  // 検索語：クエリのトークン（2文字以上、URLは除外）＋抽出条件
+  const terms = Array.from(
+    new Set(
+      [
+        ...query.replace(/https?:\/\/[^\s　]+/g, " ").split(/[\s　、，,]+/),
+        ...cond.regions,
+        ...cond.industries,
+        ...cond.purposes,
+        ...cond.keywords,
+        ...cond.eligible_expenses,
+      ]
+        .map((s) => s.trim())
+        .filter((s) => s.length >= 2)
+    )
+  );
+
+  const out: DiscoveredSearchItem[] = [];
+  for (const it of items) {
+    if (it.status === "rejected") continue;
+    const hay = [
+      it.title,
+      it.raw_text,
+      it.url,
+      it.official_url,
+      it.external_source,
+      it.match_profile,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    let hits = 0;
+    for (const t of terms) if (hay.includes(t)) hits++;
+    if (terms.length > 0 && hits === 0) continue; // 語句指定があり一致なしは除外
+    const score = hits * 10 + Math.round((it.match_score ?? 0) / 5);
+    out.push({
+      source_type: "discovered_item",
+      id: it.id,
+      title: it.title ?? "（無題）",
+      url: it.url ?? null,
+      official_url: it.official_url ?? null,
+      external_source: it.external_source ?? null,
+      match_score: it.match_score ?? null,
+      match_profile: it.match_profile ?? null,
+      status: it.status,
+      score,
+    });
+  }
+  return out.sort((a, b) => b.score - a.score).slice(0, 30);
 }
