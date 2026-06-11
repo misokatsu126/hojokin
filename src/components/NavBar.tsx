@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "ホーム", icon: "🏠", match: (p: string) => p === "/" },
+  { href: "/projects", label: "支出案件", icon: "🧾", match: (p: string) => p.startsWith("/projects") },
   { href: "/search", label: "相談して探す", icon: "💬", match: (p: string) => p.startsWith("/search") },
-  { href: "/discovery/items?view=applicant", label: "申請候補", icon: "📝", match: () => false },
   { href: "/calendar", label: "締切カレンダー", icon: "🗓", match: (p: string) => p.startsWith("/calendar") },
   { href: "/new-and-standard", label: "新着・定番", icon: "🆕", match: (p: string) => p.startsWith("/new-and-standard") },
   { href: "/settings", label: "設定", icon: "⚙️", match: (p: string) => p.startsWith("/settings") || p.startsWith("/profiles") || p.startsWith("/setup") || p.startsWith("/guide") || p.startsWith("/reports") },
