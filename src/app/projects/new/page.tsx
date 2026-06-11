@@ -21,8 +21,10 @@ export default function NewProjectWizard() {
 
   function pickTemplate(t: ProjectTemplate) {
     setCustom(false);
-    setP((prev) => ({ ...prev, templateKey: t.key, name: t.name, uses: [...t.uses], purpose: t.label }));
-    setStep(1);
+    setP((prev) => ({ ...prev, templateKey: t.key, name: t.name, uses: [...t.uses], purpose: t.label, answers: {} }));
+  }
+  function setAnswer(qid: string, val: string) {
+    setP((prev) => ({ ...prev, answers: { ...(prev.answers ?? {}), [qid]: prev.answers?.[qid] === val ? "" : val } }));
   }
   function toggleUse(u: string) {
     setP((prev) => ({ ...prev, uses: prev.uses.includes(u) ? prev.uses.filter((x) => x !== u) : [...prev.uses, u] }));
@@ -33,7 +35,7 @@ export default function NewProjectWizard() {
     router.push(`/projects/${saved.id}`);
   }
 
-  const canNext = step > 0 || custom ? (p.uses.length > 0 || p.name.trim().length > 0) : false;
+  const canNext = !!p.templateKey || p.uses.length > 0 || p.name.trim().length > 0;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -65,6 +67,31 @@ export default function NewProjectWizard() {
                 </button>
               ))}
             </div>
+            {/* 選んだテンプレートの説明＋固有の質問 */}
+            {tpl && !custom && (
+              <div className="mt-3 rounded-lg border border-accent/40 bg-accent/5 p-3">
+                <p className="text-sm font-semibold text-ink">{tpl.label}</p>
+                <p className="mt-0.5 text-xs text-gray-600">{tpl.description}</p>
+                <p className="mt-1 text-[11px] text-sky-800">関係しそうな補助金：{tpl.genres.join("、")}</p>
+                {tpl.questions.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {tpl.questions.map((qq) => (
+                      <div key={qq.id}>
+                        <div className="text-xs font-medium text-ink">{qq.q}</div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {qq.options.map((o) => (
+                            <button key={o} onClick={() => setAnswer(qq.id, o)}
+                              className={`rounded-full border px-2.5 py-1 text-[11px] ${p.answers?.[qq.id] === o ? "border-accent bg-accent text-white" : "text-gray-600 hover:bg-white"}`}>{o}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 rounded-md bg-white/70 px-2 py-1 text-[11px] text-amber-800">⚠ {tpl.caution}</p>
+              </div>
+            )}
+
             <button onClick={() => { setCustom(true); setP((prev) => ({ ...prev, templateKey: "" })); }}
               className={`mt-3 rounded-md border px-3 py-2 text-xs ${custom ? "border-accent bg-accent/5 text-accent" : "text-gray-600 hover:bg-gray-50"}`}>
               決まっていない／自分で書く

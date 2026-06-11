@@ -110,9 +110,12 @@ export default function ProjectDetailPage() {
       )}
 
       {tpl && (
-        <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 p-2.5 text-xs text-sky-900">
-          <span className="font-medium">この案件の注意点：</span>{tpl.caution}
-        </p>
+        <div className="mt-3 grid gap-2 rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 sm:grid-cols-2">
+          <p className="sm:col-span-2"><span className="font-medium">注意点：</span>{tpl.caution}</p>
+          <p><span className="font-medium">よくある対象経費：</span>{tpl.expenses.join("、")}</p>
+          <p><span className="font-medium">関係しそうな補助金：</span>{tpl.genres.join("、")}</p>
+          {tpl.killers.length > 0 && <p className="text-rose-700 sm:col-span-2"><span className="font-medium">ダメになりやすい条件：</span>{tpl.killers.join(" / ")}</p>}
+        </div>
       )}
 
       {/* この支出で使えそうな補助金 */}
