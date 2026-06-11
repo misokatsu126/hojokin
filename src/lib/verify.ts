@@ -118,18 +118,28 @@ const SCORE_BY_TYPE: Partial<Record<PageType, number>> = {
 };
 
 export type VerifyResult = {
-  state: VerifyState;
+  state: VerifyState; // = visibility
   pageType: PageType;
-  score: number;
-  noise: string[];
+  score: number; // = confidenceScore
+  noise: string[]; // = noiseReasons
   official: boolean;
   grantPage: boolean;
-  req: Requirements;
+  req: Requirements; // = extractedRequirements（取れた項目）
+  missingFields: string[]; // 取れなかった項目（未確認）
   extracted: { name: string; regions: string[]; expenses: string[]; rate: string | null; maxAmount: number | null; deadline: string | null };
+  projectRelationReason: string; // なぜこの案件に関係するか
+  recommendedAction: string; // 次に何をすべきか
   userVisible: boolean;
-  label: string;
+  label: string; // = trustLabel
   tone: string;
 };
+
+const REQ_LABEL: Record<keyof Omit<Requirements, "count">, string> = {
+  name: "制度名", target: "対象者", expense: "対象経費", rate: "補助率", cap: "補助上限額",
+  period: "募集期間", method: "申請方法", guideline: "公募要領", contact: "問い合わせ先",
+};
+
+const PREFS = ["北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県","茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県","新潟県","富山県","石川県","福井県","山梨県","長野県","岐阜県","静岡県","愛知県","三重県","滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県","鳥取県","島根県","岡山県","広島県","山口県","徳島県","香川県","愛媛県","高知県","福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県"];
 
 export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | null): VerifyResult {
   const text = `${item.title ?? ""}\n${item.raw_text ?? ""}`;
@@ -142,7 +152,7 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
 
   // 信頼度スコア
   let score = SCORE_BY_TYPE[pageType] ?? 0;
-  score += req.count * 8; // 要件が取れているほど加点
+  score += req.count * 8;
   if (item.official_pdf_url || item.pdf_url || req.guideline) score += 10;
   if (old?.includes("募集終了")) score -= 30;
   if (old?.includes("古い")) score -= 30;
@@ -154,13 +164,22 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   if (pageType === "news_article") noise.push("ニュース・プレスリリース");
   if (pageType === "company_sales_page") noise.push("施工・制作会社の営業ページ");
 
-  // 案件との一致
+  // 案件との一致・不一致
+  const pRegions = profile?.regions ?? [];
+  const regionMatch = pRegions.some((r) => r && text.includes(r)) || /全国/.test(text);
+  const mentionsOtherPref = PREFS.some((p) => !pRegions.includes(p) && text.includes(p));
+  const regionConflict = pRegions.length > 0 && !regionMatch && mentionsOtherPref;
+  const themeHits = [
+    ...(profile?.purposes ?? []), ...(profile?.expenses ?? []), ...(profile?.keywords ?? []), ...(profile?.industries ?? []),
+  ].filter((t) => t && text.includes(t));
+  const expenseMatch = (profile?.expenses ?? []).some((e) => e && text.includes(e));
   if (profile) {
-    if ((profile.regions ?? []).some((r) => r && text.includes(r))) score += 10;
-    if ((profile.expenses ?? []).some((e) => e && text.includes(e))) score += 10;
+    if (regionMatch) score += 10;
+    if (expenseMatch) score += 10;
+    if (regionConflict) score -= 50;
   }
 
-  // 状態の決定（ノイズ → 古い/終了 → 公式制度ページ → 公式だが要件薄い/民間 → 不明）
+  // 状態の決定
   const NOISE_TYPES: PageType[] = ["past_result", "council_or_budget", "bid_or_procurement", "seminar", "news_article", "company_sales_page"];
   let state: VerifyState;
   if (NOISE_TYPES.includes(pageType)) state = "rejected_noise";
@@ -169,21 +188,52 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   else if (pageType === "private_summary" || pageType === "official_index" || ((pageType === "official_grant_page" || pageType === "official_pdf") && req.count < 3)) state = "admin_review";
   else state = "reference_only";
 
-  // ユーザー画面に出してよいのは「公式・制度ページで要件が説明できるもの」だけ（狭く見せる）
+  // 案件と地域/経費が合わないものは user_visible にしない（管理者確認へ）
+  let mismatchNote = "";
+  if (state === "user_visible" && profile) {
+    if (regionConflict) { state = "admin_review"; mismatchNote = "対象地域が案件と違う可能性"; }
+    else if (pRegions.length > 0 && (profile.expenses?.length ?? 0) > 0 && !expenseMatch && themeHits.length === 0) {
+      state = "admin_review"; mismatchNote = "対象経費が案件と合わない可能性";
+    }
+  }
+  if (mismatchNote) noise.push(mismatchNote);
+
   const userVisible = state === "user_visible";
+
+  // 未確認項目（取れなかった要件）
+  const missingFields = (Object.keys(REQ_LABEL) as (keyof typeof REQ_LABEL)[])
+    .filter((k) => !req[k]).map((k) => REQ_LABEL[k]);
+
+  // なぜこの案件に関係するか
+  let projectRelationReason: string;
+  if (profile) {
+    const regionPart = regionMatch ? `${pRegions.find((r) => text.includes(r)) ?? (/全国/.test(text) ? "全国対象" : "")}の事業で、` : "";
+    const themePart = themeHits.length ? `${themeHits.slice(0, 3).join("・")}に該当する可能性があります` : (item.match_reason || "関係する可能性があります");
+    projectRelationReason = `${regionPart}${themePart}。`;
+  } else {
+    projectRelationReason = item.match_reason || "事業情報と関係する可能性があります。";
+  }
 
   // 確度ラベル
   let label: string, tone: string;
   if (pageType === "official_pdf" && state === "user_visible") { label = "公式PDF確認済み"; tone = "bg-green-100 text-green-800"; }
   else if (state === "user_visible") { label = "公式ページ確認済み"; tone = "bg-green-100 text-green-800"; }
   else if (state === "archived_or_old") { label = old?.includes("募集終了") ? "募集終了の可能性あり" : "古い可能性あり"; tone = "bg-slate-100 text-slate-600"; }
-  else if (state === "admin_review") { label = secondary ? "民間サイトで発見（公式確認が必要）" : "公式確認待ち"; tone = "bg-amber-100 text-amber-800"; }
+  else if (state === "admin_review") { label = mismatchNote ? mismatchNote + "（要確認）" : (secondary ? "民間サイトで発見（公式確認が必要）" : "公式確認待ち"); tone = "bg-amber-100 text-amber-800"; }
   else if (state === "reference_only") { label = "制度ページではない可能性"; tone = "bg-slate-100 text-slate-500"; }
   else { label = "ノイズ除外"; tone = "bg-gray-100 text-gray-400"; }
 
+  // 次にやること
+  let recommendedAction: string;
+  if (state === "user_visible") recommendedAction = "発注前確認 → 公募要領確認 → 見積取得";
+  else if (state === "archived_or_old") recommendedAction = "次回募集があるか確認する（次回狙い）";
+  else if (state === "admin_review") recommendedAction = secondary ? "公式情報を探して確認（申請判断には使わない）" : "公式情報・要件を確認してから判断";
+  else if (state === "reference_only") recommendedAction = "制度ページか確認する（参考情報）";
+  else recommendedAction = "ユーザーには表示しない";
+
   return {
-    state, pageType, score, noise, official, grantPage: req.name, req,
+    state, pageType, score, noise, official, grantPage: req.name, req, missingFields,
     extracted: { name: item.title ?? "", regions: ex.target_regions, expenses: ex.eligible_expenses, rate: ex.subsidy_rate, maxAmount: ex.max_amount, deadline: item.extracted_deadline ?? ex.deadline },
-    userVisible, label, tone,
+    projectRelationReason, recommendedAction, userVisible, label, tone,
   };
 }
