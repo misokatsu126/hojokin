@@ -175,6 +175,9 @@ export default function DiscoveredPage() {
     const lc = lifecycle(start, deadline);
     const ptext = `${item.title ?? ""}\n${item.raw_text ?? ""}`;
     const purposes = Array.from(new Set([...expandQuery(ptext).purposes, ...PURPOSES.filter((p) => ptext.includes(p))]));
+    // 実施機関（J-Net21等の本文「実施機関: X」から抽出）
+    const orgMatch = (item.raw_text ?? "").match(/実施機関[：:]\s*([^\n｜|]{1,40})/);
+    const organizer = orgMatch ? orgMatch[1].trim() : "";
     return {
       score,
       profile: item.match_profile ?? sc.bestProfile,
@@ -183,6 +186,7 @@ export default function DiscoveredPage() {
       lc,
       pr: priority(score, lc.key),
       purposes,
+      organizer,
       warnings: preApplicationWarnings(item.raw_text ?? "", ex.pre_application_ng_risk, ex.professional_check_recommended),
       reason: item.match_reason ?? sc.reason,
       regions: ex.target_regions,
@@ -636,6 +640,7 @@ export default function DiscoveredPage() {
                 {/* 大きく見せる要点（地域・締切・補助額/率・対象事業） */}
                 <div className="mb-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
                   <KeyVal label="対象地域" value={v.regions.slice(0, 3).join("・") || "—"} />
+                  {v.organizer && <KeyVal label="実施機関" value={v.organizer} />}
                   <KeyVal label="締切" value={v.deadline ? `${formatDate(v.deadline)}${daysUntil(v.deadline) != null && daysUntil(v.deadline)! >= 0 ? `（あと${daysUntil(v.deadline)}日）` : ""}` : "—"} highlight={(() => { const d = daysUntil(v.deadline); return d != null && d >= 0 && d <= 14; })()} />
                   <KeyVal label="補助額/補助率" value={v.maxAmount != null ? formatAmount(v.maxAmount) : v.subsidyRate || "—"} />
                   <KeyVal label="対象事業" value={v.profile || "—"} />

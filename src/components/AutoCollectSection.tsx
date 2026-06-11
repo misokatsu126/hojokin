@@ -76,6 +76,8 @@ export function AutoCollectSection() {
   const soonStart = rows.filter((r) => r.lc.key === "soon_start").sort((a, b) => (a.lc.startDays ?? 99) - (b.lc.startDays ?? 99));
   const deadlineSoon = rows.filter((r) => r.lc.deadlineDays != null && r.lc.deadlineDays >= 0 && r.lc.deadlineDays <= 30).sort((a, b) => (a.lc.deadlineDays ?? 99) - (b.lc.deadlineDays ?? 99));
   const high = rows.filter((r) => r.score >= 80).sort((a, b) => b.score - a.score);
+  // 条件次第で使えるかもしれない（合いそう度60〜79）
+  const conditional = rows.filter((r) => r.score >= 60 && r.score < 80 && r.lc.key !== "ended").sort((a, b) => b.score - a.score);
   const waiting = rows.filter((r) => r.i.status === "unreviewed").sort((a, b) => b.score - a.score);
   // 金額が大きい（上限100万円以上）・手間が少なそう（準備が軽い／終了済みは除く）
   const bigAmount = rows.filter((r) => r.amount != null && r.amount >= 1_000_000 && r.lc.key !== "ended").sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0));
@@ -100,6 +102,7 @@ export function AutoCollectSection() {
 
   const cards = [
     { title: "まず確認すべき", icon: "✅", tone: "green", rows: high, href: "/discovery/items?view=high" },
+    { title: "条件次第で使えるかも", icon: "🟡", tone: "amber", rows: conditional, href: "/discovery/items" },
     { title: "締切が近い", icon: "⚠️", tone: "red", rows: deadlineSoon, href: "/discovery/items?view=deadline" },
     { title: "本日から受付", icon: "🟦", tone: "blue", rows: todayStart, href: "/discovery/items?view=today-start" },
     { title: "近日開始", icon: "📅", tone: "sky", rows: soonStart, href: "/discovery/items?view=soon-start" },
