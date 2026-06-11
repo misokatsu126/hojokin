@@ -10,6 +10,7 @@ import {
   ORDER_STATUS_LABEL, PROJECT_CHECKLIST, type SpendingProject, type ProjectMatch,
 } from "@/lib/projects";
 import { TRIAGE_META, type TriageKey, type TriageResult } from "@/lib/triage";
+import type { VerifyResult } from "@/lib/verify";
 
 // 案件詳細での補助金カテゴリ表示順（最有力→条件確認→締切→見逃し→次回→新着）
 const DETAIL_ORDER: TriageKey[] = ["usable", "conditional", "deadline", "missed", "next_time", "new", "unusable"];
@@ -137,12 +138,17 @@ export default function ProjectDetailPage() {
           </div>
         ) : (
           <div className="space-y-5">
+            {match.hidden > 0 && (
+              <p className="rounded-md border border-dashed bg-slate-50 p-2 text-[11px] text-gray-500">
+                公式確認待ち・参考情報・ノイズの可能性がある {match.hidden} 件は、検証前のためここには表示していません（<Link href="/discovery/search-review" className="text-accent hover:underline">管理者画面の検索結果レビュー</Link>で確認できます）。
+              </p>
+            )}
             {DETAIL_ORDER.filter((k) => (match.grouped.get(k)?.length ?? 0) > 0).map((k) => (
               <div key={k}>
                 <h3 className="mb-2 text-sm font-bold text-ink">{TRIAGE_META[k].icon} {TRIAGE_META[k].label}（{match.grouped.get(k)!.length}件）</h3>
                 <div className="space-y-2">
-                  {match.grouped.get(k)!.slice(0, 5).map(({ item, r }) => (
-                    <CandidateCard key={item.id} item={item} r={r} catKey={k} />
+                  {match.grouped.get(k)!.slice(0, 5).map(({ item, r, v }) => (
+                    <CandidateCard key={item.id} item={item} r={r} v={v} catKey={k} />
                   ))}
                 </div>
               </div>
@@ -177,7 +183,7 @@ function prepHint(p: SpendingProject, done: number): string {
   return "残りの確認を進めましょう。";
 }
 
-function CandidateCard({ item, r, catKey }: { item: DiscoveredItem; r: TriageResult; catKey: TriageKey }) {
+function CandidateCard({ item, r, v, catKey }: { item: DiscoveredItem; r: TriageResult; v: VerifyResult; catKey: TriageKey }) {
   const m = TRIAGE_META[catKey];
   const dd = daysUntil(r.deadline);
   return (
@@ -186,9 +192,11 @@ function CandidateCard({ item, r, catKey }: { item: DiscoveredItem; r: TriageRes
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
         <span className="text-sm font-semibold text-ink">{item.title}</span>
         {r.score > 0 && <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-bold text-ink">合いそう {r.score}</span>}
-        {r.officialConfirmed ? <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] text-emerald-700">公式確認済み</span> : <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] text-gray-600">公式未確認</span>}
         {r.deadline && <span className={`rounded bg-white/70 px-1.5 py-0.5 text-[10px] ${dd != null && dd <= 14 ? "font-semibold text-red-600" : "text-gray-600"}`}>締切 {formatDate(r.deadline)}{dd != null && dd >= 0 ? `（あと${dd}日）` : ""}</span>}
       </div>
+      {/* 確認状況（弱い表現）と、なぜこの案件に関係するか */}
+      <p className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] ${v.tone}`}>{v.label}</p>
+      {r.why && <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">この案件に関係する理由：</span>{r.why}</p>}
       {r.killers.length > 0 && <p className="mt-1 text-xs text-red-700">注意：{r.killers.join(" / ")}</p>}
       {r.nextActions.length > 0 && <p className="mt-1 text-xs text-orange-700">今やること：{r.nextActions.slice(0, 3).join(" → ")}</p>}
       {(item.official_url || item.url) && (

@@ -6,6 +6,7 @@
 import type { BusinessProfile, DiscoveredItem } from "./types";
 import { expandQuery, expandRegions } from "./synonyms";
 import { triageDiscovered, TRIAGE_ORDER, type TriageKey, type TriageResult } from "./triage";
+import { verifyItem, type VerifyResult } from "./verify";
 import { isSampleDiscovered } from "./sampleFilter";
 
 export type OrderStatus = "none" | "estimate" | "contract" | "ordered" | "paid";
@@ -402,10 +403,12 @@ export function nextTask(project: SpendingProject, match?: ProjectMatch): Projec
 }
 
 // ---- 案件 × 補助金 のトリアージ ----
+export type ProjectEntry = { item: DiscoveredItem; r: TriageResult; v: VerifyResult };
 export type ProjectMatch = {
-  grouped: Map<TriageKey, { item: DiscoveredItem; r: TriageResult }[]>;
-  top: { item: DiscoveredItem; r: TriageResult } | null; // 最有力候補
+  grouped: Map<TriageKey, ProjectEntry[]>;
+  top: ProjectEntry | null; // 最有力候補
   total: number;
+  hidden: number; // ノイズ等でユーザー非表示にした件数
   missRisk: "高" | "中" | "低"; // 見逃しリスク
 };
 
@@ -414,20 +417,24 @@ export function classifyForProject(project: SpendingProject, items: DiscoveredIt
   const active = items.filter(
     (i) => !isSampleDiscovered(i) && i.status !== "rejected" && i.status !== "ignored" && i.status !== "imported"
   );
-  const grouped = new Map<TriageKey, { item: DiscoveredItem; r: TriageResult }[]>();
+  const grouped = new Map<TriageKey, ProjectEntry[]>();
   let total = 0;
+  let hidden = 0;
   for (const item of active) {
     const r = triageDiscovered(item, [profile]);
     // 案件と無関係（スコア0かつ地域/用途ヒットなし）は除外して候補を絞る
     if (r.score === 0 && r.key !== "missed" && r.key !== "deadline") continue;
+    // 検証ゲート：ノイズ・古い/終了・制度外はユーザー候補にしない（管理者画面で確認）
+    const v = verifyItem(item, profile);
+    if (!v.userVisible) { hidden++; continue; }
     if (!grouped.has(r.key)) grouped.set(r.key, []);
-    grouped.get(r.key)!.push({ item, r });
+    grouped.get(r.key)!.push({ item, r, v });
     total++;
   }
   for (const [, arr] of grouped) arr.sort((a, b) => b.r.score - a.r.score);
 
   // 最有力候補（usable→conditional→deadline→missed→next_time の順で先頭）
-  let top: { item: DiscoveredItem; r: TriageResult } | null = null;
+  let top: ProjectEntry | null = null;
   for (const k of TRIAGE_ORDER) {
     const arr = grouped.get(k);
     if (arr && arr.length) { top = arr[0]; break; }
@@ -437,5 +444,5 @@ export function classifyForProject(project: SpendingProject, items: DiscoveredIt
   const filled = [project.location, project.entity, project.industry, project.budget != null, project.uses.length > 0].filter(Boolean).length;
   const missRisk = filled <= 2 ? "高" : filled <= 3 ? "中" : "低";
 
-  return { grouped, top, total, missRisk };
+  return { grouped, top, total, hidden, missRisk };
 }
