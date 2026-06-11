@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
-import { verifyItem, VERIFY_STATE_LABEL, type VerifyState } from "@/lib/verify";
+import { verifyItem, VERIFY_STATE_LABEL, PAGE_TYPE_LABEL, type VerifyState } from "@/lib/verify";
+import { formatAmount } from "@/lib/utils";
 import { isSampleDiscovered } from "@/lib/sampleFilter";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { formatDate } from "@/lib/utils";
 
 const STATE_TONE: Record<VerifyState, string> = {
-  user_visible_candidate: "bg-green-100 text-green-800",
-  needs_official_check: "bg-amber-100 text-amber-800",
+  user_visible: "bg-green-100 text-green-800",
+  admin_review: "bg-amber-100 text-amber-800",
   archived_or_old: "bg-slate-100 text-slate-600",
   reference_only: "bg-slate-100 text-slate-500",
   rejected_noise: "bg-gray-100 text-gray-400",
@@ -75,10 +76,18 @@ export default function SearchReviewPage() {
                 </span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-500">
+                <span className="rounded bg-slate-100 px-1.5 py-0.5">{PAGE_TYPE_LABEL[v.pageType]}</span>
                 <span>{v.official ? "公式" : "民間/未確認"}</span>
-                <span>{v.grantPage ? "制度ページらしい" : "制度ページか不明"}</span>
+                <span>要件抽出 {v.req.count}/9</span>
                 <span>出典：{i.external_source ?? "—"}</span>
-                {i.extracted_deadline && <span>締切：{formatDate(i.extracted_deadline)}</span>}
+              </div>
+              <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-gray-600 sm:grid-cols-3">
+                <span>地域：{v.extracted.regions.slice(0, 2).join("・") || "—"}</span>
+                <span>対象経費：{v.extracted.expenses.slice(0, 2).join("・") || "—"}</span>
+                <span>補助率/上限：{v.extracted.rate || (v.extracted.maxAmount != null ? formatAmount(v.extracted.maxAmount) : "—")}</span>
+                <span>締切：{v.extracted.deadline ? formatDate(v.extracted.deadline) : "—"}</span>
+                <span>対象者：{v.req.target ? "記載あり" : "—"}</span>
+                <span>公募要領：{v.req.guideline ? "あり" : "—"}</span>
               </div>
               {v.noise.length > 0 && <p className="mt-1 text-[11px] text-rose-600">ノイズ判定：{v.noise.join(" / ")}</p>}
               <div className="mt-1.5 flex flex-wrap gap-2 text-xs">

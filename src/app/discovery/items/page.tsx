@@ -39,6 +39,7 @@ import { ChecklistPanel } from "@/components/ChecklistPanel";
 import { formatDate, formatAmount, daysUntil } from "@/lib/utils";
 import { isSecondarySource, deriveTrustLevel, detectDuplicateFlags, scoreDiscoveredAgainstProfiles, ruleExtract, suggestNextActions, buildNormalizedKey } from "@/lib/discovery";
 import { expandQuery } from "@/lib/synonyms";
+import { verifyItem } from "@/lib/verify";
 import { PURPOSES } from "@/lib/constants";
 import { isSampleDiscovered, sampleButtonsVisible } from "@/lib/sampleFilter";
 import { lifecycle, extractStartDate, feasibility, preparation, priority } from "@/lib/lifecycle";
@@ -626,6 +627,7 @@ export default function DiscoveredPage() {
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                     <span className={`rounded px-2 py-0.5 text-xs font-bold ${v.pr.tone}`} title={v.pr.label}>{v.pr.rank}：{v.pr.label}</span>
+                    {(() => { const vr = verifyItem(item); return <span className={`rounded px-2 py-0.5 text-[11px] ${vr.tone}`} title={`ページ種別: ${vr.pageType} / 信頼度 ${vr.score}`}>{vr.label}</span>; })()}
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${v.lc.tone}`}>{v.lc.icon} {v.lc.label}</span>
                     {v.score > 0 && (
                       <span className="rounded-md bg-green-100 px-2 py-0.5 text-sm font-bold text-green-800" title="あなたに合いそう度">合いそう {v.score}</span>

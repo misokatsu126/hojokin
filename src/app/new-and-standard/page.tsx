@@ -6,6 +6,7 @@ import { fetchDiscoveredItems, fetchProfiles } from "@/lib/supabase";
 import type { DiscoveredItem, BusinessProfile } from "@/lib/types";
 import { isSampleDiscovered } from "@/lib/sampleFilter";
 import { triageDiscovered, TRIAGE_META, STANDARD_SUBSIDIES, JGRANTS_PORTAL_URL } from "@/lib/triage";
+import { verifyItem } from "@/lib/verify";
 import { loadProjects, type SpendingProject } from "@/lib/projects";
 import { formatDate, daysUntil } from "@/lib/utils";
 
@@ -53,7 +54,9 @@ export default function NewAndStandardPage() {
     return items
       .filter((i) => !isSampleDiscovered(i) && i.status !== "rejected" && i.status !== "ignored")
       .filter((i) => within(i.fetched_at) || within(i.detected_at))
-      .map((i) => ({ i, r: triageDiscovered(i, profiles), when: i.fetched_at ?? i.detected_at }))
+      .map((i) => ({ i, r: triageDiscovered(i, profiles), v: verifyItem(i), when: i.fetched_at ?? i.detected_at }))
+      // ノイズ（採択結果・議会・入札・ニュース等）と制度外の参考情報は新着にも出さない
+      .filter(({ v }) => v.state !== "rejected_noise" && v.state !== "reference_only")
       .sort((a, b) => new Date(b.when ?? 0).getTime() - new Date(a.when ?? 0).getTime())
       .slice(0, 20);
   }, [items, profiles]);
@@ -80,12 +83,12 @@ export default function NewAndStandardPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {recent.map(({ i, r, when }) => (
+            {recent.map(({ i, r, v, when }) => (
               <div key={i.id} className="flex flex-col gap-2 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TRIAGE_META[r.key].chip}`}>{TRIAGE_META[r.key].icon} {TRIAGE_META[r.key].label}</span>
-                    {r.officialConfirmed ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700">公式確認済み</span> : <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">公式未確認</span>}
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] ${v.tone}`}>{v.label}</span>
                     {r.score > 0 && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">合いそう {r.score}</span>}
                   </div>
                   <div className="mt-0.5 truncate text-sm font-semibold text-ink">{i.title}</div>
