@@ -318,13 +318,13 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   let state: VerifyState;
   let mismatchNote = "";
   if (NOISE_TYPES.includes(pageType)) state = "rejected_noise";
-  else if (regionMatchType === "region_mismatch") { state = "admin_review"; mismatchNote = "対象地域が案件と違う可能性"; }
-  else if (expenseMatchType === "mismatch") { state = riskHigh ? "admin_review" : "reference_only"; mismatchNote = "対象経費が案件と合わない可能性"; }
-  else if (old) state = "archived_or_old"; // 古い/募集終了（見逃しリスク高なら次回狙いとして残る）
+  else if (regionMatchType === "region_mismatch") { state = riskHigh ? "admin_review" : "rejected_noise"; mismatchNote = "対象地域が案件と違う"; } // 見逃しリスク低なら除外
+  else if (expenseMatchType === "mismatch") { state = riskHigh ? "admin_review" : "rejected_noise"; mismatchNote = "対象経費が案件と合わない"; } // 見逃しリスク低なら除外
+  else if (old) state = "archived_or_old"; // 古い/募集終了（次回狙い）
   else if (regionMatchType === "region_unknown") { state = "admin_review"; mismatchNote = "対象地域が不明（要確認）"; } // 捨てない
   else if (expenseMatchType === "unknown") { state = "admin_review"; mismatchNote = "対象経費が不明（要確認）"; } // 捨てない
   else if (expenseMatchType === "possible") { state = "admin_review"; mismatchNote = "対象経費に含まれるか要確認"; } // 条件確認
-  // user_visible は厳しく：表示確度が高く・公式制度ページ・地域一致・経費が exact/near・要件あり
+  // user_visible は厳しく：公式制度ページ・表示確度高・地域一致・経費 exact/near・要件あり
   else if (dispHigh && grantTypePage && req.count >= 3 && regionMatchBool && (expenseMatchType === "exact" || expenseMatchType === "near")) state = "user_visible";
   else if (riskHigh) state = "admin_review"; // 低×高：捨てず管理者確認（民間/一覧/定番/要件薄い公式）
   else if (req.name || grantTypePage) state = "reference_only"; // 制度ページらしいが確度低い
