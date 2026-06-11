@@ -183,6 +183,13 @@ function prepHint(p: SpendingProject, done: number): string {
   return "残りの確認を進めましょう。";
 }
 
+function regionWord(t: VerifyResult["regionMatchType"]): string {
+  return t === "region_mismatch" ? "不一致" : t === "region_unknown" ? "未確認" : "一致";
+}
+function expenseWord(t: VerifyResult["expenseMatchType"]): string {
+  return t === "exact" ? "一致" : t === "near" ? "近い" : t === "possible" ? "要確認" : t === "unknown" ? "未確認" : "不一致";
+}
+
 function CandidateCard({ item, r, v, catKey }: { item: DiscoveredItem; r: TriageResult; v: VerifyResult; catKey: TriageKey }) {
   const m = TRIAGE_META[catKey];
   const dd = daysUntil(r.deadline);
@@ -197,6 +204,8 @@ function CandidateCard({ item, r, v, catKey }: { item: DiscoveredItem; r: Triage
       {/* 確認状況（弱い表現）と、なぜこの案件に関係するか */}
       <p className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] ${v.tone}`}>{v.label}</p>
       <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">関係する理由：</span>{v.projectRelationReason}</p>
+      <p className="mt-0.5 text-xs text-gray-600"><span className="text-gray-400">地域：</span>{regionWord(v.regionMatchType)}　<span className="text-gray-400">理由：</span>{v.regionMatchReason}</p>
+      <p className="mt-0.5 text-xs text-gray-600"><span className="text-gray-400">経費：</span>{expenseWord(v.expenseMatchType)}　<span className="text-gray-400">理由：</span>{v.expenseMatchReason}</p>
       {v.matchedConditions.length > 0 && <p className="mt-0.5 text-xs text-green-700"><span className="text-green-500">一致している条件：</span>{v.matchedConditions.join("・")}</p>}
       {v.missingFields.length > 0 && <p className="mt-0.5 text-xs text-amber-800"><span className="text-amber-500">未確認項目：</span>{v.missingFields.slice(0, 5).join("・")}</p>}
       {r.killers.length > 0 && <p className="mt-1 text-xs text-red-700">注意：{r.killers.join(" / ")}</p>}
