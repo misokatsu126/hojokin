@@ -1,6 +1,6 @@
 import type { Grant, InterpretedConditions } from "./types";
 import { REGIONS, INDUSTRIES, PURPOSES, ENTITY_TYPES, EXPENSE_CATEGORIES } from "./constants";
-import { expandQuery } from "./synonyms";
+import { expandQuery, expandRegions } from "./synonyms";
 
 // 自然文から検索条件をルールベースで抽出（OpenAI 未設定時のフォールバック）。
 //   制度名を知らない初心者向けに、類義語辞書（synonyms.ts）で
@@ -30,7 +30,7 @@ export function ruleExtractConditions(text: string): InterpretedConditions {
   else if (text.includes("募集予定")) status = "募集予定";
 
   return {
-    regions: found(REGIONS),
+    regions: uniq(found(REGIONS), expandRegions(text)),
     industries: uniq(found(INDUSTRIES), expanded.industries),
     business_types: found(ENTITY_TYPES),
     purposes: uniq(found(PURPOSES), expanded.purposes),

@@ -6,7 +6,7 @@ import { ruleMatch, classify } from "@/lib/matching";
 import { ingestUrl } from "@/lib/collect";
 import { isSampleGrant, isSampleDiscovered } from "@/lib/sampleFilter";
 import { deadlineState } from "@/lib/utils";
-import { expandQuery, followUpQuestions } from "@/lib/synonyms";
+import { expandQuery, expandRegions, followUpQuestions } from "@/lib/synonyms";
 import { lifecycle, priority } from "@/lib/lifecycle";
 import type {
   Grant,
@@ -67,6 +67,7 @@ function mergeExpansion(cond: InterpretedConditions, query: string): Interpreted
   const uniq = (a: string[], b: string[]) => Array.from(new Set([...(a ?? []), ...b]));
   return {
     ...cond,
+    regions: uniq(cond.regions, expandRegions(query)),
     purposes: uniq(cond.purposes, ex.purposes),
     eligible_expenses: uniq(cond.eligible_expenses, ex.expenses),
     industries: uniq(cond.industries, ex.industries),
@@ -244,6 +245,8 @@ async function searchDiscovered(query: string, cond: InterpretedConditions): Pro
       [
         ...query.replace(/https?:\/\/[^\s　]+/g, " ").split(/[\s　、，,]+/),
         ...cond.regions,
+        // 地域は「岐阜県」だけでなく接尾辞を外した「岐阜」でも当たるように
+        ...cond.regions.map((r) => r.replace(/[県市府都]$/u, "")),
         ...cond.industries,
         ...cond.purposes,
         ...cond.keywords,
