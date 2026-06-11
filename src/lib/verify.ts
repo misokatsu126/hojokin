@@ -7,6 +7,18 @@
 
 import type { DiscoveredItem, BusinessProfile } from "./types";
 import { ruleExtract } from "./discovery";
+import { CITY_TO_PREF } from "./constants";
+
+// 市区町村 → 都道府県（地域階層の判定用。constants を拡張）
+const CITY_PREF: Record<string, string> = {
+  ...CITY_TO_PREF,
+  名古屋市: "愛知県", 豊橋市: "愛知県", 岡崎市: "愛知県", 一宮市: "愛知県", 春日井市: "愛知県",
+  豊田市: "愛知県", 弥富市: "愛知県", 岐阜市: "岐阜県", 大垣市: "岐阜県", 各務原市: "岐阜県",
+  多治見市: "岐阜県", 高山市: "岐阜県", 四日市市: "三重県", 津市: "三重県", 桑名市: "三重県",
+  大阪市: "大阪府", 京都市: "京都府", 神戸市: "兵庫県", 横浜市: "神奈川県", 川崎市: "神奈川県",
+  名張市: "三重県", 福岡市: "福岡県", 札幌市: "北海道", 仙台市: "宮城県", 広島市: "広島県",
+};
+const MUNI_RE = /[一-龥々ヶ]{1,6}(?:市|区|町|村)/; // ※ /g は付けない（.test の lastIndex 副作用回避）
 
 // ページ種別
 export type PageType =
@@ -128,6 +140,7 @@ export type VerifyResult = {
   missingFields: string[]; // 取れなかった項目（未確認）
   extracted: { name: string; regions: string[]; expenses: string[]; rate: string | null; maxAmount: number | null; deadline: string | null };
   projectRelationReason: string; // なぜこの案件に関係するか
+  matchedConditions: string[]; // 一致している条件（地域・テーマ）
   recommendedAction: string; // 次に何をすべきか
   userVisible: boolean;
   label: string; // = trustLabel
@@ -164,17 +177,43 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   if (pageType === "news_article") noise.push("ニュース・プレスリリース");
   if (pageType === "company_sales_page") noise.push("施工・制作会社の営業ページ");
 
-  // 案件との一致・不一致
+  // 案件との一致・不一致（地域は階層、経費は近似カテゴリで判定）
   const pRegions = profile?.regions ?? [];
-  const regionMatch = pRegions.some((r) => r && text.includes(r)) || /全国/.test(text);
-  const mentionsOtherPref = PREFS.some((p) => !pRegions.includes(p) && text.includes(p));
-  const regionConflict = pRegions.length > 0 && !regionMatch && mentionsOtherPref;
-  const themeHits = [
+  // 案件の都道府県・市区町村
+  const projectPrefs = new Set<string>();
+  const projectCities: string[] = [];
+  for (const r of pRegions) {
+    if (PREFS.includes(r)) projectPrefs.add(r);
+    else if (CITY_PREF[r]) { projectPrefs.add(CITY_PREF[r]); projectCities.push(r); }
+    else if (/(市|区|町|村)$/.test(r)) projectCities.push(r);
+  }
+  const nationwide = /(全国|日本全国|国の(制度|補助|助成|事業))/.test(text);
+  const itemPrefs = new Set<string>(PREFS.filter((p) => text.includes(p)));
+  for (const [city, pref] of Object.entries(CITY_PREF)) if (text.includes(city)) itemPrefs.add(pref);
+  const itemHasGeo = itemPrefs.size > 0 || MUNI_RE.test(text);
+  const projectCityMentioned = projectCities.some((c) => text.includes(c));
+  const prefOverlap = [...itemPrefs].some((p) => projectPrefs.has(p));
+
+  // 地域一致（階層）：全国 / 案件の市が記載 / 都道府県が一致 / 地域情報なし は一致扱い
+  let regionMatch: boolean;
+  if (pRegions.length === 0) regionMatch = true;
+  else if (nationwide) regionMatch = true;
+  else if (projectCityMentioned) regionMatch = true;
+  else if (prefOverlap) regionMatch = true;
+  else if (!itemHasGeo) regionMatch = true; // 地域の明記なし＝全国の可能性。落とさない
+  else regionMatch = false;
+  // 明確な地域違い（別の都道府県・市が明記され、案件地域と重ならない）
+  const regionConflict = pRegions.length > 0 && !regionMatch && itemHasGeo;
+
+  // 経費・テーマの近似一致（synonyms 展開済みの purposes/expenses/keywords/industries で判定）
+  const themePool = [
     ...(profile?.purposes ?? []), ...(profile?.expenses ?? []), ...(profile?.keywords ?? []), ...(profile?.industries ?? []),
-  ].filter((t) => t && text.includes(t));
-  const expenseMatch = (profile?.expenses ?? []).some((e) => e && text.includes(e));
+  ];
+  const themeHits = themePool.filter((t) => t && text.includes(t));
+  const expenseMatch = (profile?.expenses ?? []).some((e) => e && text.includes(e)) || themeHits.length > 0;
+
   if (profile) {
-    if (regionMatch) score += 10;
+    if (regionMatch && (prefOverlap || projectCityMentioned)) score += 10;
     if (expenseMatch) score += 10;
     if (regionConflict) score -= 50;
   }
@@ -203,6 +242,15 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   // 未確認項目（取れなかった要件）
   const missingFields = (Object.keys(REQ_LABEL) as (keyof typeof REQ_LABEL)[])
     .filter((k) => !req[k]).map((k) => REQ_LABEL[k]);
+
+  // 一致している条件（地域＋テーマ）
+  const matchedConditions: string[] = [];
+  if (profile) {
+    if (nationwide) matchedConditions.push("全国対象");
+    else if (projectCityMentioned) matchedConditions.push(projectCities.find((c) => text.includes(c)) ?? "対象地域");
+    else if (prefOverlap) matchedConditions.push([...itemPrefs].find((p) => projectPrefs.has(p)) ?? "対象地域");
+    matchedConditions.push(...themeHits.slice(0, 4));
+  }
 
   // なぜこの案件に関係するか
   let projectRelationReason: string;
@@ -234,6 +282,6 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   return {
     state, pageType, score, noise, official, grantPage: req.name, req, missingFields,
     extracted: { name: item.title ?? "", regions: ex.target_regions, expenses: ex.eligible_expenses, rate: ex.subsidy_rate, maxAmount: ex.max_amount, deadline: item.extracted_deadline ?? ex.deadline },
-    projectRelationReason, recommendedAction, userVisible, label, tone,
+    projectRelationReason, matchedConditions, recommendedAction, userVisible, label, tone,
   };
 }
