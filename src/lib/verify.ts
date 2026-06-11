@@ -297,12 +297,12 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   if (profile && regionMatch && themeHits.length > 0) displayConfidence += 6; // 関係を説明できる
   if (regionConflict) displayConfidence -= 40;
 
-  const STANDARD_NAME = /(IT導入|持続化|ものづくり|省力化|省エネ|業務改善|キャリアアップ|事業承継|事業再構築|人材開発|DX)/;
-  const recurring = STANDARD_NAME.test(text) || themeHits.length > 0;
+  const STANDARD_PROGRAM = /(IT導入補助金|小規模事業者持続化|持続化補助金|ものづくり補助金|省力化投資|業務改善助成金|キャリアアップ助成金|事業承継.{0,6}補助金|事業再構築|人材開発支援)/;
+  const recurring = themeHits.length > 0 || STANDARD_PROGRAM.test(text);
   let missedOpportunityRisk = 0;
   if (nationwide) missedOpportunityRisk += 25;
   if (prefOverlap) missedOpportunityRisk += 20;
-  if (STANDARD_NAME.test(text)) missedOpportunityRisk += 20; // 定番制度
+  if (STANDARD_PROGRAM.test(text)) missedOpportunityRisk += 20; // 定番制度（具体的な制度名）
   if (pageType === "official_index") missedOpportunityRisk += 25; // 公式の一覧
   if (expenseMatch) missedOpportunityRisk += 20; // 経費近似
   if (pageType === "private_summary" && req.name) missedOpportunityRisk += 20; // 民間だが制度名あり
@@ -312,14 +312,17 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
 
   const dispHigh = displayConfidence >= 55;
   const riskHigh = missedOpportunityRisk >= 35;
+  // 「明確に違う」とは言い切れない救済材料（定番・公式一覧・民間+制度名・古いが毎年）。
+  // これらがあれば region_mismatch / expense mismatch でも捨てず admin_review に残す。
+  const salvage = STANDARD_PROGRAM.test(text) || pageType === "official_index" || (pageType === "private_summary" && req.name) || (!!old && recurring);
 
   // ---- 状態の決定（段階判定＋2軸マトリクス） ----
   const NOISE_TYPES: PageType[] = ["past_result", "council_or_budget", "bid_or_procurement", "seminar", "news_article", "company_sales_page"];
   let state: VerifyState;
   let mismatchNote = "";
   if (NOISE_TYPES.includes(pageType)) state = "rejected_noise";
-  else if (regionMatchType === "region_mismatch") { state = riskHigh ? "admin_review" : "rejected_noise"; mismatchNote = "対象地域が案件と違う"; } // 見逃しリスク低なら除外
-  else if (expenseMatchType === "mismatch") { state = riskHigh ? "admin_review" : "rejected_noise"; mismatchNote = "対象経費が案件と合わない"; } // 見逃しリスク低なら除外
+  else if (regionMatchType === "region_mismatch") { state = (riskHigh || salvage) ? "admin_review" : "rejected_noise"; mismatchNote = "対象地域が案件と違う"; }
+  else if (expenseMatchType === "mismatch") { state = (riskHigh || salvage) ? "admin_review" : "rejected_noise"; mismatchNote = "対象経費が案件と合わない"; }
   else if (old) state = "archived_or_old"; // 古い/募集終了（次回狙い）
   else if (regionMatchType === "region_unknown") { state = "admin_review"; mismatchNote = "対象地域が不明（要確認）"; } // 捨てない
   else if (expenseMatchType === "unknown") { state = "admin_review"; mismatchNote = "対象経費が不明（要確認）"; } // 捨てない
