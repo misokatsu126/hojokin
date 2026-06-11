@@ -132,6 +132,7 @@ export default function DiscoveredPage() {
     else if (view === "deadline") setFDeadline(true);
     else if (view === "high") setFHigh(true);
     else if (view === "unreviewed") setFUnreviewed(true);
+    else if (view === "applicant") setFApplicant(true);
   }, []);
   // メモ編集・トースト
   const [noteEditId, setNoteEditId] = useState<string | null>(null);
