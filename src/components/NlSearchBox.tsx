@@ -33,6 +33,29 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
   const [res, setRes] = useState<NlSearchResponse | null>(null);
   const [extracting, setExtracting] = useState<string | null>(null);
   const [ingestingUrl, setIngestingUrl] = useState(false);
+  const [watchSaving, setWatchSaving] = useState(false);
+  const [watchMsg, setWatchMsg] = useState<string | null>(null);
+
+  // いま検索したワードを「毎日チェック」に登録（毎朝の自動収集に反映）
+  async function saveWatch() {
+    setWatchSaving(true);
+    setWatchMsg(null);
+    try {
+      const r = await fetch("/api/watch/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error ?? "登録に失敗しました");
+      const parts = [...(d.regions ?? []), ...(d.keywords ?? [])].slice(0, 6).join("・");
+      setWatchMsg(`「${query}」を毎日チェックに登録しました（${parts}）。毎朝の自動収集で新しい制度を拾います。`);
+    } catch (e: any) {
+      setWatchMsg(`登録できませんでした：${e.message}`);
+    } finally {
+      setWatchSaving(false);
+    }
+  }
 
   // 関連しそうな既知URLを取り込む（取り込み後に同じ相談文で再検索）
   async function ingestSuggested(url: string) {
@@ -148,6 +171,14 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
           )}
 
           <InterpretedView res={res} />
+
+          {/* このワードを毎日チェックに登録（毎朝の自動収集に反映） */}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <button onClick={saveWatch} disabled={watchSaving} className="rounded-full border border-accent px-3 py-1 text-xs font-medium text-accent hover:bg-accent/5 disabled:opacity-50">
+              🔔 {watchSaving ? "登録中…" : "このワードを毎日チェックに追加"}
+            </button>
+            {watchMsg && <span className="text-xs text-gray-500">{watchMsg}</span>}
+          </div>
 
           {res.why && res.results.length > 0 && (
             <p className="mb-2 rounded-md bg-sky-50 px-2 py-1 text-xs text-sky-800">

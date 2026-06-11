@@ -3,8 +3,38 @@
 //   “やりたいこと・困りごと・使いたい経費” から、使える可能性がある制度を探せるようにする。
 //   ここで展開したカテゴリは、PURPOSES / EXPENSE_CATEGORIES / INDUSTRIES（constants.ts）に揃える。
 
+import { REGIONS } from "./constants";
+
+// 地域の言い換え・略称（「岐阜」だけでも 岐阜県・岐阜市 を対象にする等）。
+//   キーが相談文に含まれていれば、対応する正式な地域名（grants.regions と突き合わせる値）に展開する。
+const REGION_ALIASES: Record<string, string[]> = {
+  岐阜: ["岐阜県", "岐阜市"],
+  名古屋: ["名古屋市", "愛知県"],
+  愛知: ["愛知県", "名古屋市"],
+  三重: ["三重県", "四日市市"],
+  弥富: ["弥富市", "愛知県"],
+  四日市: ["四日市市", "三重県"],
+  東京: ["東京都"],
+  大阪: ["大阪府"],
+  京都: ["京都府"],
+  福岡: ["福岡県"],
+  北海道: ["北海道"],
+};
+
+// 相談文から対象地域を抽出する（正式名 REGIONS ＋ 略称エイリアス。「全国」は除外）。
+export function expandRegions(text: string): string[] {
+  const norm = (text ?? "").normalize("NFKC");
+  const out = new Set<string>();
+  for (const r of REGIONS) {
+    if (r !== "全国" && norm.includes(r)) out.add(r);
+  }
+  for (const [alias, list] of Object.entries(REGION_ALIASES)) {
+    if (norm.includes(alias)) list.forEach((x) => out.add(x));
+  }
+  return [...out];
+}
+
 export type SynonymRule = {
-  // この文言（いずれか）が相談文に含まれていれば発火
   triggers: string[];
   purposes?: string[]; // PURPOSES に存在する値
   expenses?: string[]; // EXPENSE_CATEGORIES に存在する値
@@ -17,6 +47,18 @@ export type SynonymRule = {
 
 // 言い換え・類義語の辞書（brief §6）。上から順に評価し、発火したものを合算する。
 export const SYNONYM_RULES: SynonymRule[] = [
+  // ── 小売・店舗・トレカ屋など「お店」系 ──
+  {
+    triggers: [
+      "トレカ", "トレーディングカード", "カードショップ", "カード屋", "ホビーショップ", "ホビー",
+      "フィギュア", "ガチャ", "雑貨", "小売", "お店", "店舗", "ショップ", "物販",
+    ],
+    purposes: ["販路開拓", "EC強化", "店舗改装", "設備導入"],
+    expenses: ["設備費", "内装工事費", "システム導入費", "広告宣伝費", "委託費"],
+    industries: ["小売", "EC", "トレーディングカード"],
+    keywords: ["小売", "店舗", "トレーディングカード", "物販"],
+    reasonLabel: "小売・店舗・販路開拓",
+  },
   // ── EC・ネット販売系 ──
   {
     triggers: [

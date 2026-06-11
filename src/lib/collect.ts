@@ -307,12 +307,12 @@ export async function runJgrantsSync(opts?: {
   } catch {
     settings = null;
   }
+  // 既定キーワードは常に維持し、ユーザー登録ワードは「追加」する（登録しても収集が狭まらない）
   const keywords = opts?.keywords?.length
     ? opts.keywords
-    : settings?.keywords?.length
-      ? settings.keywords
-      : JGRANTS_DEFAULT_KEYWORDS;
-  const effectiveRegions = settings?.regions?.length ? settings.regions : [...JGRANTS_AREAS].filter((a) => a !== "全国");
+    : Array.from(new Set([...JGRANTS_DEFAULT_KEYWORDS, ...(settings?.keywords ?? [])]));
+  const baseRegions = [...JGRANTS_AREAS].filter((a) => a !== "全国");
+  const effectiveRegions = Array.from(new Set([...baseRegions, ...(settings?.regions ?? [])]));
   const areas = ["全国", ...effectiveRegions];
   const keepRegion = (area: string | null | undefined): boolean => {
     if (!area) return true;
