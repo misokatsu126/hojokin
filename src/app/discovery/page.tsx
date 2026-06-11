@@ -88,7 +88,10 @@ export default function DiscoveryDashboardPage() {
         </p>
       )}
 
-      <h1 className="mb-4 text-xl font-bold text-ink">自動収集の状況</h1>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-bold text-ink">自動収集の状況</h1>
+        <Link href="/discovery/search-review" className="rounded-md border px-3 py-1.5 text-sm text-accent hover:bg-accent/5">検索結果レビュー →</Link>
+      </div>
 
       <HelpBox title="この画面でできること">
         自動で集めた補助金の候補の状況をまとめて見る画面です（管理者向け）。今日の新着・確認待ち・公式未確認などがひと目で分かります。

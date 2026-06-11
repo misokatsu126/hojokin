@@ -8,6 +8,7 @@ import { isSampleGrant, isSampleDiscovered } from "@/lib/sampleFilter";
 import { deadlineState } from "@/lib/utils";
 import { expandQuery, expandRegions, normalizeVariants, followUpQuestions } from "@/lib/synonyms";
 import { lifecycle, priority } from "@/lib/lifecycle";
+import { verifyItem } from "@/lib/verify";
 import type {
   Grant,
   BusinessProfile,
@@ -263,6 +264,8 @@ async function searchDiscovered(query: string, cond: InterpretedConditions): Pro
   for (const it of items) {
     if (it.status === "rejected") continue;
     if (isSampleDiscovered(it)) continue; // サンプル除外
+    // 検証ゲート：ノイズ（採択結果・議会・入札・ニュース等）はユーザー検索結果に出さない
+    if (verifyItem(it).state === "rejected_noise") continue;
     const hay = normalizeVariants(
       [it.title, it.raw_text, it.url, it.official_url, it.external_source, it.match_profile]
         .filter(Boolean)
