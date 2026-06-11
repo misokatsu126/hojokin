@@ -6,6 +6,7 @@ import { fetchDiscoveredItems, fetchProfiles, fetchGrants } from "@/lib/supabase
 import type { DiscoveredItem, BusinessProfile, Grant } from "@/lib/types";
 import { scoreDiscoveredAgainstProfiles } from "@/lib/discovery";
 import { isSampleDiscovered, isSampleGrant } from "@/lib/sampleFilter";
+import { prepSchedule } from "@/lib/lifecycle";
 import { daysUntil, formatDate } from "@/lib/utils";
 
 type Bar = {
@@ -82,20 +83,33 @@ export function DeadlineTimeline() {
           {bars.map((b) => {
             const u = urgencyColor(b.days);
             const width = Math.max(6, Math.round((b.days / HORIZON) * 100)); // 締切が遠いほど長いバー
+            const schedule = prepSchedule(b.deadline);
             return (
-              <div key={b.id} className="flex items-center gap-2">
-                <div className="flex w-40 shrink-0 items-center gap-1 sm:w-56">
-                  <span aria-hidden>{u.dot}</span>
-                  <span className="truncate text-xs font-medium text-ink" title={b.title}>{b.title}</span>
+              <div key={b.id}>
+                <div className="flex items-center gap-2">
+                  <div className="flex w-40 shrink-0 items-center gap-1 sm:w-56">
+                    <span aria-hidden>{u.dot}</span>
+                    <span className="truncate text-xs font-medium text-ink" title={b.title}>{b.title}</span>
+                  </div>
+                  <div className="relative h-5 flex-1 overflow-hidden rounded bg-gray-100">
+                    <div className={`h-full ${u.bar}`} style={{ width: `${width}%` }} />
+                  </div>
+                  <span className={`w-16 shrink-0 text-right text-xs font-semibold ${b.days <= 7 ? "text-red-600" : "text-gray-600"}`}>あと{b.days}日</span>
+                  {b.url ? (
+                    <a href={b.url} target="_blank" rel="noopener noreferrer" className="hidden shrink-0 text-xs text-emerald-700 hover:underline sm:inline" title={`締切 ${formatDate(b.deadline)}`}>公式 ↗</a>
+                  ) : (
+                    <span className="hidden w-8 shrink-0 sm:inline" />
+                  )}
                 </div>
-                <div className="relative h-5 flex-1 overflow-hidden rounded bg-gray-100">
-                  <div className={`h-full ${u.bar}`} style={{ width: `${width}%` }} />
-                </div>
-                <span className={`w-16 shrink-0 text-right text-xs font-semibold ${b.days <= 7 ? "text-red-600" : "text-gray-600"}`}>あと{b.days}日</span>
-                {b.url ? (
-                  <a href={b.url} target="_blank" rel="noopener noreferrer" className="hidden shrink-0 text-xs text-emerald-700 hover:underline sm:inline" title={`締切 ${formatDate(b.deadline)}`}>公式 ↗</a>
-                ) : (
-                  <span className="hidden w-8 shrink-0 sm:inline" />
+                {schedule.length > 0 && (
+                  <details className="ml-2 mt-0.5">
+                    <summary className="cursor-pointer text-[11px] text-gray-400 hover:text-accent">締切前にやることの目安（逆算）</summary>
+                    <ul className="mt-1 space-y-0.5 pl-4 text-[11px] text-gray-600">
+                      {schedule.map((s) => (
+                        <li key={s.label}><span className="font-medium text-gray-700">{s.when}</span>：{s.label}</li>
+                      ))}
+                    </ul>
+                  </details>
                 )}
               </div>
             );

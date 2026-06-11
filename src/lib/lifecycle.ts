@@ -131,6 +131,28 @@ export function priority(score: number, lc?: LifecycleKey | null): Priority {
   return { rank, label: PRIORITY_LABEL[rank], tone: PRIORITY_TONE[rank], sort: sortBase[rank] * 1000 + score };
 }
 
+// 締切から逆算した「その前にやるべき日」。初心者が締切当日に慌てないための目安。
+//   過ぎてしまった目安は「至急」と表示する。
+export function prepSchedule(deadline: string | null | undefined): { when: string; label: string }[] {
+  const d = daysUntil(deadline ?? null);
+  if (d == null || d < 0 || !deadline) return [];
+  const base = new Date(deadline);
+  if (isNaN(base.getTime())) return [];
+  const steps = [
+    { before: 21, label: "GビズID・必要書類を確認" },
+    { before: 16, label: "見積を取得" },
+    { before: 11, label: "申請書を作成" },
+    { before: 6, label: "最終確認して申請" },
+  ];
+  const fmt = (dt: Date) => `${dt.getMonth() + 1}/${dt.getDate()}`;
+  return steps.map((s) => {
+    const t = new Date(base);
+    t.setDate(t.getDate() - s.before);
+    const dleft = d - s.before;
+    return { when: dleft < 0 ? "至急" : `${fmt(t)}ごろまで`, label: s.label };
+  });
+}
+
 // 準備の重さ（軽い/普通/重い/要確認）をルールベースで判定
 export function preparation(opts: {
   text?: string | null;

@@ -1,18 +1,30 @@
 "use client";
 
+import { useState } from "react";
 import { NlSearchBox } from "@/components/NlSearchBox";
+import { ConsultWizard } from "@/components/ConsultWizard";
 
 export default function SearchPage() {
+  const [mode, setMode] = useState<"wizard" | "free">("wizard");
   return (
     <div>
       <h1 className="mb-1 text-xl font-bold text-ink">相談して探す</h1>
-      <p className="mb-5 text-sm text-gray-500">
-        制度名を知らなくても大丈夫です。「ECサイトを作りたい」「空調を入れ替えたい」など、やりたいこと・困っていることをそのまま入力すると、使える可能性がある補助金・助成金を探します。
+      <p className="mb-4 text-sm text-gray-500">
+        制度名を知らなくても大丈夫です。質問に答えるか、やりたいことをそのまま入力すると、使える可能性がある補助金・助成金を探します。
       </p>
 
-      <div className="rounded-lg border bg-white p-5">
-        <NlSearchBox />
+      <div className="mb-4 flex rounded-md border p-0.5 text-sm">
+        <button onClick={() => setMode("wizard")} className={`flex-1 rounded px-3 py-1.5 transition ${mode === "wizard" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>質問に答えて探す</button>
+        <button onClick={() => setMode("free")} className={`flex-1 rounded px-3 py-1.5 transition ${mode === "free" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>文章で探す</button>
       </div>
+
+      {mode === "wizard" ? (
+        <ConsultWizard />
+      ) : (
+        <div className="rounded-lg border bg-white p-5">
+          <NlSearchBox />
+        </div>
+      )}
 
       <div className="mt-6 rounded-lg border bg-white p-4 text-sm text-gray-600">
         <h2 className="mb-2 font-semibold text-ink">この検索について</h2>

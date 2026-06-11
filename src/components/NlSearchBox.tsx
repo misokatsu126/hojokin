@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { NlSearchResponse } from "@/lib/types";
 import { ScoreBadge } from "./Badges";
@@ -26,8 +26,8 @@ const EXAMPLES = [
   "AIを導入したい",
 ];
 
-export function NlSearchBox({ compact = false }: { compact?: boolean }) {
-  const [query, setQuery] = useState("");
+export function NlSearchBox({ compact = false, initialQuery, autoRun = false }: { compact?: boolean; initialQuery?: string; autoRun?: boolean }) {
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<NlSearchResponse | null>(null);
@@ -93,6 +93,12 @@ export function NlSearchBox({ compact = false }: { compact?: boolean }) {
       setExtracting(null);
     }
   }
+
+  // 質問ウィザード等から初期クエリが渡され autoRun のときは、表示時に一度だけ自動検索
+  useEffect(() => {
+    if (autoRun && initialQuery && initialQuery.trim()) run(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery, autoRun]);
 
   async function run(q?: string) {
     const text = (q ?? query).trim();
