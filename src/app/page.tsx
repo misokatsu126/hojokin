@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { ProjectsHome } from "@/components/ProjectsHome";
+import { TodayTasks } from "@/components/TodayTasks";
 
 export default function HomePage() {
   return (
     <div>
+      {/* 最上部：今日やること（案件横断） */}
+      <TodayTasks />
+
       {/* 主役：支出案件 */}
       <ProjectsHome />
 

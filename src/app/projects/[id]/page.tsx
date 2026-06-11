@@ -6,10 +6,25 @@ import { useParams, useRouter } from "next/navigation";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  getProject, upsertProject, deleteProject, classifyForProject, orderAdvice,
-  ORDER_STATUS_LABEL, PROJECT_CHECKLIST, type SpendingProject,
+  getProject, upsertProject, deleteProject, classifyForProject, orderAdvice, getTemplate,
+  ORDER_STATUS_LABEL, PROJECT_CHECKLIST, type SpendingProject, type ProjectMatch,
 } from "@/lib/projects";
-import { TRIAGE_META, TRIAGE_ORDER, type TriageKey, type TriageResult } from "@/lib/triage";
+import { TRIAGE_META, type TriageKey, type TriageResult } from "@/lib/triage";
+
+// 案件詳細での補助金カテゴリ表示順（最有力→条件確認→締切→見逃し→次回→新着）
+const DETAIL_ORDER: TriageKey[] = ["usable", "conditional", "deadline", "missed", "next_time", "new", "unusable"];
+
+// 案件全体の結論（最有力候補のカテゴリから）
+function caseConclusion(match: ProjectMatch): { text: string; tone: string } {
+  if (!match.top || match.total === 0) return { text: "対象外とは限りません。確認する価値がある制度がないか、情報を足して探しましょう。", tone: "bg-gray-50 text-gray-700" };
+  switch (match.top.r.key) {
+    case "usable": return { text: "この支出は、補助金を使える可能性が高いです。まず公式ページを確認しましょう。", tone: "bg-green-50 text-green-800" };
+    case "conditional": return { text: "条件を確認すれば、使えるか判断できそうです。", tone: "bg-amber-50 text-amber-800" };
+    case "deadline": return { text: "締切が近い候補があります。急いで確認しましょう。", tone: "bg-red-50 text-red-700" };
+    case "next_time": return { text: "今回は終了していますが、次回狙う価値があります。", tone: "bg-sky-50 text-sky-800" };
+    default: return { text: "対象外とは限りません。確認する価値があります。", tone: "bg-orange-50 text-orange-800" };
+  }
+}
 import { formatAmount, formatDate, daysUntil } from "@/lib/utils";
 
 export default function ProjectDetailPage() {
@@ -51,6 +66,8 @@ export default function ProjectDetailPage() {
 
   const adv = orderAdvice(project.orderStatus);
   const doneCount = PROJECT_CHECKLIST.filter((c) => project.checklist[c.key]).length;
+  const tpl = getTemplate(project.templateKey);
+  const conclusion = match ? caseConclusion(match) : null;
 
   return (
     <div>
@@ -78,11 +95,25 @@ export default function ProjectDetailPage() {
         {project.memo && <p className="mt-2 whitespace-pre-wrap rounded-md bg-slate-50 px-3 py-2 text-sm text-gray-600">{project.memo}</p>}
       </div>
 
-      {/* 発注してよいか / 待つべきか */}
-      <div className={`mt-4 rounded-lg border-2 p-4 ${adv.tone}`}>
-        <p className="text-sm font-bold">{adv.wait ? "🟢" : "⚠️"} {adv.title}</p>
-        <p className="mt-1 text-xs leading-relaxed">{adv.text}</p>
+      {/* 1. 発注してよいか / 待つべきか（最重要・一番上） */}
+      <div className={`mt-4 rounded-xl border-2 p-4 ${adv.tone}`}>
+        <p className="text-base font-bold">{adv.wait ? "🟢" : "⚠️"} {adv.title}</p>
+        <p className="mt-1 text-sm leading-relaxed">{adv.text}</p>
       </div>
+
+      {/* 2. この案件の結論 */}
+      {conclusion && (
+        <div className={`mt-3 rounded-lg p-3 text-sm font-semibold ${conclusion.tone}`}>
+          結論：{conclusion.text}
+          {match && match.total > 0 && <span className="ml-1 text-xs font-normal opacity-80">（候補 {match.total} 件・見逃しリスク {match.missRisk}）</span>}
+        </div>
+      )}
+
+      {tpl && (
+        <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 p-2.5 text-xs text-sky-900">
+          <span className="font-medium">この案件の注意点：</span>{tpl.caution}
+        </p>
+      )}
 
       {/* この支出で使えそうな補助金 */}
       <section className="mt-6">
@@ -103,7 +134,7 @@ export default function ProjectDetailPage() {
           </div>
         ) : (
           <div className="space-y-5">
-            {TRIAGE_ORDER.filter((k) => (match.grouped.get(k)?.length ?? 0) > 0).map((k) => (
+            {DETAIL_ORDER.filter((k) => (match.grouped.get(k)?.length ?? 0) > 0).map((k) => (
               <div key={k}>
                 <h3 className="mb-2 text-sm font-bold text-ink">{TRIAGE_META[k].icon} {TRIAGE_META[k].label}（{match.grouped.get(k)!.length}件）</h3>
                 <div className="space-y-2">
