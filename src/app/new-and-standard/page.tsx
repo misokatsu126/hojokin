@@ -6,6 +6,7 @@ import { fetchDiscoveredItems, fetchProfiles } from "@/lib/supabase";
 import type { DiscoveredItem, BusinessProfile } from "@/lib/types";
 import { isSampleDiscovered } from "@/lib/sampleFilter";
 import { triageDiscovered, TRIAGE_META, STANDARD_SUBSIDIES, JGRANTS_PORTAL_URL } from "@/lib/triage";
+import { loadProjects, type SpendingProject } from "@/lib/projects";
 import { formatDate, daysUntil } from "@/lib/utils";
 
 function sourceLabel(s: string | null | undefined): string {
@@ -23,15 +24,25 @@ function sourceLabel(s: string | null | undefined): string {
 export default function NewAndStandardPage() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
+  const [projects, setProjects] = useState<SpendingProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setProjects(loadProjects());
     Promise.all([fetchDiscoveredItems(), fetchProfiles()])
       .then(([it, p]) => { setItems(it); setProfiles(p); })
       .catch((e) => setError(e.message ?? "読み込みに失敗しました"))
       .finally(() => setLoading(false));
   }, []);
+
+  // 定番補助金に「関係しそうな案件」を紐づける（タグが案件名・用途・メモに含まれるか）
+  function relatedProjects(tags: string[]): SpendingProject[] {
+    return projects.filter((p) => {
+      const text = `${p.name} ${p.purpose} ${p.uses.join(" ")} ${p.industry} ${p.memo}`;
+      return tags.some((t) => text.includes(t));
+    });
+  }
 
   // 直近14日以内に検知/取得した候補（新着・更新）
   const recent = useMemo(() => {
@@ -100,15 +111,29 @@ export default function NewAndStandardPage() {
         <h2 className="mb-1 text-base font-bold text-ink">📌 一般的によく使われる補助金（定番）</h2>
         <p className="mb-2 text-xs text-gray-500">あなた向け判定とは別に、多くの中小企業・小規模事業者が確認する価値のある制度です（一般確認推奨）。</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          {STANDARD_SUBSIDIES.map((s) => (
-            <div key={s.name} className="flex items-center justify-between gap-2 rounded-lg border bg-white p-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-ink">{s.name}</div>
-                <div className="truncate text-xs text-gray-500">{s.use}</div>
+          {STANDARD_SUBSIDIES.map((s) => {
+            const rel = relatedProjects(s.tags);
+            return (
+              <div key={s.name} className="rounded-lg border bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-ink">{s.name}</div>
+                    <div className="truncate text-xs text-gray-500">{s.use}</div>
+                  </div>
+                  <a href={JGRANTS_PORTAL_URL} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md border px-3 py-1.5 text-xs text-emerald-700 hover:bg-gray-50">公式ポータルで探す ↗</a>
+                </div>
+                {rel.length > 0 && (
+                  <div className="mt-2 rounded-md bg-sky-50 p-2 text-[11px] text-sky-900">
+                    <span className="font-medium">関係しそうな案件：</span>
+                    {rel.slice(0, 2).map((p, i) => (
+                      <span key={p.id}>{i > 0 ? "、" : ""}<Link href={`/projects/${p.id}`} className="underline">{p.name}</Link></span>
+                    ))}
+                    <div className="mt-0.5 text-sky-700">確認理由：{s.reason}</div>
+                  </div>
+                )}
               </div>
-              <a href={JGRANTS_PORTAL_URL} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md border px-3 py-1.5 text-xs text-emerald-700 hover:bg-gray-50">公式ポータルで探す ↗</a>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </div>

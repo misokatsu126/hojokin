@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, classifyForProject, orderAdvice, ORDER_STATUS_LABEL, URGENCY_LABEL,
+  loadProjects, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATES,
   type SpendingProject,
 } from "@/lib/projects";
 import { TRIAGE_META } from "@/lib/triage";
@@ -44,13 +44,19 @@ export function ProjectsHome({ heading = "今ある支出案件", showIntro = tr
       {projects.length === 0 ? (
         <div className="rounded-xl border bg-white p-6">
           <p className="mb-1 text-base font-semibold text-ink">まだ支出案件がありません</p>
-          <p className="mb-4 text-sm text-gray-500">
-            「岐阜店 空調入替」「ECサイト制作」「広告宣伝」など、これからお金を使う予定を登録してみましょう。
-            登録すると、使える補助金・発注してよいか・次にやることを整理します。
-          </p>
+          <p className="mb-3 text-sm text-gray-500">まずは「何にお金を使いたいか」から選んでください。登録すると、使える補助金・発注してよいか・次にやることを整理します。</p>
+          <p className="mb-2 text-xs font-medium text-gray-600">おすすめテンプレート</p>
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {PROJECT_TEMPLATES.slice(0, 6).map((t) => (
+              <Link key={t.key} href="/projects/new" className="rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm">
+                <div className="font-medium text-ink">{t.label}</div>
+                <div className="mt-0.5 text-[11px] text-gray-400">{t.categories.slice(0, 2).join("・")}</div>
+              </Link>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/projects/new" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">支出案件を作る</Link>
-            <Link href="/search" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">相談して探す（案件も作れます）</Link>
+            <Link href="/projects/new" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">テンプレートから作る</Link>
+            <Link href="/search" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">相談して作る</Link>
           </div>
         </div>
       ) : (
