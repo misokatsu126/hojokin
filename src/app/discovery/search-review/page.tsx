@@ -72,7 +72,8 @@ export default function SearchReviewPage() {
                 <span className="min-w-0 truncate font-semibold text-ink">{i.title ?? "（無題）"}</span>
                 <span className="flex shrink-0 items-center gap-1.5 text-[11px]">
                   <span className={`rounded px-1.5 py-0.5 ${STATE_TONE[v.state]}`}>{VERIFY_STATE_LABEL[v.state]}</span>
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 font-bold text-ink">信頼度 {v.score}</span>
+                  <span className="rounded bg-green-50 px-1.5 py-0.5 text-green-800" title="ユーザーに強く表示してよいか">表示 {v.displayConfidence}</span>
+                  <span className="rounded bg-sky-50 px-1.5 py-0.5 text-sky-800" title="捨てると見逃しになりそうか">見逃しリスク {v.missedOpportunityRisk}</span>
                 </span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-500">
@@ -82,14 +83,16 @@ export default function SearchReviewPage() {
                 <span>出典：{i.external_source ?? "—"}</span>
               </div>
               <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-gray-600 sm:grid-cols-3">
-                <span>地域：{v.extracted.regions.slice(0, 2).join("・") || "—"}</span>
-                <span>対象経費：{v.extracted.expenses.slice(0, 2).join("・") || "—"}</span>
+                <span>地域判定：{v.regionResult}</span>
+                <span>経費近似：{v.expenseResult}</span>
                 <span>補助率/上限：{v.extracted.rate || (v.extracted.maxAmount != null ? formatAmount(v.extracted.maxAmount) : "—")}</span>
-                <span>締切：{v.extracted.deadline ? formatDate(v.extracted.deadline) : "—"}</span>
                 <span>対象者：{v.req.target ? "記載あり" : "—"}</span>
                 <span>公募要領：{v.req.guideline ? "あり" : "—"}</span>
+                <span>締切：{v.extracted.deadline ? formatDate(v.extracted.deadline) : "—"}</span>
               </div>
-              {v.noise.length > 0 && <p className="mt-1 text-[11px] text-rose-600">ノイズ判定：{v.noise.join(" / ")}</p>}
+              {v.userVisibleReason && <p className="mt-1 text-[11px] text-green-700">表示理由：{v.userVisibleReason}</p>}
+              {v.adminReviewReason && <p className="mt-1 text-[11px] text-amber-700">確認待ち理由：{v.adminReviewReason}</p>}
+              {v.rejectReason && <p className="mt-1 text-[11px] text-rose-600">除外理由：{v.rejectReason}</p>}
               <div className="mt-1.5 flex flex-wrap gap-2 text-xs">
                 {(i.official_url || i.url) && <a href={i.official_url ?? i.url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:underline">ページを開く ↗</a>}
                 <Link href="/discovery/items" className="text-gray-500 hover:underline">候補一覧で操作する</Link>
