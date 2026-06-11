@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { NlSearchBox } from "./NlSearchBox";
+import { emptyProject, upsertProject, type OrderStatus } from "@/lib/projects";
 
 const USE_OPTIONS = [
   "空調を入れ替えたい", "店舗を改装したい", "看板を作りたい", "ホームページを作りたい",
@@ -34,6 +36,7 @@ function orderNote(key: string): { tone: string; text: string } | null {
 }
 
 export function ConsultWizard() {
+  const router = useRouter();
   const [uses, setUses] = useState<string[]>([]);
   const [region, setRegion] = useState("");
   const [order, setOrder] = useState("");
@@ -57,6 +60,26 @@ export function ConsultWizard() {
     if (when.trim()) parts.push(`${when.trim()}までに実施`);
     const q = parts.join(" ").trim() || (uses[0] ?? "");
     setSubmitted(q);
+  }
+
+  // 相談内容から「支出案件」を作成して詳細ページへ
+  function createProject() {
+    const base = emptyProject();
+    const useShort = uses[0]?.replace(/(を.*|したい|を導入.*)$/u, "").trim();
+    const name = [region.trim(), useShort || uses[0] || "支出案件"].filter(Boolean).join(" ");
+    const saved = upsertProject({
+      ...base,
+      name,
+      uses,
+      purpose: uses.join("、"),
+      location: region.trim(),
+      entity,
+      employees: employees.trim() ? Number(employees) : null,
+      budget: budget.trim() ? Number(budget) * 10000 : null,
+      schedule: when.trim(),
+      orderStatus: (order as OrderStatus) || "none",
+    });
+    router.push(`/projects/${saved.id}`);
   }
 
   const note = order ? orderNote(order) : null;
@@ -127,13 +150,20 @@ export function ConsultWizard() {
           </Field>
         </div>
 
-        <button onClick={build} disabled={uses.length === 0 && !region.trim()}
-          className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-          この内容で補助金を探す
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={createProject} disabled={uses.length === 0 && !region.trim()}
+            className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+            この内容で支出案件を作る
+          </button>
+          <button onClick={build} disabled={uses.length === 0 && !region.trim()}
+            className="rounded-md border px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+            まず補助金を探すだけ
+          </button>
+        </div>
         {uses.length === 0 && !region.trim() && (
-          <p className="text-xs text-gray-400">「何に使いたいか」か「地域」のどちらかを選ぶと探せます。</p>
+          <p className="text-xs text-gray-400">「何に使いたいか」か「地域」のどちらかを選ぶと、案件作成・検索ができます。</p>
         )}
+        <p className="text-xs text-gray-400">「支出案件を作る」と、その支出に使える補助金を案件ごとに判定して保存できます。</p>
       </div>
 
       {/* 結果（NlSearchBox を初期クエリ＋自動実行で表示） */}
