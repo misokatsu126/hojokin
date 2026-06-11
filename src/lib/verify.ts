@@ -132,7 +132,14 @@ const SCORE_BY_TYPE: Partial<Record<PageType, number>> = {
 export type VerifyResult = {
   state: VerifyState; // = visibility
   pageType: PageType;
-  score: number; // = confidenceScore
+  score: number; // 総合スコア（参考）
+  displayConfidence: number; // ユーザーに強く表示してよいか
+  missedOpportunityRisk: number; // 捨てると見逃しになりそうか
+  regionResult: string; // 地域判定結果（管理者向け）
+  expenseResult: string; // 経費近似判定結果（管理者向け）
+  userVisibleReason: string;
+  adminReviewReason: string;
+  rejectReason: string;
   noise: string[]; // = noiseReasons
   official: boolean;
   grantPage: boolean;
@@ -218,23 +225,50 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
     if (regionConflict) score -= 50;
   }
 
-  // 状態の決定
+  // ---- 2軸：displayConfidence（強く表示してよいか）/ missedOpportunityRisk（見逃すと危ないか） ----
+  const grantTypePage = pageType === "official_grant_page" || pageType === "official_pdf";
+  let displayConfidence = 0;
+  if (official) displayConfidence += 20;
+  if (req.name) displayConfidence += 12;
+  if (req.target) displayConfidence += 8;
+  if (req.expense) displayConfidence += 8;
+  if (req.rate || req.cap) displayConfidence += 8;
+  if (req.period) displayConfidence += 8;
+  if (!old) displayConfidence += 6; // 募集中/予定
+  if (profile && regionMatch && (prefOverlap || projectCityMentioned || nationwide)) displayConfidence += 12;
+  if (profile && expenseMatch) displayConfidence += 12;
+  if (profile && regionMatch && themeHits.length > 0) displayConfidence += 6; // 関係を説明できる
+  if (regionConflict) displayConfidence -= 40;
+
+  const STANDARD_NAME = /(IT導入|持続化|ものづくり|省力化|省エネ|業務改善|キャリアアップ|事業承継|事業再構築|人材開発|DX)/;
+  const recurring = STANDARD_NAME.test(text) || themeHits.length > 0;
+  let missedOpportunityRisk = 0;
+  if (nationwide) missedOpportunityRisk += 25;
+  if (prefOverlap) missedOpportunityRisk += 20;
+  if (STANDARD_NAME.test(text)) missedOpportunityRisk += 20; // 定番制度
+  if (pageType === "official_index") missedOpportunityRisk += 25; // 公式の一覧
+  if (expenseMatch) missedOpportunityRisk += 20; // 経費近似
+  if (pageType === "private_summary" && req.name) missedOpportunityRisk += 20; // 民間だが制度名あり
+  if (old && recurring) missedOpportunityRisk += 20; // 古いが毎年出そう
+  if (grantTypePage && req.count < 3) missedOpportunityRisk += 15; // 公式だが要件薄い
+  if (regionConflict) missedOpportunityRisk -= 25;
+
+  const dispHigh = displayConfidence >= 55;
+  const riskHigh = missedOpportunityRisk >= 35;
+  const expenseMismatch = !!profile && pRegions.length > 0 && (profile.expenses?.length ?? 0) > 0 && !expenseMatch && themeHits.length === 0;
+
+  // ---- 状態の決定（2軸マトリクス。ノイズ→地域違い→経費違い→古い→マトリクス） ----
   const NOISE_TYPES: PageType[] = ["past_result", "council_or_budget", "bid_or_procurement", "seminar", "news_article", "company_sales_page"];
   let state: VerifyState;
-  if (NOISE_TYPES.includes(pageType)) state = "rejected_noise";
-  else if (old) state = "archived_or_old";
-  else if ((pageType === "official_grant_page" || pageType === "official_pdf") && req.count >= 3) state = "user_visible";
-  else if (pageType === "private_summary" || pageType === "official_index" || ((pageType === "official_grant_page" || pageType === "official_pdf") && req.count < 3)) state = "admin_review";
-  else state = "reference_only";
-
-  // 案件と地域/経費が合わないものは user_visible にしない（管理者確認へ）
   let mismatchNote = "";
-  if (state === "user_visible" && profile) {
-    if (regionConflict) { state = "admin_review"; mismatchNote = "対象地域が案件と違う可能性"; }
-    else if (pRegions.length > 0 && (profile.expenses?.length ?? 0) > 0 && !expenseMatch && themeHits.length === 0) {
-      state = "admin_review"; mismatchNote = "対象経費が案件と合わない可能性";
-    }
-  }
+  if (NOISE_TYPES.includes(pageType)) state = "rejected_noise";
+  else if (regionConflict) { state = "admin_review"; mismatchNote = "対象地域が案件と違う可能性"; }
+  else if (expenseMismatch) { state = riskHigh ? "admin_review" : "reference_only"; mismatchNote = "対象経費が案件と合わない可能性"; }
+  else if (old) state = "archived_or_old"; // 古い/募集終了（見逃しリスク高なら次回狙いとして残る）
+  else if (dispHigh && grantTypePage && req.count >= 3) state = "user_visible"; // 高×高/高：強く表示
+  else if (riskHigh) state = "admin_review"; // 低×高：捨てず管理者確認（民間/一覧/定番/要件薄い公式）
+  else if (req.name || grantTypePage) state = "reference_only"; // 制度ページらしいが確度低い
+  else state = "rejected_noise"; // 低×低：除外
   if (mismatchNote) noise.push(mismatchNote);
 
   const userVisible = state === "user_visible";
@@ -279,9 +313,29 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   else if (state === "reference_only") recommendedAction = "制度ページか確認する（参考情報）";
   else recommendedAction = "ユーザーには表示しない";
 
+  // 地域判定結果（管理者向け）
+  let regionResult: string;
+  if (!profile || pRegions.length === 0) regionResult = "案件地域未設定";
+  else if (nationwide) regionResult = "全国（一致扱い）";
+  else if (projectCityMentioned) regionResult = `市区町村一致（${projectCities.find((c) => text.includes(c))}）`;
+  else if (prefOverlap) regionResult = `都道府県一致（${[...itemPrefs].find((p) => projectPrefs.has(p))}）`;
+  else if (regionConflict) regionResult = `地域不一致（${[...itemPrefs][0] ?? "別地域"}）`;
+  else if (!itemHasGeo) regionResult = "地域不明（全国の可能性）";
+  else regionResult = "地域不明";
+  // 経費近似判定結果
+  const expenseResult = !profile ? "案件未設定" : themeHits.length > 0 ? `近似一致（${themeHits.slice(0, 3).join("・")}）` : expenseMismatch ? "不一致" : "不明";
+
+  // 表示/管理/除外の理由
+  const userVisibleReason = userVisible ? `公式の制度ページで、案件との関係（${matchedConditions.slice(0, 3).join("・") || "対象テーマ"}）が説明できます` : "";
+  const adminReviewReason = state === "admin_review"
+    ? (mismatchNote || (secondary ? "民間サイト由来。公式確認が必要" : pageType === "official_index" ? "補助金一覧ページ。個別制度の確認が必要" : "要件が一部しか取れず公式確認が必要"))
+    : "";
+  const rejectReason = state === "rejected_noise" ? (noise.join(" / ") || "制度ページと言えない／案件との関係が説明できない") : "";
+
   return {
-    state, pageType, score, noise, official, grantPage: req.name, req, missingFields,
+    state, pageType, score, displayConfidence, missedOpportunityRisk, noise, official, grantPage: req.name, req, missingFields,
     extracted: { name: item.title ?? "", regions: ex.target_regions, expenses: ex.eligible_expenses, rate: ex.subsidy_rate, maxAmount: ex.max_amount, deadline: item.extracted_deadline ?? ex.deadline },
-    projectRelationReason, matchedConditions, recommendedAction, userVisible, label, tone,
+    projectRelationReason, matchedConditions, recommendedAction, regionResult, expenseResult,
+    userVisibleReason, adminReviewReason, rejectReason, userVisible, label, tone,
   };
 }
