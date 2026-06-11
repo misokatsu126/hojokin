@@ -264,8 +264,9 @@ async function searchDiscovered(query: string, cond: InterpretedConditions): Pro
   for (const it of items) {
     if (it.status === "rejected") continue;
     if (isSampleDiscovered(it)) continue; // サンプル除外
-    // 検証ゲート：ノイズ（採択結果・議会・入札・ニュース等）はユーザー検索結果に出さない
-    if (verifyItem(it).state === "rejected_noise") continue;
+    // 検証ゲート：ユーザー検索結果に出すのは公式・制度ページ（要件が説明できるもの）だけ。
+    // 民間・ノイズ・古い/終了・参考は管理者画面（検索結果レビュー）へ。
+    if (!verifyItem(it).userVisible) continue;
     const hay = normalizeVariants(
       [it.title, it.raw_text, it.url, it.official_url, it.external_source, it.match_profile]
         .filter(Boolean)
