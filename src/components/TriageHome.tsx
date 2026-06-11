@@ -61,10 +61,15 @@ export function TriageHome() {
   const count = (k: TriageKey) => grouped.get(k)?.length ?? 0;
   const totalActive = useMemo(() => [...grouped.values()].reduce((n, a) => n + a.length, 0), [grouped]);
 
-  async function act(id: string, state: "applicant" | "not_needed") {
+  async function act(id: string, action: "applicant" | "not_needed" | "next") {
     setBusyId(id);
     try {
-      await updateDiscoveredItem(id, { review_state: state });
+      if (action === "next") {
+        // 「次回狙い」は専用ステータスが無いため、担当者メモに記録（非破壊・一覧で見える）
+        await updateDiscoveredItem(id, { human_note: "次回狙い（次回公募で確認）" });
+      } else {
+        await updateDiscoveredItem(id, { review_state: action });
+      }
       await load();
     } catch {
       /* noop */
@@ -170,10 +175,20 @@ export function TriageHome() {
   );
 }
 
-function TriageCard({ item, r, busy, onAct }: { item: DiscoveredItem; r: TriageResult; busy: boolean; onAct: (id: string, s: "applicant" | "not_needed") => void }) {
+function TriageCard({ item, r, busy, onAct }: { item: DiscoveredItem; r: TriageResult; busy: boolean; onAct: (id: string, s: "applicant" | "not_needed" | "next") => void }) {
   const m = TRIAGE_META[r.key];
   const ex = ruleExtract(item);
   const isApplicant = item.review_state === "applicant";
+  const text = item.raw_text ?? "";
+  const dd = daysUntil(r.deadline);
+  const recent = (() => { const d = daysUntil(item.fetched_at ?? item.detected_at); return d != null && d >= -7 && d <= 0; })();
+  // 注意系バッジ（本文から検出）
+  const flagBadges: string[] = [];
+  if (ex.pre_application_ng_risk || /(交付決定前|事前着手|着手前|契約.{0,4}前|発注.{0,4}前)/.test(text)) flagBadges.push("発注前確認が必要");
+  if (/(GビズID|gBizID|gビズ|ｇビズ)/i.test(text)) flagBadges.push("GビズIDが必要");
+  if (/(商工会議所|商工会)/.test(text)) flagBadges.push("商工会議所確認が必要");
+  if (ex.professional_check_recommended || /(社労士|社会保険労務士|行政書士|認定支援機関|税理士)/.test(text)) flagBadges.push("士業確認推奨");
+  const showNext = r.key === "next_time" || r.key === "missed";
   return (
     <div className={`rounded-lg border-2 p-4 ${m.tone}`}>
       {/* 結論ファースト */}
@@ -181,10 +196,13 @@ function TriageCard({ item, r, busy, onAct }: { item: DiscoveredItem; r: TriageR
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${m.chip}`}>{m.icon} {m.label}</span>
+        {r.score >= 70 && <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-800">あなた向け</span>}
+        {recent && <span className="rounded bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">新着</span>}
+        {dd != null && dd >= 0 && dd <= 14 && <span className="rounded bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">締切近い</span>}
         {r.score > 0 && <span className="rounded bg-white/70 px-2 py-0.5 text-[11px] font-bold text-ink" title="あなたに合いそう度">合いそう {r.score}</span>}
-        {!r.officialConfirmed && <span className="rounded bg-white/70 px-2 py-0.5 text-[11px] text-gray-600">公式未確認</span>}
-        {r.officialConfirmed && <span className="rounded bg-white/70 px-2 py-0.5 text-[11px] text-emerald-700">公式確認済み</span>}
+        {r.officialConfirmed ? <span className="rounded bg-white/70 px-2 py-0.5 text-[11px] text-emerald-700">公式確認済み</span> : <span className="rounded bg-white/70 px-2 py-0.5 text-[11px] text-gray-600">公式未確認</span>}
         {r.secondary && <span className="rounded bg-white/70 px-2 py-0.5 text-[11px] text-gray-600">民間サイトで発見</span>}
+        {flagBadges.map((b) => <span key={b} className="rounded bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800">{b}</span>)}
         {isApplicant && <span className="rounded bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-700">申請候補に追加済み</span>}
       </div>
 
@@ -216,8 +234,11 @@ function TriageCard({ item, r, busy, onAct }: { item: DiscoveredItem; r: TriageR
           <a href={item.official_url ?? item.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">🔗 公式ページを見る ↗</a>
         )}
         <button onClick={() => onAct(item.id, "applicant")} disabled={busy || isApplicant} className="rounded-md border border-purple-300 px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50">📝 申請候補にする</button>
+        <Link href="/discovery/items" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">条件を確認する</Link>
+        {showNext
+          ? <button onClick={() => onAct(item.id, "next")} disabled={busy} className="rounded-md border border-sky-300 px-3 py-1.5 text-xs text-sky-700 hover:bg-sky-50 disabled:opacity-50">🔵 次回狙いに入れる</button>
+          : null}
         <button onClick={() => onAct(item.id, "not_needed")} disabled={busy} className="rounded-md border px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-50">今回は見送る</button>
-        <Link href="/discovery/items" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">くわしく見る</Link>
       </div>
     </div>
   );

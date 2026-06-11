@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "ホーム", icon: "🏠", match: (p: string) => p === "/" },
-  { href: "/discovery/items", label: "候補を見る", icon: "📋", match: (p: string) => p.startsWith("/discovery") || p.startsWith("/grants") },
   { href: "/search", label: "相談して探す", icon: "💬", match: (p: string) => p.startsWith("/search") },
   { href: "/discovery/items?view=applicant", label: "申請候補", icon: "📝", match: () => false },
   { href: "/calendar", label: "締切カレンダー", icon: "🗓", match: (p: string) => p.startsWith("/calendar") },
-  { href: "/reports", label: "資料を作る", icon: "📄", match: (p: string) => p.startsWith("/reports") },
-  { href: "/settings", label: "設定", icon: "⚙️", match: (p: string) => p.startsWith("/settings") || p.startsWith("/profiles") || p.startsWith("/admin") || p.startsWith("/setup") || p.startsWith("/guide") || p.startsWith("/notifications") },
+  { href: "/new-and-standard", label: "新着・定番", icon: "🆕", match: (p: string) => p.startsWith("/new-and-standard") },
+  { href: "/settings", label: "設定", icon: "⚙️", match: (p: string) => p.startsWith("/settings") || p.startsWith("/profiles") || p.startsWith("/setup") || p.startsWith("/guide") || p.startsWith("/reports") },
+  { href: "/discovery", label: "管理者画面", icon: "🛠", match: (p: string) => p === "/discovery" || p.startsWith("/discovery/") || p.startsWith("/admin") || p.startsWith("/grants") },
 ];
 
 export function NavBar() {
