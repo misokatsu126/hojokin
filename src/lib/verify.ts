@@ -7,7 +7,26 @@
 
 import type { DiscoveredItem, BusinessProfile } from "./types";
 import { ruleExtract } from "./discovery";
-import { CITY_TO_PREF } from "./constants";
+import { CITY_TO_PREF, PURPOSES } from "./constants";
+
+// 目的カテゴリの近接（「店舗改装の対象経費に空調が含まれるか」等の "possible" 判定用）
+const PURPOSE_ADJ: Record<string, string[]> = {
+  空調設備: ["設備導入", "省エネ", "店舗改装", "省力化"],
+  省エネ: ["空調設備", "設備導入", "店舗改装"],
+  設備導入: ["空調設備", "省エネ", "省力化", "店舗改装", "内装工事"],
+  店舗改装: ["内装工事", "設備導入", "空調設備", "新店舗出店", "省エネ"],
+  内装工事: ["店舗改装", "設備導入", "新店舗出店"],
+  EC強化: ["ホームページ制作", "販路開拓", "DX", "広告宣伝"],
+  ホームページ制作: ["EC強化", "販路開拓", "広告宣伝"],
+  販路開拓: ["広告宣伝", "EC強化", "ホームページ制作", "イベント開催"],
+  広告宣伝: ["販路開拓", "ホームページ制作", "イベント開催"],
+  AI導入: ["DX", "業務自動化", "省力化"],
+  DX: ["AI導入", "業務自動化", "省力化", "EC強化"],
+  業務自動化: ["省力化", "DX", "AI導入"],
+  省力化: ["業務自動化", "設備導入", "DX"],
+  スタッフ採用: ["社員教育"],
+  社員教育: ["スタッフ採用"],
+};
 
 // 市区町村 → 都道府県（地域階層の判定用。constants を拡張）
 const CITY_PREF: Record<string, string> = {
@@ -140,8 +159,12 @@ export type VerifyResult = {
   userVisibleReason: string;
   adminReviewReason: string;
   rejectReason: string;
-  regionMatch: boolean; // 案件と地域が（階層含め）一致するか
-  expenseMatch: boolean; // 案件と経費カテゴリが一致・近似するか
+  regionMatch: boolean; // UI簡易表示用（判定は regionMatchType を使う）
+  regionMatchType: "national" | "prefecture_contains_city" | "city_exact" | "region_unknown" | "region_mismatch";
+  regionMatchReason: string;
+  expenseMatch: boolean; // UI簡易表示用（判定は expenseMatchType を使う）
+  expenseMatchType: "exact" | "near" | "possible" | "unknown" | "mismatch";
+  expenseMatchReason: string;
   noise: string[]; // = noiseReasons
   official: boolean;
   grantPage: boolean;
@@ -214,12 +237,44 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   // 明確な地域違い（別の都道府県・市が明記され、案件地域と重ならない）
   const regionConflict = pRegions.length > 0 && !regionMatch && itemHasGeo;
 
+  // 地域の段階判定（true/false だけでなく type＋理由）
+  let regionMatchType: "national" | "prefecture_contains_city" | "city_exact" | "region_unknown" | "region_mismatch";
+  let regionMatchReason: string;
+  const projCityLabel = projectCities[0] || [...projectPrefs][0] || "案件地域";
+  if (pRegions.length === 0) { regionMatchType = "national"; regionMatchReason = "案件の地域が未設定のため、地域では絞り込んでいません"; }
+  else if (nationwide) { regionMatchType = "national"; regionMatchReason = `全国対象の制度のため、${projCityLabel}案件でも地域ミスマッチではありません`; }
+  else if (projectCityMentioned) { regionMatchType = "city_exact"; regionMatchReason = "案件所在地と制度の対象市区町村が一致しています"; }
+  else if (prefOverlap) { regionMatchType = "prefecture_contains_city"; regionMatchReason = `${projCityLabel}は${[...itemPrefs].find((p) => projectPrefs.has(p))}内のため、地域条件に合う可能性があります`; }
+  else if (!itemHasGeo) { regionMatchType = "region_unknown"; regionMatchReason = "対象地域を抽出できないため、管理者確認が必要です"; }
+  else { regionMatchType = "region_mismatch"; regionMatchReason = `案件所在地は${projCityLabel}ですが、制度対象は${[...itemPrefs][0] ?? "別地域"}です`; }
+
   // 経費・テーマの近似一致（synonyms 展開済みの purposes/expenses/keywords/industries で判定）
   const themePool = [
     ...(profile?.purposes ?? []), ...(profile?.expenses ?? []), ...(profile?.keywords ?? []), ...(profile?.industries ?? []),
   ];
   const themeHits = themePool.filter((t) => t && text.includes(t));
-  const expenseMatch = (profile?.expenses ?? []).some((e) => e && text.includes(e)) || themeHits.length > 0;
+  const projPurposes = profile?.purposes ?? [];
+  const itemPurposes = PURPOSES.filter((p) => text.includes(p));
+  // カテゴリ一致は purposes/expenses/industries で見る（keywords の "店舗" 等の汎用語は除外）
+  const categoryPool = [...projPurposes, ...(profile?.expenses ?? []), ...(profile?.industries ?? [])];
+  const categoryHits = categoryPool.filter((t) => t && text.includes(t));
+  // exact は「空調・POS」等の固有語のみ（省エネ等のカテゴリ語は near 扱い）
+  const GENERIC_KW = new Set(["小売", "物販", "事業", "サービス", "店舗", "お店"]);
+  const primaryHit = (profile?.keywords ?? []).some((k) => k && !GENERIC_KW.has(k) && !categoryPool.includes(k) && k.length >= 2 && text.includes(k));
+  const adjHit = itemPurposes.some((ip) => projPurposes.some((pp) => (PURPOSE_ADJ[pp] ?? []).includes(ip) || (PURPOSE_ADJ[ip] ?? []).includes(pp)));
+
+  // 経費の段階判定
+  let expenseMatchType: "exact" | "near" | "possible" | "unknown" | "mismatch";
+  let expenseMatchReason: string;
+  if (!profile || (projPurposes.length === 0 && (profile.expenses?.length ?? 0) === 0)) { expenseMatchType = "unknown"; expenseMatchReason = "案件の使い道が未設定のため判定できません"; }
+  else if (primaryHit) { expenseMatchType = "exact"; expenseMatchReason = "案件の用途と制度の対象が直接一致しています"; }
+  else if (categoryHits.length > 0) { expenseMatchType = "near"; expenseMatchReason = `${categoryHits.slice(0, 3).join("・")}に含まれる可能性があります`; }
+  else if (adjHit) { expenseMatchType = "possible"; expenseMatchReason = "関連する経費カテゴリに含まれるか確認が必要です"; }
+  else if (!req.expense) { expenseMatchType = "unknown"; expenseMatchReason = "対象経費を抽出できないため、管理者確認が必要です"; }
+  else { expenseMatchType = "mismatch"; expenseMatchReason = "案件の使い道と対象経費が合わない可能性があります"; }
+
+  const regionMatchBool = regionMatchType === "national" || regionMatchType === "prefecture_contains_city" || regionMatchType === "city_exact";
+  const expenseMatch = expenseMatchType === "exact" || expenseMatchType === "near" || expenseMatchType === "possible";
 
   if (profile) {
     if (regionMatch && (prefOverlap || projectCityMentioned)) score += 10;
@@ -257,17 +312,20 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
 
   const dispHigh = displayConfidence >= 55;
   const riskHigh = missedOpportunityRisk >= 35;
-  const expenseMismatch = !!profile && pRegions.length > 0 && (profile.expenses?.length ?? 0) > 0 && !expenseMatch && themeHits.length === 0;
 
-  // ---- 状態の決定（2軸マトリクス。ノイズ→地域違い→経費違い→古い→マトリクス） ----
+  // ---- 状態の決定（段階判定＋2軸マトリクス） ----
   const NOISE_TYPES: PageType[] = ["past_result", "council_or_budget", "bid_or_procurement", "seminar", "news_article", "company_sales_page"];
   let state: VerifyState;
   let mismatchNote = "";
   if (NOISE_TYPES.includes(pageType)) state = "rejected_noise";
-  else if (regionConflict) { state = "admin_review"; mismatchNote = "対象地域が案件と違う可能性"; }
-  else if (expenseMismatch) { state = riskHigh ? "admin_review" : "reference_only"; mismatchNote = "対象経費が案件と合わない可能性"; }
+  else if (regionMatchType === "region_mismatch") { state = "admin_review"; mismatchNote = "対象地域が案件と違う可能性"; }
+  else if (expenseMatchType === "mismatch") { state = riskHigh ? "admin_review" : "reference_only"; mismatchNote = "対象経費が案件と合わない可能性"; }
   else if (old) state = "archived_or_old"; // 古い/募集終了（見逃しリスク高なら次回狙いとして残る）
-  else if (dispHigh && grantTypePage && req.count >= 3) state = "user_visible"; // 高×高/高：強く表示
+  else if (regionMatchType === "region_unknown") { state = "admin_review"; mismatchNote = "対象地域が不明（要確認）"; } // 捨てない
+  else if (expenseMatchType === "unknown") { state = "admin_review"; mismatchNote = "対象経費が不明（要確認）"; } // 捨てない
+  else if (expenseMatchType === "possible") { state = "admin_review"; mismatchNote = "対象経費に含まれるか要確認"; } // 条件確認
+  // user_visible は厳しく：表示確度が高く・公式制度ページ・地域一致・経費が exact/near・要件あり
+  else if (dispHigh && grantTypePage && req.count >= 3 && regionMatchBool && (expenseMatchType === "exact" || expenseMatchType === "near")) state = "user_visible";
   else if (riskHigh) state = "admin_review"; // 低×高：捨てず管理者確認（民間/一覧/定番/要件薄い公式）
   else if (req.name || grantTypePage) state = "reference_only"; // 制度ページらしいが確度低い
   else state = "rejected_noise"; // 低×低：除外
@@ -325,7 +383,7 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
   else if (!itemHasGeo) regionResult = "地域不明（全国の可能性）";
   else regionResult = "地域不明";
   // 経費近似判定結果
-  const expenseResult = !profile ? "案件未設定" : themeHits.length > 0 ? `近似一致（${themeHits.slice(0, 3).join("・")}）` : expenseMismatch ? "不一致" : "不明";
+  const expenseResult = `${expenseMatchType}：${expenseMatchReason}`;
 
   // 表示/管理/除外の理由
   const userVisibleReason = userVisible ? `公式の制度ページで、案件との関係（${matchedConditions.slice(0, 3).join("・") || "対象テーマ"}）が説明できます` : "";
@@ -338,6 +396,9 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
     state, pageType, score, displayConfidence, missedOpportunityRisk, noise, official, grantPage: req.name, req, missingFields,
     extracted: { name: item.title ?? "", regions: ex.target_regions, expenses: ex.eligible_expenses, rate: ex.subsidy_rate, maxAmount: ex.max_amount, deadline: item.extracted_deadline ?? ex.deadline },
     projectRelationReason, matchedConditions, recommendedAction, regionResult, expenseResult,
-    userVisibleReason, adminReviewReason, rejectReason, regionMatch, expenseMatch, userVisible, label, tone,
+    userVisibleReason, adminReviewReason, rejectReason,
+    regionMatch: regionMatchBool, regionMatchType, regionMatchReason,
+    expenseMatch, expenseMatchType, expenseMatchReason,
+    userVisible, label, tone,
   };
 }

@@ -83,8 +83,8 @@ export default function SearchReviewPage() {
                 <span>出典：{i.external_source ?? "—"}</span>
               </div>
               <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-gray-600 sm:grid-cols-3">
-                <span>地域判定：{v.regionResult}</span>
-                <span>経費近似：{v.expenseResult}</span>
+                <span title={v.regionMatchReason}>地域：{v.regionMatchType}（{v.regionMatch ? "一致" : "不一致/不明"}）</span>
+                <span title={v.expenseMatchReason}>経費：{v.expenseMatchType}（{v.expenseMatch ? "一致/近い" : "不一致/不明"}）</span>
                 <span>補助率/上限：{v.extracted.rate || (v.extracted.maxAmount != null ? formatAmount(v.extracted.maxAmount) : "—")}</span>
                 <span>対象者：{v.req.target ? "記載あり" : "—"}</span>
                 <span>公募要領：{v.req.guideline ? "あり" : "—"}</span>
