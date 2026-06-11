@@ -6,7 +6,7 @@ import { ruleMatch, classify } from "@/lib/matching";
 import { ingestUrl } from "@/lib/collect";
 import { isSampleGrant, isSampleDiscovered } from "@/lib/sampleFilter";
 import { deadlineState } from "@/lib/utils";
-import { expandQuery, expandRegions, followUpQuestions } from "@/lib/synonyms";
+import { expandQuery, expandRegions, normalizeVariants, followUpQuestions } from "@/lib/synonyms";
 import { lifecycle, priority } from "@/lib/lifecycle";
 import type {
   Grant,
@@ -244,15 +244,17 @@ async function searchDiscovered(query: string, cond: InterpretedConditions): Pro
     new Set(
       [
         ...query.replace(/https?:\/\/[^\s　]+/g, " ").split(/[\s　、，,]+/),
+        // 日本語は空白で区切られないため、漢字・カタカナの連続も語として抽出（"弥富で使える"→"弥富"）
+        ...(normalizeVariants(query).match(/[一-龥々ヶァ-ヶ]{2,}/g) ?? []),
         ...cond.regions,
         // 地域は「岐阜県」だけでなく接尾辞を外した「岐阜」でも当たるように
-        ...cond.regions.map((r) => r.replace(/[県市府都]$/u, "")),
+        ...cond.regions.map((r) => r.replace(/[県市府都区町村郡]$/u, "")),
         ...cond.industries,
         ...cond.purposes,
         ...cond.keywords,
         ...cond.eligible_expenses,
       ]
-        .map((s) => s.trim())
+        .map((s) => normalizeVariants(s).trim())
         .filter((s) => s.length >= 2)
     )
   );
@@ -261,16 +263,11 @@ async function searchDiscovered(query: string, cond: InterpretedConditions): Pro
   for (const it of items) {
     if (it.status === "rejected") continue;
     if (isSampleDiscovered(it)) continue; // サンプル除外
-    const hay = [
-      it.title,
-      it.raw_text,
-      it.url,
-      it.official_url,
-      it.external_source,
-      it.match_profile,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const hay = normalizeVariants(
+      [it.title, it.raw_text, it.url, it.official_url, it.external_source, it.match_profile]
+        .filter(Boolean)
+        .join(" ")
+    );
     let hits = 0;
     for (const t of terms) if (hay.includes(t)) hits++;
     if (terms.length > 0 && hits === 0) continue; // 語句指定があり一致なしは除外
