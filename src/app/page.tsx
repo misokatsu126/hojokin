@@ -13,11 +13,10 @@ import type { Grant, BusinessProfile, GrantMatch, Alert, AppStatusRow } from "@/
 import { deadlineState, daysUntil, formatDate } from "@/lib/utils";
 import { APPLICATION_STATUSES } from "@/lib/constants";
 import { NlSearchBox } from "@/components/NlSearchBox";
-import { AutoCollectSection } from "@/components/AutoCollectSection";
 import { TopQuickActions } from "@/components/TopQuickActions";
 import { TodayAdded } from "@/components/TodayAdded";
-import { DiagnosisDashboard } from "@/components/DiagnosisDashboard";
 import { DeadlineTimeline } from "@/components/DeadlineTimeline";
+import { TriageHome } from "@/components/TriageHome";
 import { AlertBadge, ScoreBadge, DeadlineBadge } from "@/components/Badges";
 
 export default function DashboardPage() {
@@ -89,38 +88,10 @@ export default function DashboardPage() {
 
   const empty = grants.length === 0 && profiles.length === 0;
 
-  // 事業情報の登録不足を判定（brief §25）：未登録、または地域・業種が空のプロフィールしかない
-  const profileWeak =
-    profiles.length === 0 ||
-    profiles.every((p) => p.regions.length === 0 || p.industries.length === 0);
-
   return (
     <div>
-      {/* ヒーロー：このサイトの主役は「あなたが使えるかもしれない補助金・助成金」 */}
-      <div className="mb-6 rounded-xl border bg-gradient-to-br from-sky-50 to-white p-5">
-        <h1 className="text-xl font-bold text-ink sm:text-2xl">あなたが使えるかもしれない補助金・助成金を探します</h1>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          補助金・助成金は、どこの何が自分に使えるのか分かりにくいものです。
-          このサイトは、登録した事業情報をもとに使える可能性がある制度を自動で探し、確認すべき順番に並べます。
-          AI判定はあくまで候補探しの補助です。最終判断は必ず公式ページで確認してください。
-        </p>
-      </div>
-
-      {/* 事業情報の登録不足バナー（精度向上の導線） */}
-      {profileWeak && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <div className="text-sm text-amber-900">
-            <p className="font-semibold">まだ事業情報が少ないため、候補の精度が低い可能性があります。</p>
-            <p className="mt-0.5 text-xs text-amber-700">所在地・業種・法人種別・やりたいことを登録すると、あなたに合う制度を見つけやすくなります。</p>
-          </div>
-          <Link href="/setup" className="shrink-0 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-            事業情報を登録する →
-          </Link>
-        </div>
-      )}
-
-      {/* 診断ダッシュボード：確認すべき件数・優先度別・地域別をひと目で */}
-      <DiagnosisDashboard />
+      {/* 8分類トリアージ（タイトル・判定精度・カテゴリ別カード・一般確認推奨） */}
+      <TriageHome />
 
       {/* 相談して探す（主役の導線。検索ではなく“相談”） */}
       <div className="mb-6 rounded-lg border bg-white p-4">
@@ -128,9 +99,6 @@ export default function DashboardPage() {
         <p className="mb-3 text-xs text-gray-500">制度名を知らなくても大丈夫です。やりたいこと・困っていることを、そのまま入力してください。</p>
         <NlSearchBox />
       </div>
-
-      {/* あなたが使えるかもしれない制度（優先順位付きカード） */}
-      <AutoCollectSection />
 
       <TopQuickActions />
 
