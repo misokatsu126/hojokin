@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
-import { loadProjects, classifyForProject, nextTask, type SpendingProject, type ProjectTask } from "@/lib/projects";
+import { loadProjects, classifyForProject, projectTasks, type SpendingProject, type ProjectTask } from "@/lib/projects";
 
 export function TodayTasks() {
   const [projects, setProjects] = useState<SpendingProject[]>([]);
@@ -18,29 +18,33 @@ export function TodayTasks() {
     return () => window.removeEventListener("projects-changed", onChange);
   }, []);
 
-  const tasks: ProjectTask[] = useMemo(() => {
-    const out: ProjectTask[] = [];
-    for (const p of projects) {
-      const match = classifyForProject(p, items);
-      const t = nextTask(p, match);
-      if (t) out.push(t);
-    }
-    return out.slice(0, 6);
+  // 案件ごとに「やること」を最大3つまで。タスクがある案件だけ表示。
+  const groups = useMemo(() => {
+    return projects
+      .map((p) => ({ project: p, tasks: projectTasks(p, classifyForProject(p, items)).slice(0, 3) }))
+      .filter((g) => g.tasks.length > 0)
+      .slice(0, 5);
   }, [projects, items]);
 
-  if (projects.length === 0 || tasks.length === 0) return null;
+  if (projects.length === 0 || groups.length === 0) return null;
 
   return (
     <div className="mb-6 rounded-xl border-2 border-accent/30 bg-accent/5 p-4">
       <h2 className="mb-2 text-base font-bold text-ink">📋 今日やること</h2>
-      <ol className="space-y-2">
-        {tasks.map((t, i) => (
-          <li key={t.projectId} className="flex items-start gap-2">
+      <ol className="space-y-3">
+        {groups.map(({ project, tasks }, i) => (
+          <li key={project.id} className="flex items-start gap-2">
             <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">{i + 1}</span>
-            <Link href={`/projects/${t.projectId}`} className="min-w-0 flex-1 rounded-md bg-white px-3 py-2 transition hover:shadow-sm">
-              <div className="text-sm font-semibold text-ink">{t.projectName}</div>
-              <div className="text-sm text-accent">{t.action}</div>
-              <div className="text-[11px] text-gray-500">理由：{t.reason}</div>
+            <Link href={`/projects/${project.id}`} className="min-w-0 flex-1 rounded-md bg-white px-3 py-2 transition hover:shadow-sm">
+              <div className="text-sm font-semibold text-ink">{project.name || "支出案件"}</div>
+              <ul className="mt-0.5 space-y-0.5">
+                {tasks.map((t, j) => (
+                  <li key={j} className="text-xs">
+                    <span className="font-medium text-accent">{j === 0 ? "▶ " : "・"}{t.action}</span>
+                    <span className="ml-1 text-[11px] text-gray-500">（{t.reason}）</span>
+                  </li>
+                ))}
+              </ul>
             </Link>
           </li>
         ))}
