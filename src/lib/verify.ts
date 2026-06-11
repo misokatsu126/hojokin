@@ -140,6 +140,8 @@ export type VerifyResult = {
   userVisibleReason: string;
   adminReviewReason: string;
   rejectReason: string;
+  regionMatch: boolean; // 案件と地域が（階層含め）一致するか
+  expenseMatch: boolean; // 案件と経費カテゴリが一致・近似するか
   noise: string[]; // = noiseReasons
   official: boolean;
   grantPage: boolean;
@@ -336,6 +338,6 @@ export function verifyItem(item: DiscoveredItem, profile?: BusinessProfile | nul
     state, pageType, score, displayConfidence, missedOpportunityRisk, noise, official, grantPage: req.name, req, missingFields,
     extracted: { name: item.title ?? "", regions: ex.target_regions, expenses: ex.eligible_expenses, rate: ex.subsidy_rate, maxAmount: ex.max_amount, deadline: item.extracted_deadline ?? ex.deadline },
     projectRelationReason, matchedConditions, recommendedAction, regionResult, expenseResult,
-    userVisibleReason, adminReviewReason, rejectReason, userVisible, label, tone,
+    userVisibleReason, adminReviewReason, rejectReason, regionMatch, expenseMatch, userVisible, label, tone,
   };
 }
