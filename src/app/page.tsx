@@ -16,6 +16,8 @@ import { NlSearchBox } from "@/components/NlSearchBox";
 import { AutoCollectSection } from "@/components/AutoCollectSection";
 import { TopQuickActions } from "@/components/TopQuickActions";
 import { TodayAdded } from "@/components/TodayAdded";
+import { DiagnosisDashboard } from "@/components/DiagnosisDashboard";
+import { DeadlineTimeline } from "@/components/DeadlineTimeline";
 import { AlertBadge, ScoreBadge, DeadlineBadge } from "@/components/Badges";
 
 export default function DashboardPage() {
@@ -116,6 +118,9 @@ export default function DashboardPage() {
           </Link>
         </div>
       )}
+
+      {/* 診断ダッシュボード：確認すべき件数・優先度別・地域別をひと目で */}
+      <DiagnosisDashboard />
 
       {/* 相談して探す（主役の導線。検索ではなく“相談”） */}
       <div className="mb-6 rounded-lg border bg-white p-4">
@@ -263,6 +268,9 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* 締切タイムライン */}
+      <DeadlineTimeline />
 
       {/* 本日追加された補助金・助成金 */}
       <TodayAdded />
