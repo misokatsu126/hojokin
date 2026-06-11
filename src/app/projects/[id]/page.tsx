@@ -196,7 +196,8 @@ function CandidateCard({ item, r, v, catKey }: { item: DiscoveredItem; r: Triage
       </div>
       {/* 確認状況（弱い表現）と、なぜこの案件に関係するか */}
       <p className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] ${v.tone}`}>{v.label}</p>
-      {r.why && <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">この案件に関係する理由：</span>{r.why}</p>}
+      <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">関係する理由：</span>{v.projectRelationReason}</p>
+      {v.missingFields.length > 0 && <p className="mt-0.5 text-xs text-amber-800"><span className="text-amber-500">未確認項目：</span>{v.missingFields.slice(0, 5).join("・")}</p>}
       {r.killers.length > 0 && <p className="mt-1 text-xs text-red-700">注意：{r.killers.join(" / ")}</p>}
       {r.nextActions.length > 0 && <p className="mt-1 text-xs text-orange-700">今やること：{r.nextActions.slice(0, 3).join(" → ")}</p>}
       {(item.official_url || item.url) && (
