@@ -361,35 +361,44 @@ export type ProjectTask = { projectId: string; projectName: string; action: stri
 
 const IT_USE = /(AI|POS|在庫|EC|ホームページ|システム|DX|デジタル)/i;
 
-export function nextTask(project: SpendingProject, match?: ProjectMatch): ProjectTask | null {
+// 案件の「やること」を重要な順に全部返す（未完了の確認だけ）。
+export function projectTasks(project: SpendingProject, match?: ProjectMatch): ProjectTask[] {
   const c = project.checklist ?? {};
   const base = { projectId: project.id, projectName: project.name || "支出案件" };
-  const usesText = `${project.name} ${project.purpose} ${project.uses.join(" ")}`;
+  const tpl = getTemplate(project.templateKey);
+  const usesText = `${project.name} ${project.purpose} ${project.uses.join(" ")} ${(tpl?.tags ?? []).join(" ")}`;
+  const isIT = IT_USE.test(usesText) || ["ai_pos", "ec", "website"].includes(project.templateKey ?? "");
+  const out: ProjectTask[] = [];
 
   if ((project.orderStatus === "none" || project.orderStatus === "estimate") && !c["pre_order"]) {
-    return { ...base, action: "発注前か確認してください", reason: "発注済みだと対象外になる補助金があります" };
+    out.push({ ...base, action: "発注前か確認してください", reason: "発注済みだと対象外になる補助金があります" });
+  }
+  // IT/DX系はGビズIDを上位に
+  if (isIT && !c["gbizid"]) {
+    out.push({ ...base, action: "GビズIDを確認してください", reason: "IT・DX系補助金で必要になる可能性があります" });
   }
   if (project.employees == null) {
-    return { ...base, action: "従業員数を入力してください", reason: "小規模事業者向け補助金の判定に必要です" };
+    out.push({ ...base, action: "従業員数を入力してください", reason: "小規模事業者向け補助金の判定に必要です" });
   }
   if (project.budget == null) {
-    return { ...base, action: "予算を入力してください", reason: "対象になる補助金を見つけやすくなります" };
+    out.push({ ...base, action: "予算を入力してください", reason: "対象になる補助金を見つけやすくなります" });
   }
-  if (IT_USE.test(usesText) && !c["gbizid"]) {
-    return { ...base, action: "GビズIDを確認してください", reason: "IT・DX系の補助金で必要になる可能性があります" };
-  }
-  // 締切が近い候補がある
   const dd = match?.top ? match.top.r.lc.deadlineDays : null;
   if (dd != null && dd >= 0 && dd <= 14 && !c["deadline"]) {
-    return { ...base, action: "締切が近い制度があります。締切を確認してください", reason: `あと${dd}日の候補があります` };
+    out.push({ ...base, action: "締切が近い制度があります。締切を確認してください", reason: `あと${dd}日の候補があります` });
   }
   if (!c["guideline"]) {
-    return { ...base, action: "公式の公募要領を確認してください", reason: "対象経費・締切・条件を確認できます" };
+    out.push({ ...base, action: "公式の公募要領を確認してください", reason: "対象経費・締切・条件を確認できます" });
   }
   if (!c["estimate"]) {
-    return { ...base, action: "見積を取得しましょう", reason: "多くの補助金で見積書が必要になります" };
+    out.push({ ...base, action: "見積を取得しましょう", reason: "多くの補助金で見積書が必要になります" });
   }
-  return null;
+  return out;
+}
+
+// 案件ごとの「今日やること」を1つだけ返す（最優先）。完了済みなら null。
+export function nextTask(project: SpendingProject, match?: ProjectMatch): ProjectTask | null {
+  return projectTasks(project, match)[0] ?? null;
 }
 
 // ---- 案件 × 補助金 のトリアージ ----
