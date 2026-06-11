@@ -21,15 +21,38 @@ const REGION_ALIASES: Record<string, string[]> = {
   北海道: ["北海道"],
 };
 
-// 相談文から対象地域を抽出する（正式名 REGIONS ＋ 略称エイリアス。「全国」は除外）。
+// 異体字（旧字・俗字）のゆれを吸収する。地名・人名でよく揺れる字を正規化。
+//   例：弥冨→弥富、髙→高、﨑/崎、濱→浜、澤→沢、邉/邊→辺 …
+const VARIANT_MAP: Record<string, string> = {
+  "冨": "富", "髙": "高", "﨑": "崎", "嵜": "崎", "濱": "浜", "濵": "浜",
+  "澤": "沢", "邉": "辺", "邊": "辺", "廣": "広", "龍": "竜", "嶋": "島",
+  "槇": "槙", "桒": "桑", "齋": "斎", "齊": "斎", "靏": "鶴", "舘": "館",
+  "渕": "淵", "塚": "塚", "栁": "柳", "祐": "祐",
+};
+export function normalizeVariants(s: string): string {
+  let out = (s ?? "").normalize("NFKC");
+  for (const [from, to] of Object.entries(VARIANT_MAP)) {
+    if (out.includes(from)) out = out.split(from).join(to);
+  }
+  return out;
+}
+
+// 「○○市/区/町/村/郡」を文中から汎用的に抽出（全国どの市区町村でも効く）。
+const MUNICIPALITY_RE = /[一-龥々ヶ]{1,6}(?:市|区|町|村|郡)/g;
+
+// 相談文から対象地域を抽出する（正式名 REGIONS ＋ 略称エイリアス ＋ 汎用市区町村。異体字も吸収）。
 export function expandRegions(text: string): string[] {
-  const norm = (text ?? "").normalize("NFKC");
+  const norm = normalizeVariants(text);
   const out = new Set<string>();
   for (const r of REGIONS) {
     if (r !== "全国" && norm.includes(r)) out.add(r);
   }
   for (const [alias, list] of Object.entries(REGION_ALIASES)) {
     if (norm.includes(alias)) list.forEach((x) => out.add(x));
+  }
+  // 文中の「○○市/区/町/村/郡」をそのまま地域語として追加（弥富市・各務原市など）
+  for (const m of norm.match(MUNICIPALITY_RE) ?? []) {
+    if (m.length >= 3) out.add(m); // 「○市」単独などの短すぎる誤検出を避ける
   }
   return [...out];
 }
