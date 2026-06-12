@@ -1,6 +1,6 @@
 "use client";
 
-import type { SpendingProject } from "@/lib/projects";
+import { APP_STATUS_STEP, type SpendingProject } from "@/lib/projects";
 
 // 補助金が見つかった「あと」の進め方を示す軽量ガイド。
 //   申請の一般的な流れ（後払い・交付決定前発注NG）と、誰に相談するかの橋渡しまで。
@@ -16,6 +16,8 @@ const STEPS: { t: string; d: string; warn?: boolean }[] = [
 ];
 
 function currentStep(project: SpendingProject): number {
+  // 進行ステータスが入っていればそれを優先（正確）
+  if (project.appStatus) return APP_STATUS_STEP[project.appStatus];
   const c = project.checklist ?? {};
   const ordered = ["contract", "ordered", "paid"].includes(project.orderStatus);
   if (ordered) return 4; // すでに発注・支払い（本来は交付決定後）
@@ -26,7 +28,9 @@ function currentStep(project: SpendingProject): number {
 
 export function ApplicationRoadmap({ project }: { project: SpendingProject }) {
   const cur = currentStep(project);
-  const ordered = ["contract", "ordered", "paid"].includes(project.orderStatus);
+  // 交付決定後の発注は正常なので「対象外」警告は出さない
+  const approved = ["approved", "implementing", "reported", "received"].includes(project.appStatus ?? "");
+  const ordered = !approved && ["contract", "ordered", "paid"].includes(project.orderStatus);
   return (
     <section className="mt-6">
       <h2 className="mb-1 text-lg font-bold text-ink">このあとの進め方</h2>
