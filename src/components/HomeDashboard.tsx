@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, syncProjectsFromSupabase, classifyForProject, projectTasks, orderAdvice, getTemplate, templateExamples, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST,
+  loadProjects, syncProjectsFromSupabase, classifyForProject, projectTasks, orderAdvice, getTemplate, templateExamples, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, APP_STATUS_LABEL,
   type SpendingProject, type ProjectMatch, type ProjectTask,
 } from "@/lib/projects";
 
@@ -49,12 +49,19 @@ export function HomeDashboard() {
       const match = classifyForProject(p, items);
       const adv = orderAdvice(p.orderStatus);
       const tasks = projectTasks(p, match);
-      const orderedRisk = p.orderStatus === "contract" || p.orderStatus === "ordered" || p.orderStatus === "paid";
-      const preOrderRisk = adv.wait && !p.checklist?.["pre_order"];
+      // 交付決定後の発注は正常なので「対象外リスク」とはしない
+      const postApproval = ["approved", "implementing", "reported", "received"].includes(p.appStatus ?? "");
+      const applied = p.appStatus === "applied";
+      const orderedRisk = !postApproval && !applied && (p.orderStatus === "contract" || p.orderStatus === "ordered" || p.orderStatus === "paid");
+      const preOrderRisk = !postApproval && !applied && adv.wait && !p.checklist?.["pre_order"];
       let headline: string;
       let tone: Row["tone"];
-      // 発注状況別に headline と色を変える（常に赤の「まだ発注しないで」は強すぎる）
-      if (orderedRisk) { headline = "この経費は対象外の可能性があります"; tone = "red"; }
+      // 進行ステータスを優先して headline を決める
+      if (p.appStatus === "received") { headline = "入金まで完了しています"; tone = "green"; }
+      else if (p.appStatus === "reported") { headline = "入金待ち：書類を保管しましょう"; tone = "blue"; }
+      else if (p.appStatus === "approved" || p.appStatus === "implementing") { headline = "交付決定済み：実施と実績報告を進めましょう"; tone = "blue"; }
+      else if (applied) { headline = "申請済み：交付決定を待ちましょう（発注はまだ）"; tone = "amber"; }
+      else if (orderedRisk) { headline = "この費用は対象外になるかもしれません"; tone = "red"; }
       else if (tasks[0]?.taskKey === "pre_order") {
         headline = p.orderStatus === "estimate" ? "見積だけならまだ間に合う可能性があります" : "発注前に公式要領を確認してください";
         tone = "amber";
@@ -233,7 +240,10 @@ export function HomeDashboard() {
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {rows.slice(0, 3).map((r) => (
               <Link key={r.p.id} href={`/projects/${r.p.id}`} className="rounded-lg border bg-white p-3 transition hover:border-accent">
-                <div className="truncate text-sm font-semibold text-ink">{r.p.name || "（名称未設定）"}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-sm font-semibold text-ink">{r.p.name || "（名称未設定）"}</span>
+                  <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{APP_STATUS_LABEL[r.p.appStatus ?? "considering"]}</span>
+                </div>
                 <div className="mt-0.5 truncate text-xs text-gray-500">{r.p.location || r.p.store || ""}{r.match.total > 0 ? `／候補 ${r.match.total}件` : ""}</div>
                 <div className={`mt-1 text-xs font-medium ${r.tone === "red" ? "text-red-600" : r.tone === "amber" ? "text-amber-700" : r.tone === "green" ? "text-green-700" : "text-blue-700"}`}>{r.headline}</div>
                 <div className="mt-1 text-[11px] text-gray-500">申請準備：{r.done}/{PROJECT_CHECKLIST.length} 完了{r.tasks[0] ? `　次：${r.tasks[0].action}` : ""}</div>

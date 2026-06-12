@@ -7,7 +7,7 @@ import { classifyForProject, type SpendingProject, type ProjectMatch } from "./p
 import { getCoreProgramChecks } from "./coreMaster";
 import type { DiscoveredItem } from "./types";
 
-export type AlertKind = "ordered_risk" | "deadline_soon" | "pre_order" | "gbizid" | "consult" | "estimate";
+export type AlertKind = "ordered_risk" | "await_decision" | "deadline_soon" | "pre_order" | "report_due" | "keep_docs" | "gbizid" | "consult" | "estimate";
 export type AlertSeverity = "high" | "medium";
 
 export type ProjectAlert = {
@@ -24,15 +24,18 @@ export type ProjectAlert = {
 
 export const ALERT_META: Record<AlertKind, { label: string; icon: string }> = {
   ordered_risk: { label: "発注後の注意", icon: "🔴" },
+  await_decision: { label: "交付決定待ち", icon: "⏳" },
   deadline_soon: { label: "締切が近い", icon: "⏰" },
   pre_order: { label: "発注前の確認", icon: "🟠" },
+  report_due: { label: "実績報告", icon: "📑" },
+  keep_docs: { label: "書類保管", icon: "🗂" },
   gbizid: { label: "GビズID", icon: "🆔" },
   consult: { label: "事前相談", icon: "🤝" },
   estimate: { label: "見積", icon: "📄" },
 };
 
 const KIND_RANK: Record<AlertKind, number> = {
-  ordered_risk: 0, deadline_soon: 1, pre_order: 2, gbizid: 3, consult: 4, estimate: 5,
+  ordered_risk: 0, await_decision: 1, deadline_soon: 2, pre_order: 3, report_due: 4, keep_docs: 5, gbizid: 6, consult: 7, estimate: 8,
 };
 
 // 1案件分の通知を作る。match があれば締切系も判定する。
@@ -41,9 +44,25 @@ export function alertsForProject(p: SpendingProject, match?: ProjectMatch): Proj
   const cores = getCoreProgramChecks(p);
   const hasCore = (k: string) => cores.some((x) => x.key === k);
   const ordered = p.orderStatus === "contract" || p.orderStatus === "ordered" || p.orderStatus === "paid";
-  const base = { projectId: p.id, projectName: p.name || "支出案件" };
+  const base = { projectId: p.id, projectName: p.name || "補助金チェック" };
   const out: ProjectAlert[] = [];
 
+  // 申請の進行ステータスに応じて、その段階に合った通知だけを出す（矛盾した表示を防ぐ）
+  const app = p.appStatus ?? "considering";
+  if (app === "received") return []; // 入金済み＝完了
+  if (app === "applied") {
+    return [{ ...base, key: `${p.id}:await_decision`, kind: "await_decision", severity: "high",
+      title: "交付決定を待ちましょう", detail: "決定の通知が出る前に、発注・契約・支払いをしないでください。" }];
+  }
+  if (app === "approved" || app === "implementing") {
+    return [{ ...base, key: `${p.id}:report_due`, kind: "report_due", severity: "medium",
+      title: "実施したら実績報告を", detail: "期限内に実績報告をしないと、受け取れないことがあります。" }];
+  }
+  if (app === "reported") {
+    return [{ ...base, key: `${p.id}:keep_docs`, kind: "keep_docs", severity: "medium",
+      title: "入金まで書類を保管", detail: "見積・契約・領収書などは、入金が終わるまで保管しましょう。" }];
+  }
+  // 以降は申請前（検討中／申請準備中）の通知
   if (ordered) {
     out.push({ ...base, key: `${p.id}:ordered_risk`, kind: "ordered_risk", severity: "high",
       title: "発注のあとなので要注意", detail: "この費用は対象外になることがあります。別の費用や次回の募集で使えないか確認しましょう。" });
