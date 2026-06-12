@@ -77,6 +77,7 @@ export function HomeDashboard() {
   }, [rows]);
 
   const anyOrdered = rows.some((r) => r.orderedRisk);
+  const anyEstimate = rows.some((r) => r.p.orderStatus === "estimate");
   // 今日やること＝全案件の申請準備タスクを優先度順（支出テーマは含めない）
   const allTopTasks = useMemo(
     () => rows.flatMap((r) => r.tasks).sort((a, b) => a.priority - b.priority),
@@ -124,6 +125,10 @@ export function HomeDashboard() {
       {anyOrdered ? (
         <div className="mb-4 rounded-lg border-2 border-red-300 bg-red-50 p-4 text-sm text-red-800">
           <span className="font-bold">⚠ 発注済みの案件があります。</span> 今回の経費は補助対象外になる可能性があります。別の経費・次回公募で使えないか確認しましょう。
+        </div>
+      ) : anyEstimate ? (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          <span className="font-semibold">見積だけならまだ間に合う可能性があります。</span> 契約・発注・支払い前に公式要領を確認してください。
         </div>
       ) : (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
