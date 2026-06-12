@@ -433,7 +433,7 @@ function projectToRow(p: SpendingProject): SpendingProjectRow {
   };
 }
 
-function rowToProject(r: SpendingProjectRow): SpendingProject {
+export function rowToProject(r: SpendingProjectRow): SpendingProject {
   return normalize({
     id: r.id, name: r.name ?? "", purpose: r.purpose ?? "", uses: r.uses, store: r.store ?? "",
     location: r.location ?? "", entity: r.entity ?? "", industry: r.industry ?? "",

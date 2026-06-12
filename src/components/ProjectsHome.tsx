@@ -121,7 +121,10 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
             <p className="mt-0.5 text-xs text-orange-700">次にやる申請準備：{next.length ? next.join(" → ") : "公式要領を確認する"}</p>
           </>
         )}
-        <p className="mt-1 text-[11px] text-gray-500">見逃し注意：<span className={match.missRisk === "高" ? "font-semibold text-orange-700" : match.missRisk === "中" ? "text-amber-700" : "text-green-700"}>{match.missRisk}</span></p>
+        <p className="mt-1 text-[11px] text-gray-500">
+          見逃し注意：<span className={match.missRisk === "高" ? "font-semibold text-orange-700" : match.missRisk === "中" ? "text-amber-700" : "text-green-700"}>{match.missRisk}</span>
+          <span className="ml-1 text-gray-400">{match.missRisk === "高" ? "（情報が少なく、使える補助金を見落としやすい状態。所在地・予算・業種を足すと精度が上がります）" : match.missRisk === "中" ? "（もう少し情報を足すと精度が上がります）" : "（情報は十分そろっています）"}</span>
+        </p>
         <div className="mt-1 flex items-center gap-2">
           <div className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-200">
             <div className="h-full bg-green-500" style={{ width: `${pct}%` }} />
