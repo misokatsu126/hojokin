@@ -19,11 +19,14 @@ export type CoreProgram = {
   caution: string[];
   requiredInfo: string[];
   officialUrl?: string; // 直リンク（公式ポータル等の安定URL）
+  guidelineUrl?: string; // 公募要領のURL（officialUrl と別なら表示）
   officialSearchQuery?: string; // 自治体系は {region} を案件地域で置換
   sourceAuthority: "master" | "official_seed" | "local_pattern";
   // 年度・名称変更対応
   fiscalYear: string;
   officialStatus: "active" | "scheduled" | "ended" | "unknown";
+  applicationRound?: string; // 公募回（例：第18次）。不明なら未設定＝公式で確認
+  deadline?: string; // 締切（YYYY-MM-DD 等）。不明なら未設定＝公式で確認
   needsAnnualRefresh: boolean;
   lastOfficialCheckedAt: string;
   // 案件マッチ条件
@@ -46,11 +49,16 @@ export type CoreProgramCheck = {
   relatedUses: string[];
   relatedExpenses: string[];
   officialUrl?: string;
+  guidelineUrl?: string;
   officialSearchQuery?: string;
   sourceAuthority: "master" | "official_seed" | "local_pattern";
   aliasNames: string[];
   fiscalYear: string;
   officialStatus: CoreProgram["officialStatus"];
+  applicationRound?: string;
+  deadline?: string;
+  needsAnnualRefresh: boolean;
+  lastOfficialCheckedAt: string;
 };
 
 const JGRANTS = "https://www.jgrants-portal.go.jp/";
@@ -64,7 +72,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["従業員数の要件に合うか", "商工会／商工会議所の管轄", "対象経費（広告・販路開拓）", "発注前か"],
     caution: ["従業員数要件あり", "商工会/商工会議所の確認が必要", "交付決定前の発注はNG"],
     requiredInfo: ["従業員数", "事業所の所在地", "使いたい経費"],
-    officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["signboard", "website", "ad", "ec", "renovation", "event", "newstore"],
     keywords: /広告|チラシ|LP|ホームページ|ＨＰ|EC|看板|販路|展示会|販促|店舗改装|集客|新店舗|出店/i,
   },
@@ -74,7 +82,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["対象ツールに登録されているか", "IT導入支援事業者が必要か", "GビズIDの準備", "発注前か"],
     caution: ["対象ツール・支援事業者の指定あり", "GビズID取得に時間がかかる", "交付決定前の契約はNG"],
     requiredInfo: ["導入予定ツール／ベンダー", "GビズIDの有無"],
-    officialUrl: "https://it-shien.smrj.go.jp/", sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: "https://it-shien.smrj.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["ai_pos", "ec", "website"],
     keywords: /IT|ソフト|クラウド|POS|在庫|会計|EC|予約|セキュリティ|AI|業務効率|システム|ホームページ|デジタル|決済|CRM/i,
   },
@@ -84,7 +92,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["事業計画（革新性）が作れるか", "賃上げ要件", "対象設備か", "発注前か"],
     caution: ["事業計画書が必要", "革新性・賃上げ要件", "交付決定前の発注はNG"],
     requiredInfo: ["投資内容と金額", "事業計画"],
-    officialUrl: "https://portal.monodukuri-hojo.jp/", sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: "https://portal.monodukuri-hojo.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["ai_pos", "energy", "aircon", "newstore"],
     keywords: /設備投資|システム構築|新サービス|生産性|試作|機械装置|革新/i,
   },
@@ -94,7 +102,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["カタログ型／一般型のどちらか", "対象製品・設備か", "発注前か"],
     caution: ["対象カタログ・製品の指定あり", "交付決定前の発注はNG"],
     requiredInfo: ["導入予定の設備・製品", "人手不足の状況"],
-    officialUrl: "https://shoryokuka.smrj.go.jp/", sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: "https://shoryokuka.smrj.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["ai_pos", "aircon", "energy"],
     keywords: /省力化|省人化|自動化|ロボット|POS|在庫|IoT|AI|人手不足/i,
   },
@@ -104,7 +112,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["既存事業との違い", "事業計画", "設備・システム投資の内容"],
     caution: ["新規性・事業計画が必要", "交付決定前の発注はNG"],
     requiredInfo: ["新規事業の内容", "投資内容"],
-    officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["newstore"],
     keywords: /新事業|新分野|新規事業|新店舗|新業態|新サービス|第二創業/i,
   },
@@ -114,7 +122,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["承継形態（譲渡・譲受）", "専門家費用の対象", "対象期間"],
     caution: ["承継形態の要件", "対象経費・期間の確認"],
     requiredInfo: ["承継・M&Aの形態", "専門家の関与"],
-    officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: [],
     keywords: /M&A|Ｍ＆Ａ|事業承継|事業譲|買収|引継|後継|PMI/i,
   },
@@ -124,7 +132,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["投資額・売上規模の要件", "賃上げ要件"],
     caution: ["投資額・規模の下限あり", "賃上げ要件"],
     requiredInfo: ["投資規模", "売上規模"],
-    officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: [],
     keywords: /大規模|大型投資|新拠点|大型倉庫|大型システム/i,
   },
@@ -135,7 +143,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["従業員がいるか", "事業場内最低賃金", "賃上げ予定があるか", "交付決定前の実施はNG"],
     caution: ["従業員が必要", "事業場内最低賃金の引上げが要件", "交付決定前実施NG"],
     requiredInfo: ["従業員数", "事業場内最低賃金", "賃上げ計画"],
-    officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["hire", "training"],
     keywords: /賃上げ|最低賃金|業務改善/i,
   },
@@ -145,7 +153,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["就業規則・雇用契約の整備", "対象労働者", "事前の計画"],
     caution: ["就業規則が必要", "事前の計画届", "社労士確認推奨"],
     requiredInfo: ["雇用形態", "対象者", "就業規則の有無"],
-    officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["hire"],
     keywords: /正社員|非正規|アルバイト|処遇改善|賃金規定|キャリアアップ|採用|雇用/i,
   },
@@ -155,7 +163,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["訓練計画", "対象労働者・訓練時間", "事前届出"],
     caution: ["訓練計画の事前提出", "対象訓練・時間の要件", "社労士確認推奨"],
     requiredInfo: ["研修内容", "対象者", "訓練時間"],
-    officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["training"],
     keywords: /研修|教育訓練|リスキリング|人材育成|AI研修|DX研修|外部講座/i,
   },
@@ -165,7 +173,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     whatToCheck: ["成果目標の設定", "就業規則", "労働局への申請"],
     caution: ["成果目標が必要", "労働局申請", "就業規則の整備"],
     requiredInfo: ["労働時間の状況", "就業規則"],
-    officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2025", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["hire", "training"],
     keywords: /労働時間|年休|勤怠|労務|働き方/i,
   },
@@ -253,9 +261,11 @@ export function getCoreProgramChecks(project: SpendingProject): CoreProgramCheck
       projectFitReason: `この案件（${project.uses.join("・") || project.name || "支出"}）は、${m.relatedReason.split("・").slice(0, 3).join("・")}に関係するため確認の価値があります`,
       whatToCheck: m.whatToCheck, caution: m.caution, requiredInfo: m.requiredInfo,
       relatedTemplateKeys: m.templates, relatedUses: project.uses, relatedExpenses: [],
-      officialUrl: m.officialUrl,
+      officialUrl: m.officialUrl, guidelineUrl: m.guidelineUrl,
       officialSearchQuery: m.officialSearchQuery ? m.officialSearchQuery.replace("{region}", region) : undefined,
       sourceAuthority: m.sourceAuthority, aliasNames: m.aliasNames, fiscalYear: m.fiscalYear, officialStatus: m.officialStatus,
+      applicationRound: m.applicationRound, deadline: m.deadline,
+      needsAnnualRefresh: m.needsAnnualRefresh, lastOfficialCheckedAt: m.lastOfficialCheckedAt,
     });
   }
   // 並び順：国の高優先 → 国 → 厚労省 → 自治体パターン
@@ -269,4 +279,49 @@ export function coreOfficialHref(c: CoreProgramCheck): string {
   if (c.officialUrl) return c.officialUrl;
   if (c.officialSearchQuery) return `https://www.google.com/search?q=${encodeURIComponent(c.officialSearchQuery)}`;
   return "https://www.jgrants-portal.go.jp/";
+}
+
+// 公募要領リンク（専用URLがあればそれ、無ければ公式ページ）
+export function coreGuidelineHref(c: CoreProgramCheck): string | null {
+  return c.guidelineUrl ?? null;
+}
+
+// 募集状況の表示ラベルと色
+export const OFFICIAL_STATUS_LABEL: Record<CoreProgram["officialStatus"], string> = {
+  active: "募集中の回あり", scheduled: "公募予定", ended: "今期は受付終了", unknown: "募集状況は要確認",
+};
+export const OFFICIAL_STATUS_TONE: Record<CoreProgram["officialStatus"], string> = {
+  active: "bg-green-100 text-green-800",
+  scheduled: "bg-sky-100 text-sky-800",
+  ended: "bg-red-100 text-red-700",
+  unknown: "bg-gray-100 text-gray-500",
+};
+
+// 日本の年度（4月始まり）
+export function currentFiscalYear(now: Date = new Date()): number {
+  return now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+// 制度情報の鮮度判定。年度替わり or 最終確認から時間が経過していれば「古い可能性」を返す。
+//   ※ 締切・公募回を断定で持っていないので、古い場合は必ず公式確認へ誘導する。
+export type CoreFreshness = { asOf: string; monthsAgo: number; stale: boolean; yearStale: boolean; note: string };
+export function coreFreshness(
+  c: { fiscalYear: string; needsAnnualRefresh: boolean; lastOfficialCheckedAt: string; officialStatus: CoreProgram["officialStatus"] },
+  now: Date = new Date()
+): CoreFreshness {
+  const asOf = c.lastOfficialCheckedAt || "—";
+  const m = /^(\d{4})-(\d{1,2})/.exec(asOf);
+  const monthsAgo = m ? (now.getFullYear() - Number(m[1])) * 12 + (now.getMonth() + 1 - Number(m[2])) : 99;
+  const fy = Number(c.fiscalYear);
+  const yearStale = c.needsAnnualRefresh && Number.isFinite(fy) && fy < currentFiscalYear(now);
+  const timeStale = monthsAgo >= 6;
+  const stale = yearStale || timeStale || c.officialStatus === "ended";
+  const note = c.officialStatus === "ended"
+    ? "今期は受付終了の可能性があります。次回公募の予定を公式で確認してください。"
+    : yearStale
+    ? "年度が替わりました。今年度の公募回・締切を公式で確認してください。"
+    : timeStale
+    ? "最終確認から時間が経っています。最新の募集状況を公式で確認してください。"
+    : "";
+  return { asOf, monthsAgo, stale, yearStale, note };
 }
