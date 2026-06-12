@@ -30,6 +30,7 @@ export type SpendingProject = {
   checklist: Record<string, boolean>; // 申請準備チェック
   templateKey?: string; // どのテンプレートから作ったか（注意点表示等に使用）
   answers?: Record<string, string>; // テンプレ固有の質問への回答
+  coreChecks?: Record<string, "done" | "skip">; // 定番制度の「確認済み／今回は対象外」
   created_at: string;
   updated_at: string;
 };
@@ -275,6 +276,7 @@ function normalize(p: any): SpendingProject {
     uses: Array.isArray(p?.uses) ? p.uses : [],
     checklist: p?.checklist && typeof p.checklist === "object" ? p.checklist : {},
     answers: p?.answers && typeof p.answers === "object" ? p.answers : {},
+    coreChecks: p?.coreChecks && typeof p.coreChecks === "object" ? p.coreChecks : {},
     templateKey: typeof p?.templateKey === "string" ? p.templateKey : "",
     urgency: p?.urgency ?? "mid",
     orderStatus: p?.orderStatus ?? "none",
@@ -312,7 +314,7 @@ export function emptyProject(): SpendingProject {
   return {
     id: newProjectId(), name: "", purpose: "", uses: [], store: "", location: "", entity: "", industry: "",
     employees: null, budget: null, schedule: "", orderStatus: "none", urgency: "mid", memo: "",
-    checklist: {}, templateKey: "", answers: {}, created_at: now, updated_at: now,
+    checklist: {}, templateKey: "", answers: {}, coreChecks: {}, created_at: now, updated_at: now,
   };
 }
 
