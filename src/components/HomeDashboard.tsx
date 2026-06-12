@@ -141,9 +141,10 @@ export function HomeDashboard() {
     return (
       <div>
         <Title />
+        <IntroSteps />
         <div className="rounded-xl border bg-white p-6">
-          <p className="mb-1 text-base font-semibold text-ink">補助金チェックしたい支出を選んでください</p>
-          <p className="mb-3 text-sm text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を確認したい<strong>支出テーマ</strong>です。</p>
+          <p className="mb-1 text-base font-semibold text-ink">まずは、補助金を確認したい支出を選びましょう</p>
+          <p className="mb-3 text-sm text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を使えるか確認したい<strong>支出の内容</strong>です（例：看板を作りたい）。</p>
           <div className="space-y-3">
             {PROJECT_TEMPLATE_GROUPS.map((g) => (
               <div key={g.title}>
@@ -159,8 +160,8 @@ export function HomeDashboard() {
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/projects/new" className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">支出テーマを選ぶ</Link>
-            <Link href="/search" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">相談して作る</Link>
+            <Link href="/projects/new" className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">支出を選んで始める</Link>
+            <Link href="/search" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">相談しながら探す</Link>
             <Link href="/guide" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">使い方を見る</Link>
           </div>
         </div>
@@ -273,10 +274,38 @@ function ConclusionBlock({ c }: { c: Conclusion }) {
 function Title() {
   return (
     <div className="mb-5">
-      <h1 className="text-xl font-bold text-ink sm:text-2xl">あなたの補助金チェック</h1>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h1 className="text-xl font-bold text-ink sm:text-2xl">あなたの補助金チェック</h1>
+        <Link href="/guide" className="shrink-0 rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">❓ はじめての方へ（使い方）</Link>
+      </div>
       <p className="mt-1 text-sm leading-relaxed text-gray-600">
-        補助金を使える可能性がある支出は、契約・発注・支払い前に確認しましょう。まずは今日やることから確認してください。
+        これからの支出に使える補助金がないかを確認するツールです。補助金の多くは契約・注文の前に申請が必要なので、発注の前にチェックしましょう。
       </p>
+    </div>
+  );
+}
+
+// 初めての人向け：このツールは何か・まず何をするか（空状態の先頭に置く）
+function IntroSteps() {
+  return (
+    <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4">
+      <p className="text-sm font-bold text-sky-900">このツールでできること</p>
+      <p className="mt-1 text-xs leading-relaxed text-sky-800">
+        お店や会社の「これからの支出」に、使える補助金がないかを判定します。大事なのは順番。多くの補助金は<strong>契約・注文する前</strong>に申請が必要だからです。
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {[
+          { n: "1", t: "支出を登録", b: "例：看板を作りたい／空調を入れ替えたい" },
+          { n: "2", t: "補助金と注意がわかる", b: "使える可能性のある制度と、発注前の注意" },
+          { n: "3", t: "やることが出る", b: "見積・公式サイトの確認など、今日やる準備" },
+        ].map((s) => (
+          <div key={s.n} className="rounded-lg border border-sky-100 bg-white p-2.5">
+            <div className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-[11px] font-bold text-white">{s.n}</div>
+            <p className="mt-1 text-xs font-bold text-ink">{s.t}</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-600">{s.b}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

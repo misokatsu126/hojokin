@@ -36,7 +36,7 @@ export function MatchResultCard({
       <div className="grid gap-3 sm:grid-cols-2">
         <Section title="対象になりそうな理由" items={result.matched_reasons} tone="green" />
         <Section title="使えそうな用途" items={result.possible_uses} tone="green" />
-        <Section title="対象経費になりそうな項目" items={result.eligible_expenses} tone="green" />
+        <Section title="補助金の対象になりそうな費用" items={result.eligible_expenses} tone="green" />
         <Section title="対象外になる可能性" items={result.exclusion_risks} tone="red" />
       </div>
 

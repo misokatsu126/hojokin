@@ -7,21 +7,21 @@ export default function GuidePage() {
     <div className="mx-auto max-w-3xl">
       <h1 className="text-xl font-bold text-ink sm:text-2xl">使い方ガイド</h1>
       <p className="mt-1 mb-5 text-sm leading-relaxed text-gray-600">
-        補助金名を知らなくても大丈夫です。まずは「何にお金を使う予定か」から始めてください。
+        補助金の名前を知らなくても大丈夫です。まずは「これから何にお金を使う予定か」から始めましょう。
       </p>
 
       {/* 1. このサイトでできること */}
-      <Card title="① このサイトでできること">
+      <Card title="① このツールでできること">
         <p className="text-sm leading-relaxed text-gray-700">
-          このサイトは補助金一覧サイトではありません。「空調を入れ替えたい」「広告を出したい」「AI・在庫管理を入れたい」「店舗を改装したい」などの
-          <strong>支出予定</strong>から、確認すべき補助金や申請準備を整理するツールです。
+          これは補助金の一覧サイトではありません。「空調を入れ替えたい」「広告を出したい」「AI・在庫管理を入れたい」「店舗を改装したい」などの
+          <strong>これからの支出</strong>に、使える補助金がないかを判定し、やることを整理するツールです。
         </p>
         <ul className="mt-2 grid gap-1 text-sm text-gray-600 sm:grid-cols-2">
-          <li>・使える可能性がある定番制度</li>
-          <li>・発注前に確認すべきこと</li>
-          <li>・今日やる申請準備</li>
-          <li>・見逃し注意の制度</li>
-          <li>・次回狙いの制度</li>
+          <li>・使えるかもしれない定番の制度</li>
+          <li>・契約・注文する前に確認すること</li>
+          <li>・今日やる申請の準備</li>
+          <li>・見落としやすい制度への注意</li>
+          <li>・今回は間に合わなくても次回ねらえる制度</li>
         </ul>
       </Card>
 
@@ -30,7 +30,7 @@ export default function GuidePage() {
         <div className="grid gap-3 sm:grid-cols-3">
           <Step n="1" title="支出テーマを選ぶ" body="例：空調を入れ替えたい／看板を作りたい／ECを強化したい／AI・在庫管理を入れたい／人を採用したい" note="ここで選ぶのは「今日やること」ではありません。補助金を確認したい支出内容です。" />
           <Step n="2" title="支出案件を作る" body="どこで使うか／予算／実施予定時期／発注状況／会社情報を入力します。" />
-          <Step n="3" title="今日やる申請準備を進める" body="発注前か確認する／公式要領を見る／見積を取る／GビズID確認／商工会議所相談／対象経費確認 など。" />
+          <Step n="3" title="今日やる申請準備を進める" body="発注前か確認する／公式サイトで条件を見る／見積もりを取る／GビズID確認／商工会議所に相談／対象になる費用の確認 など。" />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href="/projects/new" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">支出テーマを選ぶ</Link>
@@ -47,23 +47,23 @@ export default function GuidePage() {
           </div>
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
             <p className="text-sm font-bold text-emerald-900">今日やる申請準備＝先に確認・準備すること</p>
-            <p className="mt-1 text-xs text-emerald-800">発注前か確認する／公式要領を確認する／見積を取得する／GビズID確認／従業員数入力／商工会議所相談</p>
+            <p className="mt-1 text-xs text-emerald-800">発注前か確認する／公式サイトで条件を確認する／見積もりを取る／GビズID確認／従業員数の入力／商工会議所に相談</p>
           </div>
         </div>
-        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">注意：空調や看板は「支出テーマ」であり、「今日やる申請準備」ではありません。</p>
+        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">注意：「空調」や「看板」は支出テーマ（使いみち）であって、今日やる作業ではありません。</p>
       </Card>
 
       {/* 4. 発注前チェックの重要性 */}
       <div className="mb-4 rounded-xl border-2 border-red-300 bg-red-50 p-5">
-        <h2 className="text-base font-bold text-red-800">④ 発注前チェックがいちばん大事です</h2>
+        <h2 className="text-base font-bold text-red-800">④ いちばん大事なのは「発注の前」の確認です</h2>
         <p className="mt-1 text-sm leading-relaxed text-red-800">
-          補助金を使う可能性がある支出は、<strong>契約・発注・支払い前</strong>に確認してください。
-          多くの補助金では、交付決定前に契約・発注・支払いをすると<strong>対象外</strong>になる場合があります。
+          補助金を使うかもしれない支出は、<strong>契約・注文・支払いをする前</strong>に確認しましょう。
+          多くの補助金では、申請の前に契約・注文・支払いをすると<strong>対象外</strong>になることがあります。
         </p>
         <ul className="mt-2 space-y-1 text-sm text-red-900">
-          <li>🟢 <strong>未発注</strong>：公式要領を確認してから進めましょう</li>
-          <li>🟡 <strong>見積のみ</strong>：まだ間に合う可能性があります</li>
-          <li>⚠️ <strong>契約・発注・支払い済み</strong>：今回の経費は対象外になる可能性があります（別経費・次回公募で使える可能性）</li>
+          <li>🟠 <strong>まだ発注していない</strong>：公式サイトで条件を確認してから進めましょう</li>
+          <li>🔵 <strong>見積もりだけ</strong>：まだ間に合うかもしれません</li>
+          <li>🔴 <strong>契約・注文・支払い済み</strong>：その費用は対象外になることがあります（別の費用・次回の募集なら使えることも）</li>
         </ul>
       </div>
 
@@ -76,7 +76,7 @@ export default function GuidePage() {
           <div className="rounded border p-2"><b>空調・設備</b>：省エネ・脱炭素系／自治体の設備導入／店舗改装系</div>
           <div className="rounded border p-2"><b>採用・研修</b>：業務改善助成金／キャリアアップ助成金／人材開発支援助成金</div>
         </div>
-        <p className="mt-2 text-xs text-gray-500">※ このサイトでは「使える」と断定せず「確認推奨」として表示します。最終判断は公式要領や専門家確認が必要です。</p>
+        <p className="mt-2 text-xs text-gray-500">※ このツールは「使える」と断定しません。「確認する価値あり」として表示します。最終的な判断は、公式サイトや専門家への確認が必要です。</p>
       </Card>
 
       {/* 6. 基本の使い方 */}
@@ -93,11 +93,11 @@ export default function GuidePage() {
         <h2 className="text-base font-bold text-orange-800">⑦ よくある失敗</h2>
         <ul className="mt-2 space-y-1 text-sm text-orange-900">
           <li>・発注してから補助金に気づく</li>
-          <li>・補助金名から探そうとして迷う</li>
+          <li>・補助金の名前から探そうとして迷う</li>
           <li>・検索結果だけを信じてしまう</li>
-          <li>・民間まとめ記事を公式情報だと思ってしまう</li>
-          <li>・締切日だけ見て、事前相談期限を見落とす</li>
-          <li>・従業員数や発注状況を入力せず、判定が曖昧になる</li>
+          <li>・民間のまとめ記事を公式情報だと思ってしまう</li>
+          <li>・締切日だけ見て、事前相談の期限を見落とす</li>
+          <li>・従業員数や発注状況を入力せず、判定があいまいになる</li>
         </ul>
       </div>
 

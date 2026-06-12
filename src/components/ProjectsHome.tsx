@@ -37,15 +37,15 @@ export function ProjectsHome({ heading = "今ある支出案件", showIntro = tr
       </div>
       {showIntro && (
         <p className="mb-4 text-sm leading-relaxed text-gray-600">
-          「何にお金を使いたいか」を登録すると、その支出に使える可能性がある補助金を判定します。
-          発注してよいか・今やることも案件ごとに分かります。
+          「何にお金を使う予定か」を登録すると、その支出に使える補助金がないかを判定します。
+          発注してよいか、いま何をすればよいかも、案件ごとにわかります。
         </p>
       )}
 
       {projects.length === 0 ? (
         <div className="rounded-xl border bg-white p-6">
-          <p className="mb-1 text-base font-semibold text-ink">補助金チェックしたい支出を選んでください</p>
-          <p className="mb-3 text-sm text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を確認したい<strong>支出テーマ</strong>です。</p>
+          <p className="mb-1 text-base font-semibold text-ink">まずは、補助金を確認したい支出を選びましょう</p>
+          <p className="mb-3 text-sm text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を使えるか確認したい<strong>支出の内容</strong>です（例：看板を作りたい）。</p>
           <div className="space-y-3">
             {PROJECT_TEMPLATE_GROUPS.map((g) => (
               <div key={g.title}>
@@ -61,8 +61,8 @@ export function ProjectsHome({ heading = "今ある支出案件", showIntro = tr
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/projects/new" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">支出テーマを選ぶ</Link>
-            <Link href="/search" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">相談して作る</Link>
+            <Link href="/projects/new" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">支出を選んで始める</Link>
+            <Link href="/search" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">相談しながら探す</Link>
           </div>
         </div>
       ) : (

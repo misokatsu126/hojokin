@@ -23,13 +23,13 @@ const ORDER_OPTIONS = [
 function orderNote(key: string): { tone: string; text: string } | null {
   switch (key) {
     case "none":
-      return { tone: "border-green-200 bg-green-50 text-green-800", text: "まだ発注していないので、申請できる可能性があります。先に公式の公募要領を確認しましょう。" };
+      return { tone: "border-amber-200 bg-amber-50 text-amber-800", text: "まだ発注していないので、補助金を使えるかもしれません。契約・注文する前に、公式サイトで条件を確認しましょう。" };
     case "estimate":
-      return { tone: "border-green-200 bg-green-50 text-green-800", text: "見積だけならまだ間に合う可能性があります。契約・発注の前に必ず要領を確認してください。" };
+      return { tone: "border-sky-200 bg-sky-50 text-sky-800", text: "見積もりだけなら、まだ間に合うかもしれません。契約・注文・支払いの前に、公式サイトで条件を確認しましょう。" };
     case "contract":
     case "ordered":
     case "paid":
-      return { tone: "border-amber-200 bg-amber-50 text-amber-800", text: "すでに契約・発注・支払い済みの経費は対象外になる可能性があります。ただし、追加経費・別の経費・次回公募で使える可能性はあります。" };
+      return { tone: "border-red-200 bg-red-50 text-red-700", text: "すでに契約・注文・支払い済みの費用は、対象外になることがあります。ただし、別の費用や次回の募集なら使えることもあります。" };
     default:
       return null;
   }

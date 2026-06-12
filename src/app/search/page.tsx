@@ -29,7 +29,7 @@ export default function SearchPage() {
       <div className="mt-6 rounded-lg border bg-white p-4 text-sm text-gray-600">
         <h2 className="mb-2 font-semibold text-ink">この検索について</h2>
         <p className="leading-relaxed">
-          入力文から「地域・業種・法人種別・目的・対象経費・補助上限額・締切条件・募集状態・キーワード」を抽出し、
+          入力文から「地域・業種・法人種別・目的・対象になる費用・補助上限額・締切条件・募集状態・キーワード」を読み取り、
           登録済みデータと照合します。完全一致がない場合は条件を緩和して近い候補を提案します。
           OpenAI APIキーが設定されていればAIが条件を抽出し、未設定の場合はルールベースで抽出します。
           いずれの場合も、これは登録済みデータに対する一次判定であり、申請可否や受給を保証するものではありません。
