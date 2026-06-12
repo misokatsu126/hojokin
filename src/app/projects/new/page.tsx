@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   emptyProject, upsertProject, getTemplate, PROJECT_TEMPLATE_GROUPS, PURPOSE_TAGS,
+  templateExamples, INDUSTRY_PRESETS,
   ORDER_STATUS_LABEL, URGENCY_LABEL, formatBudget,
   type SpendingProject, type OrderStatus, type Urgency, type ProjectTemplate,
 } from "@/lib/projects";
@@ -16,6 +17,8 @@ function NewProjectWizard() {
   const sp = useSearchParams();
   const [step, setStep] = useState(0);
   const [custom, setCustom] = useState(false);
+  const [mode, setMode] = useState<"theme" | "industry">("theme");
+  const [industry, setIndustry] = useState<string | null>(null);
   const [p, setP] = useState<SpendingProject>(() => {
     // ホームの空状態テンプレート（?template=aircon 等）から開いたら、そのテンプレを選択済みにする
     const base = emptyProject();
@@ -64,8 +67,32 @@ function NewProjectWizard() {
           <div>
             <h2 className="mb-1 text-base font-semibold text-ink">支出テーマを選ぶ</h2>
             <p className="mb-3 text-xs text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を確認したい支出内容です。近いものを選んでください（あとから変えられます）。</p>
+
+            {/* 選び方の切替：テーマから / 業種から */}
+            <div className="mb-3 inline-flex rounded-md border p-0.5 text-xs">
+              <button onClick={() => setMode("theme")} className={`rounded px-3 py-1 ${mode === "theme" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>テーマから選ぶ</button>
+              <button onClick={() => setMode("industry")} className={`rounded px-3 py-1 ${mode === "industry" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>業種から選ぶ</button>
+            </div>
+
+            {mode === "industry" && (
+              <div className="mb-3">
+                <p className="mb-1 text-xs text-gray-500">業種を選ぶと、その業種でよくある支出を表示します。</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {INDUSTRY_PRESETS.map((ind) => (
+                    <button key={ind.label} onClick={() => { setIndustry(ind.label); setP((prev) => ({ ...prev, industry: prev.industry || ind.label })); }}
+                      className={`rounded-full border px-3 py-1.5 text-xs ${industry === ind.label ? "border-accent bg-accent text-white" : "text-gray-600 hover:bg-gray-50"}`}>{ind.label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
-              {PROJECT_TEMPLATE_GROUPS.map((g) => (
+              {(mode === "theme"
+                ? PROJECT_TEMPLATE_GROUPS
+                : industry
+                ? [{ title: `${industry}でよくある支出`, keys: INDUSTRY_PRESETS.find((i) => i.label === industry)!.keys }]
+                : []
+              ).map((g) => (
                 <div key={g.title}>
                   <p className="mb-1 text-xs font-semibold text-gray-600">{g.title}</p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -73,17 +100,26 @@ function NewProjectWizard() {
                       <button key={t!.key} onClick={() => pickTemplate(t!)}
                         className={`rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm ${p.templateKey === t!.key ? "border-accent bg-accent/5" : ""}`}>
                         <div className="font-medium text-ink">{t!.label}</div>
+                        {templateExamples(t!.key).length > 0 && (
+                          <div className="mt-0.5 text-[10px] leading-snug text-gray-400">例：{templateExamples(t!.key).join("／")}</div>
+                        )}
                       </button>
                     ))}
                   </div>
                 </div>
               ))}
+              {mode === "industry" && !industry && (
+                <p className="rounded-md border border-dashed bg-slate-50 p-3 text-xs text-gray-500">上から業種を選んでください。</p>
+              )}
             </div>
             {/* 選んだテンプレートの説明＋固有の質問 */}
             {tpl && !custom && (
               <div className="mt-3 rounded-lg border border-accent/40 bg-accent/5 p-3">
                 <p className="text-sm font-semibold text-ink">{tpl.label}</p>
                 <p className="mt-0.5 text-xs text-gray-600">{tpl.description}</p>
+                {templateExamples(tpl.key).length > 0 && (
+                  <p className="mt-1 text-[11px] text-gray-500">こんな支出に：{templateExamples(tpl.key).join("／")}</p>
+                )}
                 <p className="mt-1 text-[11px] text-sky-800">関係しそうな補助金：{tpl.genres.join("、")}</p>
                 {tpl.questions.length > 0 && (
                   <div className="mt-2 space-y-2">
@@ -106,7 +142,7 @@ function NewProjectWizard() {
 
             <button onClick={() => { setCustom(true); setP((prev) => ({ ...prev, templateKey: "" })); }}
               className={`mt-3 rounded-md border px-3 py-2 text-xs ${custom ? "border-accent bg-accent/5 text-accent" : "text-gray-600 hover:bg-gray-50"}`}>
-              決まっていない／自分で書く
+              ＋ 一覧にない・決まっていない（自由に書く）
             </button>
             {custom && (
               <div className="mt-3 space-y-2 rounded-md border bg-slate-50 p-3">

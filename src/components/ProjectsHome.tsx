@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, syncProjectsFromSupabase, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate, getTopProjectTasks,
+  loadProjects, syncProjectsFromSupabase, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate, templateExamples, getTopProjectTasks,
   type SpendingProject,
 } from "@/lib/projects";
 import { TRIAGE_META } from "@/lib/triage";
@@ -54,6 +54,7 @@ export function ProjectsHome({ heading = "今ある支出案件", showIntro = tr
                   {g.keys.map((k) => getTemplate(k)).filter(Boolean).map((t) => (
                     <Link key={t!.key} href={`/projects/new?template=${t!.key}`} className="rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm">
                       <div className="font-medium text-ink">{t!.label}</div>
+                      {templateExamples(t!.key).length > 0 && <div className="mt-0.5 text-[10px] leading-snug text-gray-400">例：{templateExamples(t!.key).slice(0, 2).join("／")}</div>}
                     </Link>
                   ))}
                 </div>
@@ -62,6 +63,7 @@ export function ProjectsHome({ heading = "今ある支出案件", showIntro = tr
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href="/projects/new" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">支出を選んで始める</Link>
+            <Link href="/projects/new" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">業種から選ぶ</Link>
             <Link href="/search" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">相談しながら探す</Link>
           </div>
         </div>
