@@ -33,6 +33,54 @@ if (!url || !anonKey) {
 
 export const supabase = createClient(url ?? "", anonKey ?? "");
 
+// Supabase が設定済みか（未設定なら localStorage のみで動作する）
+export const supabaseConfigured = Boolean(url && anonKey);
+
+// ---------------- spending_projects（支出案件） ----------------
+// 案件のクラウド保存。row は snake_case（DB列）。ドメイン変換は projects.ts 側で行う。
+export type SpendingProjectRow = {
+  id: string;
+  name?: string | null;
+  purpose?: string | null;
+  uses?: unknown;
+  store?: string | null;
+  location?: string | null;
+  entity?: string | null;
+  industry?: string | null;
+  employees?: number | null;
+  budget?: number | null;
+  schedule?: string | null;
+  order_status?: string | null;
+  urgency?: string | null;
+  memo?: string | null;
+  checklist?: unknown;
+  template_key?: string | null;
+  answers?: unknown;
+  core_checks?: unknown;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export async function fetchSpendingProjectRows(): Promise<SpendingProjectRow[]> {
+  const { data, error } = await supabase
+    .from("spending_projects")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SpendingProjectRow[];
+}
+
+export async function upsertSpendingProjectRow(row: SpendingProjectRow): Promise<void> {
+  const { error } = await supabase.from("spending_projects").upsert(row, { onConflict: "id" });
+  if (error) throw error;
+}
+
+export async function deleteSpendingProjectRow(id: string): Promise<void> {
+  const { error } = await supabase.from("spending_projects").delete().eq("id", id);
+  if (error) throw error;
+}
+
+
 // ---------------- grants ----------------
 export async function fetchGrants(): Promise<Grant[]> {
   const { data, error } = await supabase
