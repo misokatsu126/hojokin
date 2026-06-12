@@ -7,6 +7,7 @@ import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
   getProject, upsertProject, deleteProject, classifyForProject, orderAdvice, getTemplate, projectTasks,
+  missingInfo, estimateRange, generateConsultMemo, generateEstimateMemo,
   ORDER_STATUS_LABEL, PROJECT_CHECKLIST, type SpendingProject, type ProjectMatch, type ProjectTask,
 } from "@/lib/projects";
 import { TRIAGE_META, type TriageKey, type TriageResult } from "@/lib/triage";
@@ -54,6 +55,22 @@ export default function ProjectDetailPage() {
   const match = useMemo(() => (project ? classifyForProject(project, items) : null), [project, items]);
   const tasks = useMemo(() => (project ? projectTasks(project, match ?? undefined) : []), [project, match]);
   const coreChecks = useMemo(() => (project ? getCoreProgramChecks(project) : []), [project]);
+
+  const [memo, setMemo] = useState<{ kind: "consult" | "estimate"; text: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  function fillMissing(key: string) {
+    if (!project) return;
+    if (key === "budget") { const v = window.prompt("見積・予算（万円）"); if (v) setProject(upsertProject({ ...project, budget: (Number(v.replace(/[^0-9]/g, "")) || 0) * 10000 })); return; }
+    if (key === "employees") { const v = window.prompt("従業員数（人）"); if (v) setProject(upsertProject({ ...project, employees: Number(v.replace(/[^0-9]/g, "")) || null })); return; }
+    if (key === "location") { const v = window.prompt("どこで使いますか？（市区町村）"); if (v) setProject(upsertProject({ ...project, location: v.trim() })); return; }
+    if (key === "industry") { const v = window.prompt("業種は？"); if (v) setProject(upsertProject({ ...project, industry: v.trim() })); return; }
+    if (key === "schedule") { const v = window.prompt("いつ頃実施しますか？"); if (v) setProject(upsertProject({ ...project, schedule: v.trim() })); return; }
+  }
+  async function copyMemo() {
+    if (!memo) return;
+    try { await navigator.clipboard.writeText(memo.text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* noop */ }
+  }
 
   function setCoreCheck(key: string, val: "done" | "skip") {
     if (!project) return;
@@ -116,7 +133,7 @@ export default function ProjectDetailPage() {
             <button onClick={() => setShowDiagnosis(false)} className="text-xs text-gray-400 hover:text-gray-600">✕ 閉じる</button>
           </div>
           <div className={`rounded-lg border p-3 ${adv.tone}`}>
-            <p className="text-sm font-bold">{adv.wait ? "🟢" : "⚠️"} 発注判断：{adv.title}</p>
+            <p className="text-sm font-bold">{adv.icon} 発注判断：{adv.title}</p>
             <p className="mt-0.5 text-xs">{adv.text}</p>
           </div>
           {coreChecks.length > 0 && (
@@ -167,7 +184,7 @@ export default function ProjectDetailPage() {
 
       {/* 1. 発注してよいか / 待つべきか（最重要・一番上） */}
       <div className={`mt-4 rounded-xl border-2 p-4 ${adv.tone}`}>
-        <p className="text-base font-bold">{adv.wait ? "🟢" : "⚠️"} {adv.title}</p>
+        <p className="text-base font-bold">{adv.icon} {adv.title}</p>
         <p className="mt-1 text-sm leading-relaxed">{adv.text}</p>
         {!adv.wait && (
           <div className="mt-2 rounded-md bg-white/60 p-2 text-xs text-gray-700">
@@ -180,6 +197,50 @@ export default function ProjectDetailPage() {
           </div>
         )}
       </div>
+
+      {/* 足りない情報だけ聞く（最大3件） */}
+      {missingInfo(project).length > 0 && (
+        <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
+          <p className="mb-1.5 text-sm font-semibold text-sky-900">判定を強くするために、あと{missingInfo(project).length}つだけ教えてください</p>
+          <div className="flex flex-wrap gap-2">
+            {missingInfo(project).map((m) => (
+              <button key={m.key} onClick={() => fillMissing(m.key)} className="rounded-md border border-sky-300 bg-white px-3 py-1.5 text-xs text-sky-800 hover:bg-sky-100">{m.label}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 概算の補助額イメージ（断定しない） */}
+      {(() => {
+        const est = estimateRange(project);
+        return est ? (
+          <div className="mt-3 rounded-lg border bg-white p-3 text-sm">
+            <p className="font-semibold text-ink">概算イメージ</p>
+            <p className="mt-0.5 text-gray-700">予算：{formatAmount(est.budget)}／補助率の例：{est.rateLabel}／戻る可能性のある金額：{formatAmount(est.low)}〜{formatAmount(est.high)} 程度</p>
+            <p className="mt-0.5 text-[11px] text-gray-400">※ 制度・要件・採択結果により変わります。最終判断は公式要領で確認してください。</p>
+          </div>
+        ) : (
+          <p className="mt-3 rounded-lg border bg-white p-3 text-xs text-gray-500">補助率は公式要領で確認してください。（予算を入力すると概算イメージを表示します）</p>
+        );
+      })()}
+
+      {/* 相談メモ・見積依頼メモ */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={() => { setMemo({ kind: "consult", text: generateConsultMemo(project, coreChecks.map((c) => c.name)) }); setCopied(false); }} className="rounded-md border px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/5">📝 相談用メモを作る</button>
+        <button onClick={() => { setMemo({ kind: "estimate", text: generateEstimateMemo(project) }); setCopied(false); }} className="rounded-md border px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/5">🧾 見積依頼メモを作る</button>
+      </div>
+      {memo && (
+        <div className="mt-2 rounded-lg border bg-white p-3">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-sm font-semibold text-ink">{memo.kind === "consult" ? "相談用メモ" : "見積依頼メモ"}</span>
+            <span className="flex gap-2">
+              <button onClick={copyMemo} className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white hover:opacity-90">{copied ? "コピーしました ✓" : "コピー"}</button>
+              <button onClick={() => setMemo(null)} className="text-xs text-gray-400 hover:text-gray-600">閉じる</button>
+            </span>
+          </div>
+          <textarea readOnly value={memo.text} rows={memo.text.split("\n").length + 1} className="w-full rounded-md border bg-slate-50 p-2 text-xs text-gray-700" />
+        </div>
+      )}
 
       {/* 次にやること（完了できる） */}
       {tasks.length > 0 && (
@@ -325,11 +386,19 @@ function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "
       <p className={`mt-1 inline-block rounded px-2 py-0.5 text-xs font-semibold ${confTone}`}>{c.confidenceLabel}：{CORE_PRI_LABEL[c.priority]}</p>
       <p className="mt-1 text-xs text-gray-500">条件が合えば使える可能性があります。対象になるかは公式要領で確認してください。</p>
       <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">なぜ確認すべきか：</span>{c.projectFitReason}</p>
-      {c.whatToCheck.length > 0 && <p className="mt-0.5 text-xs text-gray-600"><span className="text-gray-400">確認すること：</span>{c.whatToCheck.join("／")}</p>}
+      {/* 確認パック（何を確認すればいいか） */}
+      {c.whatToCheck.length > 0 && (
+        <div className="mt-1.5 rounded-md bg-slate-50 p-2">
+          <p className="text-[11px] font-semibold text-gray-600">確認パック</p>
+          <ul className="mt-0.5 grid grid-cols-1 gap-x-3 text-xs text-gray-700 sm:grid-cols-2">
+            {c.whatToCheck.map((w) => <li key={w}>☐ {w}</li>)}
+          </ul>
+        </div>
+      )}
       <details className="mt-1">
-        <summary className="cursor-pointer text-[11px] text-gray-400 hover:text-accent">注意点・必要な情報</summary>
-        {c.caution.length > 0 && <p className="mt-1 text-xs text-amber-700">注意：{c.caution.join("／")}</p>}
-        {c.requiredInfo.length > 0 && <p className="mt-0.5 text-xs text-gray-500">必要な情報：{c.requiredInfo.join("・")}</p>}
+        <summary className="cursor-pointer text-[11px] text-gray-400 hover:text-accent">必要になりやすいもの・注意</summary>
+        {c.requiredInfo.length > 0 && <p className="mt-1 text-xs text-gray-500">必要になりやすいもの：{c.requiredInfo.join("・")}</p>}
+        {c.caution.length > 0 && <p className="mt-0.5 text-xs text-amber-700">注意：{c.caution.join("／")}</p>}
       </details>
       <div className="mt-2 flex flex-wrap gap-2 text-xs">
         <a href={coreOfficialHref(c)} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-3 py-1.5 font-medium text-white hover:opacity-90">{c.officialUrl ? "🔗 公式ページを見る ↗" : "🔍 公式情報を探す ↗"}</a>
