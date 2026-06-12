@@ -77,7 +77,11 @@ export function HomeDashboard() {
   }, [rows]);
 
   const anyOrdered = rows.some((r) => r.orderedRisk);
-  const todayRows = rows.filter((r) => r.rank <= 2).slice(0, 5);
+  // 今日やること＝全案件の申請準備タスクを優先度順に最大5件（支出テーマは含めない）
+  const topTasks = useMemo(
+    () => rows.flatMap((r) => r.tasks).sort((a, b) => a.priority - b.priority).slice(0, 5),
+    [rows]
+  );
 
   // ---- 空状態：テンプレート入口 ----
   if (loaded && projects.length === 0) {
@@ -138,20 +142,19 @@ export function HomeDashboard() {
 
       {/* 4. 今日やること */}
       <div className="mb-6">
-        <h2 className="mb-2 text-base font-bold text-ink">📋 今日やること</h2>
-        {todayRows.length === 0 ? (
-          <p className="rounded-lg border bg-white p-4 text-sm text-gray-500">いまの案件でやることはありません。新しい支出案件を作って確認しましょう。</p>
+        <h2 className="text-base font-bold text-ink">📋 今日やる申請準備</h2>
+        <p className="mb-2 text-xs text-gray-500">支出内容ではなく、補助金申請のために先に確認することです。</p>
+        {topTasks.length === 0 ? (
+          <p className="rounded-lg border bg-white p-4 text-sm text-gray-500">いま確認することはありません。新しい支出案件を作って確認しましょう。</p>
         ) : (
           <ol className="space-y-2">
-            {todayRows.map((r, i) => (
-              <li key={r.p.id}>
-                <Link href={`/projects/${r.p.id}${r.topTaskKey ? `?task=${r.topTaskKey}` : ""}`} className="flex items-start gap-3 rounded-xl border-l-4 bg-white p-3 transition hover:shadow-sm"
-                  style={{ borderLeftColor: r.tone === "red" ? "#ef4444" : r.tone === "amber" ? "#f59e0b" : r.tone === "green" ? "#22c55e" : "#3b82f6" }}>
+            {topTasks.map((t, i) => (
+              <li key={`${t.projectId}:${t.taskKey}`}>
+                <Link href={`/projects/${t.projectId}?task=${t.taskKey}`} className="flex items-start gap-3 rounded-xl border-l-4 border-blue-400 bg-white p-3 transition hover:shadow-sm">
                   <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">{i + 1}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-ink">{r.p.name || "支出案件"}</span>
-                    <span className={`block text-sm font-semibold ${r.tone === "red" ? "text-red-600" : r.tone === "amber" ? "text-amber-700" : r.tone === "green" ? "text-green-700" : "text-blue-700"}`}>{r.headline}</span>
-                    <span className="mt-0.5 block text-xs text-gray-500">次にやること：{r.nextActions.join(" → ")}</span>
+                    <span className="block text-sm font-semibold text-ink">{t.action}</span>
+                    <span className="mt-0.5 block text-xs text-gray-500">{t.projectName}　／　{t.reason}</span>
                   </span>
                 </Link>
               </li>

@@ -376,58 +376,97 @@ export function projectToProfile(p: SpendingProject): BusinessProfile {
   };
 }
 
-// 案件ごとの「今日やること」を1つだけ返す（最も重要なものを優先）。完了済みなら null。
-export type ProjectTask = { projectId: string; projectName: string; taskKey: string; action: string; reason: string };
+// 今日やること＝申請準備タスク（支出テーマは含めない）。優先度付き・重複排除。
+export type ProjectTask = {
+  projectId: string;
+  projectName: string;
+  taskKey: string;
+  action: string;
+  reason: string;
+  priority: number; // 小さいほど優先
+  source: "basic" | "core_program" | "deadline" | "project_missing_info";
+  relatedProgramKey?: string;
+};
 
 const IT_USE = /(AI|POS|在庫|EC|ホームページ|システム|DX|デジタル)/i;
 
-// 案件の「やること」を重要な順に全部返す（未完了の確認だけ）。
+// taskKey ごとの優先度（小さいほど上）
+const TASK_PRIORITY: Record<string, number> = {
+  pre_order: 1, deadline: 2, guideline: 3, estimate: 4, gbizid: 5,
+  employees: 6, budget: 7, expense: 8, it_tool: 9, it_provider: 10,
+  spec_check: 11, shokokai: 12, purpose_check: 13, area_check: 14, pro: 15,
+  chinage: 16, koyou: 17,
+};
+// 定番制度の短縮名（理由の併記用）
+const PROGRAM_SHORT: Record<string, string> = {
+  it_donyu: "IT導入補助金", jizokuka: "小規模事業者持続化補助金", local_energy: "省エネ補助金",
+  local_vacant: "空き店舗補助金", gyomu_kaizen: "業務改善助成金", career_up: "キャリアアップ助成金",
+  jinzai_kaihatsu: "人材開発支援助成金", monozukuri: "ものづくり補助金", shoryokuka: "省力化投資補助金",
+};
+
+type Contribution = { taskKey: string; action: string; reason: string; source: ProjectTask["source"]; programKey?: string };
+
+// 案件の申請準備タスクを優先度順に返す（重複は taskKey でまとめる）。
 export function projectTasks(project: SpendingProject, match?: ProjectMatch): ProjectTask[] {
   const c = project.checklist ?? {};
-  const base = { projectId: project.id, projectName: project.name || "支出案件" };
   const tpl = getTemplate(project.templateKey);
   const usesText = `${project.name} ${project.purpose} ${project.uses.join(" ")} ${(tpl?.tags ?? []).join(" ")}`;
   const isIT = IT_USE.test(usesText) || ["ai_pos", "ec", "website"].includes(project.templateKey ?? "");
-  const out: ProjectTask[] = [];
-
-  if ((project.orderStatus === "none" || project.orderStatus === "estimate") && !c["pre_order"]) {
-    out.push({ ...base, taskKey: "pre_order", action: "発注前か確認してください", reason: "発注済みだと対象外になる補助金があります" });
-  }
-  // IT/DX系はGビズIDを上位に
-  if (isIT && !c["gbizid"]) {
-    out.push({ ...base, taskKey: "gbizid", action: "GビズIDを確認してください", reason: "IT・DX系補助金で必要になる可能性があります" });
-  }
-  if (project.employees == null) {
-    out.push({ ...base, taskKey: "employees", action: "従業員数を入力してください", reason: "小規模事業者向け補助金の判定に必要です" });
-  }
-  if (project.budget == null) {
-    out.push({ ...base, taskKey: "budget", action: "予算を入力してください", reason: "対象になる補助金を見つけやすくなります" });
-  }
   const dd = match?.top ? match.top.r.lc.deadlineDays : null;
-  if (dd != null && dd >= 0 && dd <= 14 && !c["deadline"]) {
-    out.push({ ...base, taskKey: "deadline", action: "締切が近い制度があります。締切を確認してください", reason: `あと${dd}日の候補があります` });
-  }
-  // 定番制度（CORE_PROGRAM_MASTER）由来の確認タスク。確認済み(done)・対象外(skip)は出さない。
+  const contribs: Contribution[] = [];
+
+  // 基本タスク
+  if ((project.orderStatus === "none" || project.orderStatus === "estimate") && !c["pre_order"])
+    contribs.push({ taskKey: "pre_order", action: "発注前か確認してください", reason: "発注済みだと対象外になる補助金があります", source: "basic" });
+  if (dd != null && dd >= 0 && dd <= 14 && !c["deadline"])
+    contribs.push({ taskKey: "deadline", action: "締切が近い制度を確認してください", reason: `あと${dd}日の候補があります`, source: "deadline" });
+  if (!c["guideline"]) contribs.push({ taskKey: "guideline", action: "公式の公募要領を確認してください", reason: "対象経費・締切・条件を確認できます", source: "basic" });
+  if (!c["estimate"]) contribs.push({ taskKey: "estimate", action: "見積を取得しましょう", reason: "多くの補助金で見積書が必要になります", source: "basic" });
+  if (isIT && !c["gbizid"]) contribs.push({ taskKey: "gbizid", action: "GビズIDを確認してください", reason: "IT・DX系補助金で必要になります", source: "basic" });
+  if (project.employees == null) contribs.push({ taskKey: "employees", action: "従業員数を入力してください", reason: "小規模事業者向け補助金の判定に必要です", source: "project_missing_info" });
+  if (project.budget == null) contribs.push({ taskKey: "budget", action: "予算を入力してください", reason: "対象になる補助金を見つけやすくなります", source: "project_missing_info" });
+
+  // 定番制度（CORE）由来タスク。確認済み(done)・対象外(skip)は出さない。
   const activeCore = new Set(
     getCoreProgramChecks(project).filter((cc) => project.coreChecks?.[cc.key] !== "done").map((cc) => cc.key)
   );
-  const addCore = (cond: boolean, key: string, action: string, reason: string) => {
-    if (cond && !c[key]) out.push({ ...base, taskKey: key, action, reason });
+  const core = (key: string, taskKey: string, action: string, reason: string) => {
+    if (activeCore.has(key) && !c[taskKey]) contribs.push({ taskKey, action, reason, source: "core_program", programKey: key });
   };
-  addCore(activeCore.has("jizokuka"), "shokokai", "商工会／商工会議所に相談してください", "小規模事業者持続化補助金で必要になることがあります");
-  addCore(activeCore.has("it_donyu"), "it_tool", "対象ツール・IT導入支援事業者を確認してください", "IT導入補助金は対象ツール・支援事業者の指定があります");
-  addCore(activeCore.has("local_energy"), "spec_check", "設備の型番・省エネ性能を確認してください", "省エネ・設備導入補助金で必要になります");
-  addCore(activeCore.has("local_vacant"), "area_check", "対象区域・賃貸契約前か・事前相談を確認してください", "空き店舗・中心市街地補助金で必要になります");
-  addCore(activeCore.has("gyomu_kaizen"), "chinage", "賃上げ予定・事業場内最低賃金を確認してください", "業務改善助成金で必要です");
-  addCore(activeCore.has("career_up"), "koyou", "雇用形態・就業規則を確認（社労士に相談）してください", "キャリアアップ助成金で必要です");
+  core("it_donyu", "gbizid", "GビズIDを確認してください", "");
+  core("it_donyu", "it_tool", "対象ツールに登録されているか確認してください", "");
+  core("it_donyu", "it_provider", "IT導入支援事業者が必要か確認してください", "");
+  core("jizokuka", "employees", "従業員数を入力してください", "");
+  core("jizokuka", "shokokai", "商工会／商工会議所に相談してください", "");
+  core("jizokuka", "purpose_check", "販路開拓が目的か確認してください", "");
+  core("local_energy", "spec_check", "設備の型番・省エネ性能を確認してください", "");
+  core("monozukuri", "expense", "対象経費を確認してください", "");
+  core("shoryokuka", "expense", "対象経費を確認してください", "");
+  core("it_donyu", "expense", "対象経費を確認してください", "");
+  core("local_vacant", "area_check", "対象区域・賃貸契約前か・事前相談を確認してください", "");
+  core("gyomu_kaizen", "chinage", "賃上げ予定・事業場内最低賃金を確認してください", "");
+  core("gyomu_kaizen", "employees", "従業員数を入力してください", "");
+  core("career_up", "koyou", "雇用形態・就業規則を確認してください", "");
+  core("career_up", "pro", "社会保険労務士に相談してください", "");
+  core("jinzai_kaihatsu", "pro", "社会保険労務士に相談してください", "");
 
-  if (!c["guideline"]) {
-    out.push({ ...base, taskKey: "guideline", action: "公式の公募要領を確認してください", reason: "対象経費・締切・条件を確認できます" });
+  // taskKey で重複排除（複数制度に関係する場合は理由に併記）
+  const byKey = new Map<string, { action: string; baseReason: string; source: ProjectTask["source"]; programs: Set<string>; firstProgram?: string }>();
+  for (const c0 of contribs) {
+    const e = byKey.get(c0.taskKey);
+    const short = c0.programKey ? PROGRAM_SHORT[c0.programKey] : undefined;
+    if (!e) byKey.set(c0.taskKey, { action: c0.action, baseReason: c0.reason, source: c0.source, programs: short ? new Set([short]) : new Set(), firstProgram: c0.programKey });
+    else if (short) e.programs.add(short);
   }
-  if (!c["estimate"]) {
-    out.push({ ...base, taskKey: "estimate", action: "見積を取得しましょう", reason: "多くの補助金で見積書が必要になります" });
+
+  const base = { projectId: project.id, projectName: project.name || "支出案件" };
+  const tasks: ProjectTask[] = [];
+  for (const [taskKey, e] of byKey) {
+    const progs = [...e.programs];
+    const reason = progs.length > 0 ? `${progs.join("・")}で必要です` : e.baseReason;
+    tasks.push({ ...base, taskKey, action: e.action, reason, priority: TASK_PRIORITY[taskKey] ?? 50, source: e.source, relatedProgramKey: e.firstProgram });
   }
-  return out;
+  return tasks.sort((a, b) => a.priority - b.priority);
 }
 
 // 案件ごとの「今日やること」を1つだけ返す（最優先）。完了済みなら null。
