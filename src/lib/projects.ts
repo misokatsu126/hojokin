@@ -331,6 +331,72 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     nextActions: ["発注前か確認する", "賃上げ予定・最低賃金を確認する", "社会保険労務士に相談する", "見積もりを取る"],
     questions: [{ id: "plan", q: "賃上げの予定は？", options: ["予定あり", "検討中", "未定"] }],
   },
+  {
+    key: "labor_saving", label: "省力化・人手不足を解消したい", description: "人手不足を、設備・ロボット・システムで解消したい。省力化投資・IT導入補助金が狙えます。",
+    name: "省力化・人手不足対策", uses: ["省力化・人手不足を解消したい"], categories: ["省力化", "自動化", "業務効率化"],
+    tags: ["省力化", "省人化", "人手不足", "自動化", "ロボット", "効率化"],
+    genres: ["中小企業省力化投資補助金", "IT導入補助金", "ものづくり補助金"],
+    requiredFields: ["所在地", "予算", "発注状況", "解消したい作業"],
+    caution: PRE_ORDER_CAUTION + " カタログ型／一般型など型式の確認が必要な場合があります。",
+    expenses: ["機械装置費", "システム導入費", "ソフトウェア費"], killers: ["発注・契約後だと対象外の可能性", "対象カタログ・製品外の可能性"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "対象製品か確認する", "見積もりを取る"],
+    questions: [{ id: "how", q: "どう解消したい？", options: ["設備・ロボット", "システム・IT", "わからない"] }],
+  },
+  {
+    key: "ai", label: "AIを活用したい", description: "生成AI・チャットボット・需要予測などのAI活用。IT導入（デジタル化・AI導入）・省力化補助金が狙えます。",
+    name: "AI活用", uses: ["AIを活用したい"], categories: ["AI", "DX", "業務効率化"],
+    tags: ["AI", "生成AI", "チャットボット", "機械学習", "需要予測", "自動化", "DX"],
+    genres: ["IT導入補助金（デジタル化・AI導入）", "中小企業省力化投資補助金", "ものづくり補助金"],
+    requiredFields: ["所在地", "予算", "発注状況", "GビズID", "使いたいAI"],
+    caution: PRE_ORDER_CAUTION + " 対象ツール登録の有無・GビズIDが必要な場合があります。月額利用料は対象外のことがあります。",
+    expenses: ["システム導入費", "ソフトウェア費", "委託費"], killers: ["発注・契約後だと対象外の可能性", "月額利用料・汎用クラウドは対象外のことがある"],
+    nextActions: ["発注前か確認する", "GビズIDを確認する", "対象ツールか確認する", "見積もりを取る"],
+    questions: [{ id: "kind", q: "使い方は？", options: ["生成AI・チャットボット", "画像・検査・予測", "業務自動化", "わからない"] }],
+  },
+  {
+    key: "product_dev", label: "新商品・新メニューを開発したい", description: "試作・新商品・新メニューの開発。ものづくり・持続化補助金が狙えます。",
+    name: "新商品・新メニュー開発", uses: ["新商品・新メニューを開発したい"], categories: ["商品開発", "試作", "販路開拓"],
+    tags: ["新商品", "新メニュー", "試作", "開発", "商品化", "レシピ"],
+    genres: ["ものづくり補助金", "小規模事業者持続化補助金"],
+    requiredFields: ["所在地", "予算", "発注状況", "開発内容"],
+    caution: PRE_ORDER_CAUTION + " 試作・原材料・外注の範囲を確認してください。",
+    expenses: ["原材料費", "外注費", "機械装置費", "委託費"], killers: ["発注・契約後だと対象外の可能性", "量産・仕入れは対象外のことがある"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る"],
+    questions: [{ id: "kind", q: "内容は？", options: ["新商品の試作", "新メニュー開発", "パッケージ・デザイン", "わからない"] }],
+  },
+  {
+    key: "decarbon", label: "脱炭素・再エネに取り組みたい", description: "太陽光・EV・高効率設備など脱炭素・再エネの取り組み。自治体の脱炭素補助などが狙えます。",
+    name: "脱炭素・再エネ", uses: ["脱炭素・再エネに取り組みたい"], categories: ["脱炭素", "再エネ", "設備導入"],
+    tags: ["脱炭素", "再エネ", "太陽光", "EV", "蓄電池", "GX", "カーボンニュートラル"],
+    genres: ["自治体の脱炭素・再エネ補助", "省エネ設備導入補助金"],
+    requiredFields: ["所在地", "予算", "発注状況", "内容"],
+    caution: PRE_ORDER_CAUTION + " 設備の性能・要件の確認が必要です。",
+    expenses: ["設備費", "工事費", "機械装置費"], killers: ["発注・契約後だと対象外の可能性", "性能要件を満たさない可能性"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る"],
+    questions: [{ id: "kind", q: "内容は？", options: ["太陽光・蓄電池", "EV・充電設備", "高効率設備", "わからない"] }],
+  },
+  {
+    key: "startup", label: "創業・開業したい", description: "これから起業・開業する（店舗を持たない起業も）。創業補助金や自治体の創業支援が狙えます。",
+    name: "創業・開業", uses: ["創業・開業したい"], categories: ["創業", "開業", "起業"],
+    tags: ["創業", "開業", "起業", "スタートアップ", "個人事業", "法人設立"],
+    genres: ["自治体の創業補助", "小規模事業者持続化補助金（創業枠）"],
+    requiredFields: ["所在地", "予算", "発注状況", "創業時期"],
+    caution: PRE_ORDER_CAUTION + " 創業時期・認定支援・事前相談の要件があることが多いです。",
+    expenses: ["設備費", "広告宣伝費", "委託費", "開業費"], killers: ["創業時期の要件を満たさない可能性", "事前相談・認定が必要なことがある"],
+    nextActions: ["公式サイトで条件を確認する", "創業要件を確認する", "商工会議所に相談する"],
+    questions: [{ id: "stage", q: "段階は？", options: ["これから創業", "創業準備中", "創業まもない", "わからない"] }],
+  },
+  {
+    key: "workstyle", label: "働き方改革・福利厚生を整えたい", description: "労働時間の短縮・年休取得・勤怠/労務の環境整備。働き方改革推進支援助成金などが狙えます。",
+    name: "働き方改革・福利厚生", uses: ["働き方改革・福利厚生を整えたい"], categories: ["働き方改革", "労務", "福利厚生"],
+    tags: ["働き方改革", "労働時間", "年休", "勤怠", "労務", "福利厚生"],
+    genres: ["働き方改革推進支援助成金", "キャリアアップ助成金"],
+    requiredFields: ["所在地", "従業員数", "就業規則"],
+    caution: "成果目標の設定・就業規則の整備・労働局への申請が必要な場合があります。社会保険労務士への相談を推奨します。",
+    expenses: ["委託費", "設備費", "システム導入費"], killers: ["就業規則・成果目標が未整備だと対象外の可能性", "対象外の経費の可能性"],
+    nextActions: ["公式サイトで条件を確認する", "社会保険労務士に相談する", "就業規則を確認する"],
+    questions: [{ id: "kind", q: "目的は？", options: ["労働時間の短縮", "年休・休暇制度", "勤怠・労務システム", "わからない"] }],
+  },
 ];
 
 export function getTemplate(key: string | null | undefined): ProjectTemplate | null {
@@ -341,10 +407,11 @@ export function getTemplate(key: string | null | undefined): ProjectTemplate | n
 // 支出テーマのカテゴリ分け（「今日やること」と混同しないよう、テーマはカテゴリで見せる）
 export const PROJECT_TEMPLATE_GROUPS: { title: string; keys: string[] }[] = [
   { title: "店舗・設備", keys: ["aircon", "renovation", "signboard", "newstore", "energy", "machinery", "vehicle", "hygiene"] },
-  { title: "IT・DX", keys: ["ai_pos", "system", "ec", "website"] },
-  { title: "広告・販路", keys: ["ad", "event", "export", "inbound"] },
-  { title: "採用・育成", keys: ["hire", "training", "wage"] },
-  { title: "新規事業・経営", keys: ["new_business", "succession", "bcp", "certification"] },
+  { title: "IT・DX・AI", keys: ["ai", "ai_pos", "system", "ec", "website"] },
+  { title: "広告・販路・海外", keys: ["ad", "event", "export", "inbound"] },
+  { title: "採用・育成・働き方", keys: ["hire", "training", "wage", "workstyle"] },
+  { title: "新規事業・開発・経営", keys: ["new_business", "product_dev", "startup", "succession", "bcp", "certification"] },
+  { title: "省力化・環境", keys: ["labor_saving", "decarbon"] },
 ];
 
 // 各テーマの「こんな支出に」例文（業種横断で自分ごと化できるように）
@@ -372,6 +439,12 @@ export const TEMPLATE_EXAMPLES: Record<string, string[]> = {
   new_business: ["飲食店が惣菜の通販に参入", "製造業が自社ブランドを開始", "小売がサービス業に多角化"],
   succession: ["後継者への引継ぎ準備", "第三者へのM&A・譲渡", "承継後の設備投資"],
   wage: ["賃上げと同時の設備投資", "最低賃金引上げへの対応", "省力化で生産性アップ"],
+  labor_saving: ["レジ・配膳の自動化", "検品・在庫の自動化", "予約・受付の無人化"],
+  ai: ["生成AIで業務効率化", "AIチャットボット導入", "AIで需要予測・検品"],
+  product_dev: ["新メニュー・新商品の試作", "新しいレシピ開発", "パッケージ・ブランド開発"],
+  decarbon: ["太陽光・蓄電池の導入", "EV・充電設備", "高効率設備への更新"],
+  startup: ["店舗を持たない起業", "フリーランス・個人事業の開業", "会社設立・創業"],
+  workstyle: ["勤怠・労務システム導入", "年休・時短の制度づくり", "残業削減の環境整備"],
 };
 
 export function templateExamples(key: string | null | undefined): string[] {
@@ -380,16 +453,16 @@ export function templateExamples(key: string | null | undefined): string[] {
 
 // 業種から選ぶ入口：業種ごとに「よくある支出テーマ」を出し分ける
 export const INDUSTRY_PRESETS: { label: string; keys: string[] }[] = [
-  { label: "飲食店", keys: ["aircon", "renovation", "hygiene", "ai_pos", "signboard", "ad", "inbound", "new_business"] },
-  { label: "小売・卸", keys: ["ec", "ai_pos", "signboard", "ad", "system", "renovation", "export", "new_business", "succession"] },
-  { label: "製造・加工", keys: ["machinery", "energy", "system", "certification", "export", "bcp", "new_business", "wage", "succession"] },
-  { label: "建設・工事", keys: ["vehicle", "system", "machinery", "hire", "certification", "bcp", "succession", "wage"] },
-  { label: "美容・サロン", keys: ["renovation", "aircon", "ai_pos", "website", "ad", "signboard", "new_business"] },
-  { label: "医療・介護", keys: ["renovation", "hygiene", "system", "hire", "training", "vehicle", "wage"] },
-  { label: "運送・物流", keys: ["vehicle", "system", "machinery", "energy", "hire", "bcp", "wage"] },
-  { label: "宿泊・観光", keys: ["inbound", "renovation", "website", "ad", "energy", "ai_pos", "new_business"] },
-  { label: "IT・Web・士業", keys: ["website", "system", "ec", "ad", "hire", "certification", "new_business"] },
-  { label: "農業・食品加工", keys: ["machinery", "hygiene", "ec", "export", "energy", "certification", "new_business"] },
+  { label: "飲食店", keys: ["aircon", "renovation", "hygiene", "ai_pos", "signboard", "ad", "inbound", "product_dev", "labor_saving", "new_business"] },
+  { label: "小売・卸", keys: ["ec", "ai_pos", "ai", "signboard", "ad", "system", "labor_saving", "export", "new_business", "succession"] },
+  { label: "製造・加工", keys: ["machinery", "energy", "labor_saving", "system", "ai", "product_dev", "certification", "decarbon", "new_business", "wage", "succession"] },
+  { label: "建設・工事", keys: ["vehicle", "system", "machinery", "labor_saving", "hire", "certification", "bcp", "succession", "wage"] },
+  { label: "美容・サロン", keys: ["renovation", "aircon", "ai_pos", "website", "ad", "signboard", "startup", "new_business"] },
+  { label: "医療・介護", keys: ["renovation", "hygiene", "system", "labor_saving", "hire", "training", "workstyle", "vehicle", "wage"] },
+  { label: "運送・物流", keys: ["vehicle", "system", "labor_saving", "ai", "energy", "decarbon", "hire", "workstyle", "bcp", "wage"] },
+  { label: "宿泊・観光", keys: ["inbound", "renovation", "website", "ad", "energy", "ai_pos", "labor_saving", "new_business"] },
+  { label: "IT・Web・士業", keys: ["website", "system", "ai", "ec", "ad", "hire", "certification", "startup", "new_business"] },
+  { label: "農業・食品加工", keys: ["machinery", "hygiene", "ec", "product_dev", "export", "energy", "decarbon", "certification", "new_business"] },
 ];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {

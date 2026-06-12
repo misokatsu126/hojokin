@@ -73,7 +73,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["従業員数要件あり", "商工会/商工会議所の確認が必要", "交付決定前の発注はNG"],
     requiredInfo: ["従業員数", "事業所の所在地", "使いたい経費"],
     officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["signboard", "website", "ad", "ec", "renovation", "event", "newstore", "export", "inbound", "certification", "new_business"],
+    templates: ["signboard", "website", "ad", "ec", "renovation", "event", "newstore", "export", "inbound", "certification", "new_business", "product_dev", "startup"],
     keywords: /広告|チラシ|LP|ホームページ|ＨＰ|EC|看板|販路|展示会|販促|店舗改装|集客|新店舗|出店|海外|輸出|越境|多言語|インバウンド|認証|商標/i,
   },
   {
@@ -83,8 +83,8 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["対象ツール・支援事業者の指定あり", "GビズID取得に時間がかかる", "交付決定前の契約はNG"],
     requiredInfo: ["導入予定ツール／ベンダー", "GビズIDの有無"],
     officialUrl: "https://it-shien.smrj.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["ai_pos", "ec", "website", "system"],
-    keywords: /IT|ソフト|クラウド|POS|在庫|会計|EC|予約|セキュリティ|AI|業務効率|システム|ホームページ|デジタル|決済|CRM|受発注|基幹/i,
+    templates: ["ai_pos", "ec", "website", "system", "ai", "labor_saving"],
+    keywords: /IT|ソフト|クラウド|POS|在庫|会計|EC|予約|セキュリティ|AI|業務効率|システム|ホームページ|デジタル|決済|CRM|受発注|基幹|生成AI|チャットボット/i,
   },
   {
     key: "monozukuri", name: "ものづくり補助金", aliasNames: ["ものづくり・商業・サービス生産性向上促進補助金"], group: "national_subsidy", priority: "medium", confidenceLabel: "確認推奨",
@@ -93,8 +93,8 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["事業計画書が必要", "革新性・賃上げ要件", "交付決定前の発注はNG"],
     requiredInfo: ["投資内容と金額", "事業計画"],
     officialUrl: "https://portal.monodukuri-hojo.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["ai_pos", "energy", "aircon", "newstore", "machinery", "hygiene", "bcp", "certification", "new_business"],
-    keywords: /設備投資|システム構築|新サービス|生産性|試作|機械装置|革新|加工機|検査|HACCP|特許|認証/i,
+    templates: ["ai_pos", "energy", "aircon", "newstore", "machinery", "hygiene", "bcp", "certification", "new_business", "product_dev", "ai"],
+    keywords: /設備投資|システム構築|新サービス|生産性|試作|機械装置|革新|加工機|検査|HACCP|特許|認証|新商品|新メニュー/i,
   },
   {
     key: "shoryokuka", name: "中小企業省力化投資補助金", aliasNames: ["省力化投資補助金", "省力化補助金"], group: "national_subsidy", priority: "high", confidenceLabel: "確認推奨",
@@ -103,7 +103,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["対象カタログ・製品の指定あり", "交付決定前の発注はNG"],
     requiredInfo: ["導入予定の設備・製品", "人手不足の状況"],
     officialUrl: "https://shoryokuka.smrj.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["ai_pos", "aircon", "energy", "machinery", "vehicle", "system", "wage"],
+    templates: ["ai_pos", "aircon", "energy", "machinery", "vehicle", "system", "wage", "labor_saving", "ai"],
     keywords: /省力化|省人化|自動化|ロボット|POS|在庫|IoT|AI|人手不足|運搬|フォークリフト/i,
   },
   {
@@ -174,8 +174,8 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["成果目標が必要", "労働局申請", "就業規則の整備"],
     requiredInfo: ["労働時間の状況", "就業規則"],
     officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["hire", "training"],
-    keywords: /労働時間|年休|勤怠|労務|働き方/i,
+    templates: ["hire", "training", "workstyle"],
+    keywords: /労働時間|年休|勤怠|労務|働き方|福利厚生/i,
   },
   // ── 自治体で必ず探す定番パターン ──
   {
@@ -185,8 +185,8 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["省エネ性能・型番の証明", "発注前確認", "予算上限・先着の可能性"],
     requiredInfo: ["設備の型番・省エネ性能", "所在地"],
     officialSearchQuery: "{region} 省エネ 設備 補助金", sourceAuthority: "local_pattern", fiscalYear: "—", officialStatus: "unknown", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["aircon", "energy", "machinery"],
-    keywords: /空調|エアコン|LED|冷蔵庫|厨房|業務用|省エネ|高効率|脱炭素/i,
+    templates: ["aircon", "energy", "machinery", "decarbon"],
+    keywords: /空調|エアコン|LED|冷蔵庫|厨房|業務用|省エネ|高効率|脱炭素|再エネ|太陽光|蓄電池|EV/i,
   },
   {
     key: "local_vacant", name: "空き店舗・中心市街地・商店街補助金（自治体）", aliasNames: ["空き店舗補助金", "中心市街地活性化"], group: "local_pattern", priority: "high", confidenceLabel: "確認推奨",
@@ -215,7 +215,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["国のIT導入補助金と重複しないか", "発注前確認"],
     requiredInfo: ["導入ツール", "所在地"],
     officialSearchQuery: "{region} DX デジタル化 補助金", sourceAuthority: "local_pattern", fiscalYear: "—", officialStatus: "unknown", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["ai_pos", "ec", "website", "system"],
+    templates: ["ai_pos", "ec", "website", "system", "ai", "labor_saving"],
     keywords: /POS|EC|在庫|AI|予約|CRM|業務効率|DX|デジタル|受発注|基幹/i,
   },
   {
@@ -235,7 +235,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["創業年数の要件", "認定支援・事前相談が必要なことが多い"],
     requiredInfo: ["創業時期", "所在地"],
     officialSearchQuery: "{region} 創業 補助金", sourceAuthority: "local_pattern", fiscalYear: "—", officialStatus: "unknown", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["newstore"],
+    templates: ["newstore", "startup"],
     keywords: /新法人|新店舗|新規事業|創業|起業|開業|出店/i,
   },
 ];
