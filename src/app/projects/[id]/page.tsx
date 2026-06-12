@@ -69,14 +69,33 @@ export default function ProjectDetailPage() {
 
   const [memo, setMemo] = useState<{ kind: "consult" | "estimate"; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [edit, setEdit] = useState<string | null>(null);
+  const [editVal, setEditVal] = useState("");
 
-  function fillMissing(key: string) {
+  function openEdit(key: string) {
     if (!project) return;
-    if (key === "budget") { const v = window.prompt("見積・予算（万円）"); if (v) setProject(upsertProject({ ...project, budget: (Number(v.replace(/[^0-9]/g, "")) || 0) * 10000 })); return; }
-    if (key === "employees") { const v = window.prompt("従業員数（人）"); if (v) setProject(upsertProject({ ...project, employees: Number(v.replace(/[^0-9]/g, "")) || null })); return; }
-    if (key === "location") { const v = window.prompt("どこで使いますか？（市区町村）"); if (v) setProject(upsertProject({ ...project, location: v.trim() })); return; }
-    if (key === "industry") { const v = window.prompt("業種は？"); if (v) setProject(upsertProject({ ...project, industry: v.trim() })); return; }
-    if (key === "schedule") { const v = window.prompt("いつ頃実施しますか？"); if (v) setProject(upsertProject({ ...project, schedule: v.trim() })); return; }
+    const cur =
+      key === "budget" ? (project.budget != null ? String(Math.round(project.budget / 10000)) : "")
+      : key === "employees" ? (project.employees != null ? String(project.employees) : "")
+      : key === "location" ? project.location
+      : key === "industry" ? project.industry
+      : key === "schedule" ? project.schedule
+      : "";
+    setEdit(key);
+    setEditVal(cur);
+  }
+  function saveEdit() {
+    if (!project || !edit) return;
+    const raw = editVal.trim();
+    const next = { ...project };
+    if (edit === "budget") next.budget = raw ? (Number(raw.replace(/[^0-9]/g, "")) || 0) * 10000 : null;
+    else if (edit === "employees") next.employees = raw ? Number(raw.replace(/[^0-9]/g, "")) || null : null;
+    else if (edit === "location") next.location = raw;
+    else if (edit === "industry") next.industry = raw;
+    else if (edit === "schedule") next.schedule = raw;
+    setProject(upsertProject(next));
+    setEdit(null);
+    setEditVal("");
   }
   async function copyMemo() {
     if (!memo) return;
@@ -100,16 +119,7 @@ export default function ProjectDetailPage() {
   // 「次にやること」の完了：チェック項目は true に、従業員数/予算は入力して消す
   function completeTask(t: ProjectTask) {
     if (!project) return;
-    if (t.taskKey === "employees") {
-      const v = window.prompt("従業員数（人）を入力してください");
-      if (v != null && v.trim()) setProject(upsertProject({ ...project, employees: Number(v.replace(/[^0-9]/g, "")) || null }));
-      return;
-    }
-    if (t.taskKey === "budget") {
-      const v = window.prompt("予算（万円）を入力してください");
-      if (v != null && v.trim()) setProject(upsertProject({ ...project, budget: (Number(v.replace(/[^0-9]/g, "")) || 0) * 10000 }));
-      return;
-    }
+    if (t.taskKey === "employees" || t.taskKey === "budget") { openEdit(t.taskKey); return; }
     setProject(upsertProject({ ...project, checklist: { ...project.checklist, [t.taskKey]: true } }));
   }
   function remove() {
@@ -209,14 +219,27 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* 足りない情報だけ聞く（最大3件） */}
-      {missingInfo(project).length > 0 && (
+      {/* 足りない情報だけ聞く（最大3件・画面内で入力） */}
+      {(missingInfo(project).length > 0 || (edit && ["budget", "employees", "location", "industry", "schedule"].includes(edit))) && (
         <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
           <p className="mb-1.5 text-sm font-semibold text-sky-900">判定を強くするために、あと{missingInfo(project).length}つだけ教えてください</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2">
             {missingInfo(project).map((m) => (
-              <button key={m.key} onClick={() => fillMissing(m.key)} className="rounded-md border border-sky-300 bg-white px-3 py-1.5 text-xs text-sky-800 hover:bg-sky-100">{m.label}</button>
+              <div key={m.key}>
+                {edit === m.key ? (
+                  <InlineField label={m.label} value={editVal} onChange={setEditVal} onSave={saveEdit} onCancel={() => setEdit(null)}
+                    numeric={m.key === "budget" || m.key === "employees"} unit={m.key === "budget" ? "万円" : m.key === "employees" ? "人" : undefined} />
+                ) : (
+                  <button onClick={() => openEdit(m.key)} className="rounded-md border border-sky-300 bg-white px-3 py-1.5 text-xs text-sky-800 hover:bg-sky-100">{m.label}</button>
+                )}
+              </div>
             ))}
+            {/* タスクから予算/従業員数を編集したとき（missingInfoに無くても入力欄を出す） */}
+            {edit && !missingInfo(project).some((m) => m.key === edit) && (
+              <InlineField label={edit === "budget" ? "見積・予算" : edit === "employees" ? "従業員数" : edit}
+                value={editVal} onChange={setEditVal} onSave={saveEdit} onCancel={() => setEdit(null)}
+                numeric={edit === "budget" || edit === "employees"} unit={edit === "budget" ? "万円" : edit === "employees" ? "人" : undefined} />
+            )}
           </div>
         </div>
       )}
@@ -386,6 +409,27 @@ function expenseWord(t: VerifyResult["expenseMatchType"]): string {
 
 const CORE_GROUP_LABEL: Record<CoreGroup, string> = { national_subsidy: "国の定番", labor_grant: "厚労省系助成金", local_pattern: "自治体で探す" };
 const CORE_PRI_LABEL: Record<string, string> = { high: "高", medium: "中", low: "低" };
+
+function InlineField({ label, value, onChange, onSave, onCancel, numeric, unit }: {
+  label: string; value: string; onChange: (v: string) => void; onSave: () => void; onCancel: () => void; numeric?: boolean; unit?: string;
+}) {
+  return (
+    <div className="rounded-md border border-sky-300 bg-white p-2">
+      <p className="mb-1 text-xs font-medium text-sky-900">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <input
+          autoFocus value={value} inputMode={numeric ? "numeric" : "text"}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
+          className="min-w-0 flex-1 rounded-md border px-2.5 py-1.5 text-sm"
+        />
+        {unit && <span className="text-xs text-gray-500">{unit}</span>}
+        <button onClick={onSave} className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">保存</button>
+        <button onClick={onCancel} className="shrink-0 rounded-md border px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-50">やめる</button>
+      </div>
+    </div>
+  );
+}
 
 function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "skip"; onSet: (k: string, v: "done" | "skip") => void }) {
   const confTone = c.confidenceLabel === "確認推奨" ? "bg-green-100 text-green-800" : c.confidenceLabel === "条件確認" ? "bg-amber-100 text-amber-800" : "bg-sky-100 text-sky-800";

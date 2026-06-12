@@ -154,6 +154,20 @@ function NewProjectWizard() {
                 </div>
               </div>
             )}
+
+            {/* 30秒かんたん作成：テーマ＋発注状況だけで作る */}
+            {canNext && (
+              <div className="mt-4 rounded-lg border border-accent/30 bg-accent/5 p-3">
+                <p className="text-xs font-semibold text-ink">もう発注しましたか？（任意・あとで変更できます）</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {(Object.keys(ORDER_STATUS_LABEL) as OrderStatus[]).map((o) => (
+                    <button key={o} onClick={() => set("orderStatus", o)} className={`rounded-full border px-2.5 py-1 text-[11px] ${p.orderStatus === o ? "border-accent bg-accent text-white" : "text-gray-600 hover:bg-white"}`}>{ORDER_STATUS_LABEL[o]}</button>
+                  ))}
+                </div>
+                <button onClick={save} className="mt-2.5 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">これで作成する（30秒・あとで詳しく）</button>
+                <p className="mt-1 text-center text-[11px] text-gray-500">場所・予算・会社情報は、作成後の画面で足せます。</p>
+              </div>
+            )}
           </div>
         )}
 
