@@ -62,11 +62,11 @@ export function ConsultWizard() {
     setSubmitted(q);
   }
 
-  // 相談内容から「支出案件」を作成して詳細ページへ
+  // 相談内容から「補助金チェック」を作成して詳細ページへ
   function createProject() {
     const base = emptyProject();
     const useShort = uses[0]?.replace(/(を.*|したい|を導入.*)$/u, "").trim();
-    const name = [region.trim(), useShort || uses[0] || "支出案件"].filter(Boolean).join(" ");
+    const name = [region.trim(), useShort || uses[0] || "（名称未設定）"].filter(Boolean).join(" ");
     const saved = upsertProject({
       ...base,
       name,
@@ -153,7 +153,7 @@ export function ConsultWizard() {
         <div className="flex flex-wrap gap-2">
           <button onClick={createProject} disabled={uses.length === 0 && !region.trim()}
             className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-            この内容で支出案件を作る
+            この内容で補助金チェックを作る
           </button>
           <button onClick={build} disabled={uses.length === 0 && !region.trim()}
             className="rounded-md border px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
@@ -163,7 +163,7 @@ export function ConsultWizard() {
         {uses.length === 0 && !region.trim() && (
           <p className="text-xs text-gray-400">「何に使いたいか」か「地域」のどちらかを選ぶと、案件作成・検索ができます。</p>
         )}
-        <p className="text-xs text-gray-400">「支出案件を作る」と、その支出に使える補助金を案件ごとに判定して保存できます。</p>
+        <p className="text-xs text-gray-400">「補助金チェックを作る」と、その支出に使える補助金をひとつずつ判定して保存できます。</p>
       </div>
 
       {/* 結果（NlSearchBox を初期クエリ＋自動実行で表示） */}

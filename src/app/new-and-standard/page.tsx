@@ -119,13 +119,13 @@ export default function NewAndStandardPage() {
       {/* 1. あなたの案件でまず見る定番制度 */}
       {coreByProject.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-2 text-base font-bold text-ink">⭐ あなたの案件でまず見る定番制度</h2>
+          <h2 className="mb-2 text-base font-bold text-ink">⭐ あなたの補助金チェックでまず見る定番制度</h2>
           <div className="space-y-2">
             {coreByProject.slice(0, 8).map((e) => (
               <div key={e.name} className="rounded-lg border bg-white p-3 text-sm">
                 <span className="font-semibold text-ink">{e.name}</span>
                 <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-800">{e.confidence}</span>
-                <span className="ml-2 text-xs text-gray-500">関係する案件：{e.projects.slice(0, 3).map((p) => p.name || "支出案件").join("、")}</span>
+                <span className="ml-2 text-xs text-gray-500">関係する支出：{e.projects.slice(0, 3).map((p) => p.name || "（名称未設定）").join("、")}</span>
               </div>
             ))}
           </div>

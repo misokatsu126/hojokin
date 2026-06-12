@@ -29,7 +29,7 @@ export default function GuidePage() {
       <Card title="② まず最初にやること">
         <div className="grid gap-3 sm:grid-cols-3">
           <Step n="1" title="支出テーマを選ぶ" body="例：空調を入れ替えたい／看板を作りたい／ECを強化したい／AI・在庫管理を入れたい／人を採用したい" note="ここで選ぶのは「今日やること」ではありません。補助金を確認したい支出内容です。" />
-          <Step n="2" title="支出案件を作る" body="どこで使うか／予算／実施予定時期／発注状況／会社情報を入力します。" />
+          <Step n="2" title="補助金チェックを作る" body="どこで使うか／予算／実施予定時期／発注状況／会社情報を入力します。" />
           <Step n="3" title="今日やる申請準備を進める" body="発注前か確認する／公式サイトで条件を見る／見積もりを取る／GビズID確認／商工会議所に相談／対象になる費用の確認 など。" />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -69,7 +69,7 @@ export default function GuidePage() {
 
       {/* 5. まず確認すべき定番制度 */}
       <Card title="⑤ まず確認すべき定番制度" collapsible>
-        <p className="text-sm text-gray-700">検索で見つかった制度だけでなく、中小企業・小規模事業者が一般的に確認すべき定番制度も支出案件ごとに表示します。</p>
+        <p className="text-sm text-gray-700">検索で見つかった制度だけでなく、中小企業・小規模事業者が一般的に確認すべき定番制度も登録した支出ごとに表示します。</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2 text-xs text-gray-600">
           <div className="rounded border p-2"><b>AI・在庫管理・POS</b>：IT導入補助金／省力化投資補助金／ものづくり補助金</div>
           <div className="rounded border p-2"><b>広告・LP・看板</b>：小規模事業者持続化補助金／自治体の販路開拓補助金</div>
@@ -82,7 +82,7 @@ export default function GuidePage() {
       {/* 6. 基本の使い方 */}
       <Card title="⑥ 基本の使い方" collapsible>
         <ol className="grid gap-1.5 text-sm text-gray-700 sm:grid-cols-2">
-          {["ホームを見る", "今日やる申請準備を確認する", "支出案件を作る", "発注判断を確認する", "まず確認すべき定番制度を見る", "公式情報を確認する", "チェックリストを完了していく"].map((s, i) => (
+          {["ホームを見る", "今日やる申請準備を確認する", "補助金チェックを作る", "発注判断を確認する", "まず確認すべき定番制度を見る", "公式情報を確認する", "チェックリストを完了していく"].map((s, i) => (
             <li key={s} className="flex items-center gap-2 rounded-md border bg-white px-3 py-2"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">{i + 1}</span>{s}</li>
           ))}
         </ol>
@@ -105,7 +105,7 @@ export default function GuidePage() {
       <Card title="⑧ 管理者画面について" collapsible>
         <p className="text-sm text-gray-700">
           管理者画面では、検索結果の確認・公式情報の確認・ノイズ除外・制度情報の管理を行います。
-          通常利用では、まず<strong>ホーム・支出案件・今日やる申請準備</strong>を見れば十分です。
+          通常利用では、まず<strong>ホーム・補助金チェック・今日やる申請準備</strong>を見れば十分です。
         </p>
         <Link href="/discovery" className="mt-2 inline-block text-xs text-accent hover:underline">管理者画面を見る →</Link>
       </Card>

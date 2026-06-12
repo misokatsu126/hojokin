@@ -8,7 +8,7 @@ import { countCaseAlerts, loadDismissed } from "@/lib/projectAlerts";
 
 const LINKS = [
   { href: "/", label: "ホーム", icon: "🏠", badge: false, match: (p: string) => p === "/" },
-  { href: "/projects", label: "支出案件", icon: "🧾", badge: false, match: (p: string) => p.startsWith("/projects") },
+  { href: "/projects", label: "補助金チェック", icon: "🧾", badge: false, match: (p: string) => p.startsWith("/projects") },
   { href: "/reminders", label: "通知", icon: "🔔", badge: true, match: (p: string) => p.startsWith("/reminders") },
   { href: "/search", label: "相談して探す", icon: "💬", badge: false, match: (p: string) => p.startsWith("/search") },
   { href: "/calendar", label: "締切カレンダー", icon: "🗓", badge: false, match: (p: string) => p.startsWith("/calendar") },

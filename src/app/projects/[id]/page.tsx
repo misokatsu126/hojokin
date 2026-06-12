@@ -114,15 +114,15 @@ export default function ProjectDetailPage() {
   }
   function remove() {
     if (!project) return;
-    if (!confirm("この支出案件を削除しますか？")) return;
+    if (!confirm("この補助金チェックを削除しますか？")) return;
     deleteProject(project.id);
     router.push("/projects");
   }
 
   if (notFound) return (
     <div className="py-12 text-center text-gray-500">
-      <p className="mb-3">支出案件が見つかりませんでした。</p>
-      <Link href="/projects" className="text-accent hover:underline">支出案件の一覧へ</Link>
+      <p className="mb-3">補助金チェックが見つかりませんでした。</p>
+      <Link href="/projects" className="text-accent hover:underline">補助金チェックの一覧へ</Link>
     </div>
   );
   if (!project) return <p className="py-12 text-center text-gray-400">読み込み中…</p>;
@@ -134,13 +134,13 @@ export default function ProjectDetailPage() {
 
   return (
     <div>
-      <div className="mb-2 text-xs text-gray-400"><Link href="/projects" className="hover:underline">支出案件</Link> ／ 詳細</div>
+      <div className="mb-2 text-xs text-gray-400"><Link href="/projects" className="hover:underline">補助金チェック</Link> ／ 詳細</div>
 
       {/* 作成直後の診断結果 */}
       {showDiagnosis && (
         <div className="mb-4 rounded-xl border-2 border-accent/40 bg-accent/5 p-5">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-ink">診断結果：{project.name || "支出案件"}</h2>
+            <h2 className="text-lg font-bold text-ink">診断結果：{project.name || "（名称未設定）"}</h2>
             <button onClick={() => setShowDiagnosis(false)} className="text-xs text-gray-400 hover:text-gray-600">✕ 閉じる</button>
           </div>
           <div className={`rounded-lg border p-3 ${adv.tone}`}>
@@ -166,7 +166,7 @@ export default function ProjectDetailPage() {
           <div className="mt-3 flex flex-wrap gap-2">
             {coreChecks[0] && <a href={coreOfficialHref(coreChecks[0])} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:opacity-90">🔗 公式情報を確認する</a>}
             {tasks[0] && <button onClick={() => completeTask(tasks[0])} className="rounded-md border border-green-300 px-4 py-2 text-xs font-medium text-green-700 hover:bg-green-50">このタスクを完了する</button>}
-            <button onClick={() => setShowDiagnosis(false)} className="rounded-md border px-4 py-2 text-xs text-gray-700 hover:bg-gray-50">案件詳細を見る</button>
+            <button onClick={() => setShowDiagnosis(false)} className="rounded-md border px-4 py-2 text-xs text-gray-700 hover:bg-gray-50">詳しく見る</button>
           </div>
         </div>
       )}

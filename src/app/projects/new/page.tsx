@@ -39,7 +39,7 @@ function NewProjectWizard() {
     setP((prev) => ({ ...prev, uses: prev.uses.includes(u) ? prev.uses.filter((x) => x !== u) : [...prev.uses, u] }));
   }
   function save() {
-    const name = p.name.trim() || p.uses[0] || "新しい支出案件";
+    const name = p.name.trim() || p.uses[0] || "新しい補助金チェック";
     const saved = upsertProject({ ...p, name });
     router.push(`/projects/${saved.id}?created=1`);
   }
@@ -48,8 +48,8 @@ function NewProjectWizard() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-2 text-xs text-gray-400"><Link href="/projects" className="hover:underline">支出案件</Link> ／ 新規作成</div>
-      <h1 className="mb-1 text-xl font-bold text-ink">支出案件を作る</h1>
+      <div className="mb-2 text-xs text-gray-400"><Link href="/projects" className="hover:underline">補助金チェック</Link> ／ 新規作成</div>
+      <h1 className="mb-1 text-xl font-bold text-ink">補助金チェックを作る</h1>
 
       {/* 進捗 */}
       <div className="mb-4 flex items-center gap-1">

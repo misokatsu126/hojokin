@@ -66,7 +66,7 @@ export default function SearchReviewPage() {
         <span className="text-gray-600">案件別に検証：</span>
         <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="rounded-md border px-3 py-1.5">
           <option value="">一般検証（案件なし）</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name || "支出案件"}</option>)}
+          {projects.map((p) => <option key={p.id} value={p.id}>{p.name || "（名称未設定）"}</option>)}
         </select>
         {projectId && <span className="text-xs text-gray-400">選択中の案件の視点で地域・経費を判定しています</span>}
       </div>
