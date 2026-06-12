@@ -210,6 +210,94 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "創業要件を確認する", "見積もりを取る"],
     questions: [{ id: "stage", q: "出店の段階は？", options: ["物件検討中", "物件決定", "内装見積中", "わからない"] }],
   },
+  {
+    key: "machinery", label: "機械・設備を導入したい", description: "製造・加工・検査などの機械設備の導入・更新。ものづくり・省力化・自治体の設備補助が狙えます。",
+    name: "機械・設備導入", uses: ["機械・設備を導入したい"], categories: ["設備導入", "生産性向上", "省力化"],
+    tags: ["機械", "設備", "製造", "加工", "検査", "生産性", "機械装置"],
+    genres: ["ものづくり補助金", "中小企業省力化投資補助金", "自治体の設備導入補助"],
+    requiredFields: ["所在地", "予算", "発注状況", "設備の内容"],
+    caution: PRE_ORDER_CAUTION + " 事業計画・見積・型番が必要になる場合があります。",
+    expenses: ["機械装置費", "設備費"], killers: ["発注・契約後だと対象外の可能性", "中古・汎用設備は対象外のことがある"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る", "対象になる費用を確認する"],
+    questions: [{ id: "kind", q: "新規導入ですか？更新ですか？", options: ["新規", "更新", "わからない"] }],
+  },
+  {
+    key: "vehicle", label: "車両・運搬機器を導入したい", description: "配送車・キッチンカー・フォークリフトなど。自治体や省力化の補助が対象になることがあります（対象外も多いので要確認）。",
+    name: "車両・運搬機器導入", uses: ["車両・運搬機器を導入したい"], categories: ["設備導入", "省力化", "物流"],
+    tags: ["車両", "配送", "トラック", "キッチンカー", "フォークリフト", "運搬"],
+    genres: ["自治体の設備・物流補助", "中小企業省力化投資補助金"],
+    requiredFields: ["所在地", "予算", "発注状況", "用途"],
+    caution: PRE_ORDER_CAUTION + " 一般的な車両は対象外のことが多いです。用途・条件を必ず確認してください。",
+    expenses: ["車両費", "設備費"], killers: ["一般車両・私的利用は対象外の可能性", "発注・契約後だと対象外の可能性"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "対象になる費用を確認する"],
+    questions: [{ id: "use", q: "主な用途は？", options: ["配送・運搬", "移動販売", "現場作業", "わからない"] }],
+  },
+  {
+    key: "system", label: "業務システムを導入したい", description: "受発注・基幹・予約・会計などの業務システム。IT導入・省力化補助金が狙えます。",
+    name: "業務システム導入", uses: ["業務システムを導入したい"], categories: ["IT導入", "DX", "業務効率化"],
+    tags: ["システム", "受発注", "基幹", "予約", "会計", "業務効率", "DX", "CRM"],
+    genres: ["IT導入補助金", "中小企業省力化投資補助金", "自治体のDX補助"],
+    requiredFields: ["所在地", "予算", "発注状況", "GビズID", "ツール"],
+    caution: PRE_ORDER_CAUTION + " 対象ツール登録の有無・GビズIDが必要になる場合があります。",
+    expenses: ["システム導入費", "ソフトウェア費", "委託費"], killers: ["発注・契約後だと対象外の可能性", "自社開発・月額利用料は対象外のことがある"],
+    nextActions: ["発注前か確認する", "GビズIDを確認する", "対象ツールか確認する", "見積もりを取る"],
+    questions: [{ id: "kind", q: "種類は？", options: ["受発注・基幹", "予約・顧客管理", "会計・労務", "わからない"] }],
+  },
+  {
+    key: "hygiene", label: "衛生・感染対策をしたい", description: "HACCP対応・衛生設備・感染対策など。自治体補助やものづくり（食品）補助が対象になることがあります。",
+    name: "衛生・感染対策", uses: ["衛生・感染対策をしたい"], categories: ["衛生", "設備導入", "安全"],
+    tags: ["衛生", "HACCP", "感染対策", "食品", "厨房", "安全"],
+    genres: ["自治体の衛生・設備補助", "ものづくり補助金"],
+    requiredFields: ["所在地", "予算", "発注状況", "内容"],
+    caution: PRE_ORDER_CAUTION + " 対象設備・対象工事の範囲を確認してください。",
+    expenses: ["設備費", "工事費"], killers: ["発注・契約後だと対象外の可能性", "消耗品は対象外のことがある"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る"],
+    questions: [{ id: "kind", q: "内容は？", options: ["HACCP・食品衛生", "衛生設備・工事", "感染対策", "わからない"] }],
+  },
+  {
+    key: "bcp", label: "防災・BCPに備えたい", description: "自家発電・耐震・事業継続(BCP)の備え。自治体の防災補助やものづくり補助が対象になることがあります。",
+    name: "防災・BCP対策", uses: ["防災・BCPに備えたい"], categories: ["防災", "BCP", "設備導入"],
+    tags: ["防災", "BCP", "事業継続", "自家発電", "耐震", "停電"],
+    genres: ["自治体の防災・BCP補助", "ものづくり補助金"],
+    requiredFields: ["所在地", "予算", "発注状況", "内容"],
+    caution: PRE_ORDER_CAUTION + " BCP計画の策定が条件になる場合があります。",
+    expenses: ["設備費", "工事費"], killers: ["発注・契約後だと対象外の可能性", "計画未策定だと対象外のことがある"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る"],
+    questions: [{ id: "kind", q: "目的は？", options: ["停電・自家発電", "耐震・防災設備", "BCP計画", "わからない"] }],
+  },
+  {
+    key: "export", label: "海外展開・輸出をしたい", description: "海外販路・輸出・越境EC。持続化(海外展開)や自治体・JETRO系の支援が狙えます。",
+    name: "海外展開・輸出", uses: ["海外展開・輸出をしたい"], categories: ["海外展開", "販路開拓", "輸出"],
+    tags: ["海外", "輸出", "越境EC", "展示会", "販路", "インバウンド"],
+    genres: ["小規模事業者持続化補助金（海外展開）", "自治体・JETRO系の海外展開支援"],
+    requiredFields: ["所在地", "予算", "発注状況", "対象国"],
+    caution: PRE_ORDER_CAUTION + " 対象になる費用（渡航・出展・翻訳等）の範囲を確認してください。",
+    expenses: ["展示会出展費", "翻訳・通訳費", "広告宣伝費", "委託費"], killers: ["発注・契約後だと対象外の可能性", "接待費・対象外の渡航費の可能性"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る"],
+    questions: [{ id: "kind", q: "やりたいことは？", options: ["海外展示会・商談", "越境EC", "翻訳・多言語", "わからない"] }],
+  },
+  {
+    key: "certification", label: "認証・知財をとりたい", description: "ISO・各種認証・特許・商標の取得。ものづくりや持続化、自治体の補助が対象になることがあります。",
+    name: "認証・知財取得", uses: ["認証・知財をとりたい"], categories: ["認証取得", "知的財産", "品質"],
+    tags: ["ISO", "認証", "特許", "商標", "知財", "品質", "HACCP"],
+    genres: ["ものづくり補助金", "小規模事業者持続化補助金", "自治体の認証・知財補助"],
+    requiredFields: ["所在地", "予算", "発注状況", "内容"],
+    caution: PRE_ORDER_CAUTION + " 対象になる費用（審査費・専門家費等）を確認してください。",
+    expenses: ["委託費", "審査費", "専門家経費"], killers: ["発注・契約後だと対象外の可能性", "維持費・更新費は対象外のことがある"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "専門家に相談する"],
+    questions: [{ id: "kind", q: "内容は？", options: ["ISO等の認証", "特許・実用新案", "商標・意匠", "わからない"] }],
+  },
+  {
+    key: "inbound", label: "インバウンド・多言語対応をしたい", description: "多言語化・キャッシュレス・観光対応など。持続化や自治体の観光・販路補助が狙えます。",
+    name: "インバウンド・多言語対応", uses: ["インバウンド・多言語対応をしたい"], categories: ["インバウンド", "販路開拓", "観光"],
+    tags: ["インバウンド", "多言語", "観光", "キャッシュレス", "翻訳", "Wi-Fi"],
+    genres: ["小規模事業者持続化補助金", "自治体の観光・販路開拓補助"],
+    requiredFields: ["所在地", "予算", "発注状況", "内容"],
+    caution: PRE_ORDER_CAUTION + " 対象になる費用（多言語化・設備等）の範囲を確認してください。",
+    expenses: ["広告宣伝費", "委託費", "設備費"], killers: ["発注・契約後だと対象外の可能性", "毎月のランニング費用は対象外のことがある"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る"],
+    questions: [{ id: "kind", q: "やりたいことは？", options: ["多言語サイト・メニュー", "キャッシュレス・Wi-Fi", "観光誘客", "わからない"] }],
+  },
 ];
 
 export function getTemplate(key: string | null | undefined): ProjectTemplate | null {
@@ -219,10 +307,53 @@ export function getTemplate(key: string | null | undefined): ProjectTemplate | n
 
 // 支出テーマのカテゴリ分け（「今日やること」と混同しないよう、テーマはカテゴリで見せる）
 export const PROJECT_TEMPLATE_GROUPS: { title: string; keys: string[] }[] = [
-  { title: "店舗・設備", keys: ["aircon", "renovation", "signboard", "newstore", "energy"] },
-  { title: "IT・DX", keys: ["ai_pos", "ec", "website"] },
-  { title: "広告・販路", keys: ["ad", "event"] },
-  { title: "採用・研修", keys: ["hire", "training"] },
+  { title: "店舗・設備", keys: ["aircon", "renovation", "signboard", "newstore", "energy", "machinery", "vehicle", "hygiene"] },
+  { title: "IT・DX", keys: ["ai_pos", "system", "ec", "website"] },
+  { title: "広告・販路", keys: ["ad", "event", "export", "inbound"] },
+  { title: "採用・育成", keys: ["hire", "training"] },
+  { title: "経営・備え", keys: ["bcp", "certification"] },
+];
+
+// 各テーマの「こんな支出に」例文（業種横断で自分ごと化できるように）
+export const TEMPLATE_EXAMPLES: Record<string, string[]> = {
+  aircon: ["飲食店の業務用エアコン", "美容室・サロンの空調", "工場・事務所のエアコン更新"],
+  renovation: ["飲食店の内装リニューアル", "クリニックの待合室改装", "事務所のレイアウト変更"],
+  signboard: ["店舗のファサード看板", "クリニックの案内サイン", "工場の社名サイン"],
+  website: ["会社のコーポレートサイト", "クリニック・士業のHP", "新商品の紹介LP"],
+  ec: ["自社ECサイトの構築", "食品の通販・お取り寄せ", "卸の受発注サイト"],
+  ai_pos: ["飲食店のPOS・予約", "小売の在庫管理", "AIによる需要予測"],
+  ad: ["新商品のSNS広告", "チラシ・DMの配布", "求人・採用のPR"],
+  event: ["展示会・見本市への出展", "自社フェア・体験会", "セミナー・商談会"],
+  hire: ["正社員の新規採用", "パートの正社員化", "高齢者・障害者の雇用"],
+  training: ["新人・OJT研修", "DX・AIのリスキリング", "資格取得・技能研修"],
+  energy: ["店舗のLED化", "工場の高効率機器", "冷蔵・空調の省エネ更新"],
+  newstore: ["新規出店・開業", "2号店の出店", "空き店舗の活用"],
+  machinery: ["製造の加工機・NC機械", "食品加工機・包装機", "検査・測定機器"],
+  vehicle: ["配送・営業車", "移動販売のキッチンカー", "フォークリフト・運搬機"],
+  system: ["受発注・基幹システム", "予約・顧客管理(CRM)", "会計・勤怠・労務システム"],
+  hygiene: ["HACCP対応の厨房改修", "手洗い・換気・衛生設備", "感染対策の間仕切り"],
+  bcp: ["停電に備える自家発電", "耐震・防災設備", "BCP(事業継続)計画づくり"],
+  export: ["海外展示会・商談会", "越境EC・海外通販", "パンフ・サイトの多言語化"],
+  certification: ["ISO・HACCP等の認証", "特許・実用新案の出願", "商標・意匠の登録"],
+  inbound: ["多言語メニュー・サイト", "キャッシュレス・Wi-Fi整備", "観光客向けの販促"],
+};
+
+export function templateExamples(key: string | null | undefined): string[] {
+  return (key && TEMPLATE_EXAMPLES[key]) || [];
+}
+
+// 業種から選ぶ入口：業種ごとに「よくある支出テーマ」を出し分ける
+export const INDUSTRY_PRESETS: { label: string; keys: string[] }[] = [
+  { label: "飲食店", keys: ["aircon", "renovation", "hygiene", "ai_pos", "signboard", "ad", "inbound"] },
+  { label: "小売・卸", keys: ["ec", "ai_pos", "signboard", "ad", "system", "renovation", "export"] },
+  { label: "製造・加工", keys: ["machinery", "energy", "system", "certification", "export", "bcp"] },
+  { label: "建設・工事", keys: ["vehicle", "system", "machinery", "hire", "certification", "bcp"] },
+  { label: "美容・サロン", keys: ["renovation", "aircon", "ai_pos", "website", "ad", "signboard"] },
+  { label: "医療・介護", keys: ["renovation", "hygiene", "system", "hire", "training", "vehicle"] },
+  { label: "運送・物流", keys: ["vehicle", "system", "machinery", "energy", "hire", "bcp"] },
+  { label: "宿泊・観光", keys: ["inbound", "renovation", "website", "ad", "energy", "ai_pos"] },
+  { label: "IT・Web・士業", keys: ["website", "system", "ec", "ad", "hire", "certification"] },
+  { label: "農業・食品加工", keys: ["machinery", "hygiene", "ec", "export", "energy", "certification"] },
 ];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
