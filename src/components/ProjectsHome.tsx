@@ -48,7 +48,7 @@ export function ProjectsHome({ heading = "今ある支出案件", showIntro = tr
           <p className="mb-2 text-xs font-medium text-gray-600">おすすめテンプレート</p>
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {PROJECT_TEMPLATES.slice(0, 6).map((t) => (
-              <Link key={t.key} href="/projects/new" className="rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm">
+              <Link key={t.key} href={`/projects/new?template=${t.key}`} className="rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm">
                 <div className="font-medium text-ink">{t.label}</div>
                 <div className="mt-0.5 text-[11px] text-gray-400">{t.categories.slice(0, 2).join("・")}</div>
               </Link>

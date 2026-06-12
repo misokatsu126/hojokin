@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   emptyProject, upsertProject, getTemplate, PROJECT_TEMPLATES, PURPOSE_TAGS,
   ORDER_STATUS_LABEL, URGENCY_LABEL, formatBudget,
@@ -11,11 +11,17 @@ import {
 
 const STEPS = ["何に使う？", "どこで？", "予算・時期", "発注状況", "会社情報", "確認"];
 
-export default function NewProjectWizard() {
+function NewProjectWizard() {
   const router = useRouter();
+  const sp = useSearchParams();
   const [step, setStep] = useState(0);
   const [custom, setCustom] = useState(false);
-  const [p, setP] = useState<SpendingProject>(() => emptyProject());
+  const [p, setP] = useState<SpendingProject>(() => {
+    // ホームの空状態テンプレート（?template=aircon 等）から開いたら、そのテンプレを選択済みにする
+    const base = emptyProject();
+    const t = getTemplate(sp.get("template"));
+    return t ? { ...base, templateKey: t.key, name: t.name, uses: [...t.uses], purpose: t.label } : base;
+  });
   const set = (k: keyof SpendingProject, v: any) => setP((prev) => ({ ...prev, [k]: v }));
   const tpl = getTemplate(p.templateKey);
 
@@ -207,4 +213,12 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 function Row({ k, v }: { k: string; v: string }) {
   return (<><dt className="text-gray-400">{k}</dt><dd className="col-span-2 text-ink">{v}</dd></>);
+}
+
+export default function NewProjectPage() {
+  return (
+    <Suspense fallback={<p className="py-12 text-center text-gray-400">読み込み中…</p>}>
+      <NewProjectWizard />
+    </Suspense>
+  );
 }

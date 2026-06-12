@@ -5,18 +5,21 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, classifyForProject, projectTasks, orderAdvice, getTemplate, PROJECT_TEMPLATES,
-  type SpendingProject, type ProjectMatch,
+  loadProjects, classifyForProject, projectTasks, orderAdvice, getTemplate, PROJECT_TEMPLATES, PROJECT_CHECKLIST,
+  type SpendingProject, type ProjectMatch, type ProjectTask,
 } from "@/lib/projects";
 
 type Row = {
   p: SpendingProject;
   match: ProjectMatch;
+  tasks: ProjectTask[];
   preOrderRisk: boolean; // 発注前確認が必要
   orderedRisk: boolean; // すでに発注済み（対象外の恐れ）
   headline: string;
-  tone: "red" | "blue" | "green";
+  topTaskKey: string | null;
+  tone: "red" | "amber" | "blue" | "green";
   nextActions: string[];
+  done: number;
   rank: number; // 並び順（小さいほど上）
 };
 
@@ -42,16 +45,22 @@ export function HomeDashboard() {
       const preOrderRisk = adv.wait && !p.checklist?.["pre_order"];
       let headline: string;
       let tone: Row["tone"];
-      if (preOrderRisk) { headline = "まだ発注しないでください"; tone = "red"; }
+      // 発注状況別に headline と色を変える（常に赤の「まだ発注しないで」は強すぎる）
+      if (orderedRisk) { headline = "この経費は対象外の可能性があります"; tone = "red"; }
+      else if (tasks[0]?.taskKey === "pre_order") {
+        headline = p.orderStatus === "estimate" ? "見積だけならまだ間に合う可能性があります" : "発注前に公式要領を確認してください";
+        tone = "amber";
+      }
       else if (tasks[0]) { headline = tasks[0].action; tone = "blue"; }
       else if (match.top?.r.key === "usable") { headline = "公式ページで最終確認しましょう"; tone = "green"; }
       else { headline = "公式ページで確認しましょう"; tone = "blue"; }
       const tpl = getTemplate(p.templateKey);
-      const nextActions = (tpl?.nextActions ?? match.top?.r.nextActions ?? ["公式要領確認", "見積取得", "発注前確認"]).slice(0, 4);
-      // 並び順：発注前確認 → 締切近い → タスクあり → その他
+      // 「次にやること」は実際の未完了タスクから作る（チェック完了で消える）。0件のときだけテンプレ補助
+      const nextActions = tasks.length ? tasks.map((t) => t.action).slice(0, 3) : (tpl?.nextActions ?? ["公式ページで確認"]).slice(0, 3);
+      const done = PROJECT_CHECKLIST.filter((c) => p.checklist?.[c.key]).length;
       const deadlineNear = (match.top?.r.lc.deadlineDays ?? 999) <= 14;
-      const rank = preOrderRisk ? 0 : deadlineNear ? 1 : tasks.length ? 2 : 3;
-      return { p, match, preOrderRisk, orderedRisk, headline, tone, nextActions, rank };
+      const rank = orderedRisk || preOrderRisk ? 0 : deadlineNear ? 1 : tasks.length ? 2 : 3;
+      return { p, match, tasks, preOrderRisk, orderedRisk, headline, topTaskKey: tasks[0]?.taskKey ?? null, tone, nextActions, done, rank };
     }).sort((a, b) => a.rank - b.rank);
   }, [projects, items]);
 
@@ -81,7 +90,7 @@ export function HomeDashboard() {
           <p className="mb-2 text-xs font-medium text-gray-600">おすすめテンプレート</p>
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {PROJECT_TEMPLATES.slice(0, 6).map((t) => (
-              <Link key={t.key} href="/projects/new" className="rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm">
+              <Link key={t.key} href={`/projects/new?template=${t.key}`} className="rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm">
                 <div className="font-medium text-ink">{t.label}</div>
               </Link>
             ))}
@@ -130,12 +139,12 @@ export function HomeDashboard() {
           <ol className="space-y-2">
             {todayRows.map((r, i) => (
               <li key={r.p.id}>
-                <Link href={`/projects/${r.p.id}`} className="flex items-start gap-3 rounded-xl border-l-4 bg-white p-3 transition hover:shadow-sm"
-                  style={{ borderLeftColor: r.tone === "red" ? "#ef4444" : r.tone === "green" ? "#22c55e" : "#3b82f6" }}>
+                <Link href={`/projects/${r.p.id}${r.topTaskKey ? `?task=${r.topTaskKey}` : ""}`} className="flex items-start gap-3 rounded-xl border-l-4 bg-white p-3 transition hover:shadow-sm"
+                  style={{ borderLeftColor: r.tone === "red" ? "#ef4444" : r.tone === "amber" ? "#f59e0b" : r.tone === "green" ? "#22c55e" : "#3b82f6" }}>
                   <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-ink">{r.p.name || "支出案件"}</span>
-                    <span className={`block text-sm font-semibold ${r.tone === "red" ? "text-red-600" : r.tone === "green" ? "text-green-700" : "text-blue-700"}`}>{r.headline}</span>
+                    <span className={`block text-sm font-semibold ${r.tone === "red" ? "text-red-600" : r.tone === "amber" ? "text-amber-700" : r.tone === "green" ? "text-green-700" : "text-blue-700"}`}>{r.headline}</span>
                     <span className="mt-0.5 block text-xs text-gray-500">次にやること：{r.nextActions.join(" → ")}</span>
                   </span>
                 </Link>
@@ -163,7 +172,8 @@ export function HomeDashboard() {
               <Link key={r.p.id} href={`/projects/${r.p.id}`} className="rounded-lg border bg-white p-3 transition hover:border-accent">
                 <div className="truncate text-sm font-semibold text-ink">{r.p.name || "支出案件"}</div>
                 <div className="mt-0.5 truncate text-xs text-gray-500">{r.p.location || r.p.store || ""}{r.match.total > 0 ? `／候補 ${r.match.total}件` : ""}</div>
-                <div className={`mt-1 text-xs font-medium ${r.tone === "red" ? "text-red-600" : r.tone === "green" ? "text-green-700" : "text-blue-700"}`}>{r.headline}</div>
+                <div className={`mt-1 text-xs font-medium ${r.tone === "red" ? "text-red-600" : r.tone === "amber" ? "text-amber-700" : r.tone === "green" ? "text-green-700" : "text-blue-700"}`}>{r.headline}</div>
+                <div className="mt-1 text-[11px] text-gray-500">申請準備：{r.done}/{PROJECT_CHECKLIST.length} 完了{r.tasks[0] ? `　次：${r.tasks[0].action}` : ""}</div>
               </Link>
             ))}
           </div>
