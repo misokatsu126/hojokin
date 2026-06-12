@@ -334,10 +334,12 @@ export function deleteProject(id: string) {
 export function projectToProfile(p: SpendingProject): BusinessProfile {
   const tpl = getTemplate(p.templateKey);
   const answerText = Object.values(p.answers ?? {}).join(" ");
-  // テンプレの categories / genres / tags / 回答 も判定テキストに含める（経費・地域判定に効く）
+  // 判定テキスト：案件の実際の意図（uses/purpose/回答）＋テンプレの categories/tags（具体語）。
+  // ※ genres（関係しそうな補助金ジャンル名）は displayConfidence を強めすぎるため CORE には入れない。
+  //   ジャンルの近さは verifyItem 側の目的カテゴリ近接（possible 判定）＝見逃しリスクで拾う。
   const text = [
     p.name, p.purpose, p.uses.join(" "), p.industry, p.store, answerText,
-    (tpl?.tags ?? []).join(" "), (tpl?.categories ?? []).join(" "), (tpl?.genres ?? []).join(" "),
+    (tpl?.tags ?? []).join(" "), (tpl?.categories ?? []).join(" "),
   ].filter(Boolean).join(" ");
   const ex = expandQuery(text);
   const regions = Array.from(new Set([...expandRegions(p.location), ...expandRegions(p.store), ...expandRegions(p.name)]));
