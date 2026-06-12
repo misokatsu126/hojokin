@@ -46,31 +46,31 @@ export function alertsForProject(p: SpendingProject, match?: ProjectMatch): Proj
 
   if (ordered) {
     out.push({ ...base, key: `${p.id}:ordered_risk`, kind: "ordered_risk", severity: "high",
-      title: "発注後の経費は対象外の可能性", detail: "別の経費・次回公募で使えないか確認しましょう。" });
+      title: "発注のあとなので要注意", detail: "この費用は対象外になることがあります。別の費用や次回の募集で使えないか確認しましょう。" });
   } else if (!c["pre_order"]) {
     out.push({ ...base, key: `${p.id}:pre_order`, kind: "pre_order", severity: "high",
-      title: "発注前の確認が未完了",
-      detail: p.orderStatus === "estimate" ? "見積段階です。契約・発注・支払い前に公式要領を確認してください。" : "発注前に公式の公募要領を確認してください。",
+      title: "発注の前に確認しましょう",
+      detail: p.orderStatus === "estimate" ? "まだ見積もり段階です。契約・注文・支払いの前に、公式サイトで条件を確認しましょう。" : "契約・注文する前に、補助金が使えるか公式サイトで条件を確認しましょう。",
       taskKey: "pre_order" });
   }
 
   const dd = match?.top ? match.top.r.lc.deadlineDays : null;
   if (dd != null && dd >= 0 && dd <= 14 && !c["deadline"]) {
     out.push({ ...base, key: `${p.id}:deadline_soon`, kind: "deadline_soon", severity: "high",
-      title: `締切が近い候補があります（あと${dd}日）`, detail: "締切・対象経費を公式要領で早めに確認してください。",
+      title: `締切まであと${dd}日です`, detail: "締切と「対象になる費用」を、早めに公式サイトで確認しましょう。",
       taskKey: "deadline", deadlineDays: dd });
   }
 
   const isIT = hasCore("it_donyu") || ["ai_pos", "ec", "website"].includes(p.templateKey ?? "");
   if (isIT && !c["gbizid"]) {
     out.push({ ...base, key: `${p.id}:gbizid`, kind: "gbizid", severity: "medium",
-      title: "GビズIDが未確認", detail: "IT・DX系補助金で必要です。取得に時間がかかることがあります。", taskKey: "gbizid" });
+      title: "GビズIDの準備を", detail: "IT・DX系の補助金で必要になります。取得に時間がかかることがあるので早めに。", taskKey: "gbizid" });
   }
 
   const needConsult = hasCore("jizokuka") || cores.some((x) => x.group === "labor_grant");
   if (needConsult && !c["shokokai"] && !c["pro"]) {
     out.push({ ...base, key: `${p.id}:consult`, kind: "consult", severity: "medium",
-      title: "事前相談が未確認", detail: "商工会議所・社労士など、事前相談や事前計画が必要な制度があります。",
+      title: "先に相談しておきましょう", detail: "この種類の補助金は、商工会議所や社労士への事前相談・事前の計画が必要なことがあります。",
       taskKey: hasCore("jizokuka") ? "shokokai" : "pro" });
   }
 
@@ -78,7 +78,7 @@ export function alertsForProject(p: SpendingProject, match?: ProjectMatch): Proj
   const estimateRelevant = !["hire", "training"].includes(p.templateKey ?? "");
   if (!ordered && estimateRelevant && !c["estimate"]) {
     out.push({ ...base, key: `${p.id}:estimate`, kind: "estimate", severity: "medium",
-      title: "見積が未取得", detail: "多くの補助金で見積書が必要になります。", taskKey: "estimate" });
+      title: "見積もりをとりましょう", detail: "多くの補助金で見積書の提出が必要になります。", taskKey: "estimate" });
   }
 
   return out;
