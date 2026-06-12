@@ -110,6 +110,7 @@ export function HomeDashboard() {
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href="/projects/new" className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">支出テーマを選ぶ</Link>
             <Link href="/search" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">相談して作る</Link>
+            <Link href="/guide" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">使い方を見る</Link>
           </div>
         </div>
         <FooterLinks />
