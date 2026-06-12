@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, syncProjectsFromSupabase, classifyForProject, projectTasks, orderAdvice, getTemplate, templateExamples, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, APP_STATUS_LABEL,
+  loadProjects, syncProjectsFromSupabase, classifyForProject, projectTasks, orderAdvice, getTemplate, templateExamples, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, APP_STATUS_LABEL, APP_STATUS_ORDER,
   type SpendingProject, type ProjectMatch, type ProjectTask,
 } from "@/lib/projects";
 
@@ -143,6 +143,13 @@ export function HomeDashboard() {
     };
   }, [rows, counts, allTopTasks, anyOrdered]);
 
+  // 進行状況の内訳（検討中→入金）
+  const statusCounts = useMemo(() => {
+    const m: Partial<Record<string, number>> = {};
+    for (const r of rows) { const s = r.p.appStatus ?? "considering"; m[s] = (m[s] ?? 0) + 1; }
+    return m;
+  }, [rows]);
+
   // ---- 空状態：テンプレート入口 ----
   if (loaded && projects.length === 0) {
     return (
@@ -195,6 +202,18 @@ export function HomeDashboard() {
         <SummaryCard n={counts.missed} label="見逃し注意" tone="orange" href="/projects" />
         <SummaryCard n={counts.next} label="次回狙い" tone="purple" href="/projects" />
       </div>
+
+      {/* 進行状況の内訳 */}
+      {rows.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-semibold text-gray-500">進行状況：</span>
+          {APP_STATUS_ORDER.filter((s) => (statusCounts[s] ?? 0) > 0).map((s) => (
+            <Link key={s} href="/projects" className="rounded-full border bg-white px-2.5 py-1 text-[11px] text-gray-600 hover:border-accent">
+              {APP_STATUS_LABEL[s]} <span className="font-bold text-ink">{statusCounts[s]}</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* 4. 今日やること */}
       <div className="mb-6">
