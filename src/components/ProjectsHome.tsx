@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, syncProjectsFromSupabase, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate, templateExamples, getTopProjectTasks,
+  loadProjects, syncProjectsFromSupabase, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate, templateExamples, getTopProjectTasks, APP_STATUS_LABEL,
   type SpendingProject,
 } from "@/lib/projects";
 import { TRIAGE_META } from "@/lib/triage";
@@ -91,7 +91,10 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
     <Link href={`/projects/${project.id}`} className="block rounded-xl border bg-white p-4 transition hover:border-accent hover:shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-base font-bold text-ink">{project.name || "（名称未設定）"}</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-base font-bold text-ink">{project.name || "（名称未設定）"}</h2>
+            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{APP_STATUS_LABEL[project.appStatus ?? "considering"]}</span>
+          </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
             {project.store && <span>🏬{project.store}</span>}
             {project.location && <span>📍{project.location}</span>}
@@ -100,9 +103,14 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
             <span className={`rounded px-1.5 py-0.5 ${project.urgency === "high" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500"}`}>{URGENCY_LABEL[project.urgency]}</span>
           </div>
         </div>
-        <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] ${adv.wait ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
-          {adv.wait ? "発注前：申請の可能性あり" : "発注後：対象外の可能性"}
-        </span>
+        {(() => {
+          const st = project.appStatus ?? "considering";
+          if (st === "applied") return <span className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800">申請済み：交付決定待ち</span>;
+          if (st === "approved" || st === "implementing") return <span className="shrink-0 rounded bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">交付決定済み</span>;
+          if (st === "reported") return <span className="shrink-0 rounded bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">入金待ち</span>;
+          if (st === "received") return <span className="shrink-0 rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-800">完了</span>;
+          return <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] ${adv.wait ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{adv.wait ? "発注前：申請の可能性あり" : "発注後：対象外の可能性"}</span>;
+        })()}
       </div>
 
       {/* 判定 */}
