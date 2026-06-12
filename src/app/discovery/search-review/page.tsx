@@ -9,6 +9,7 @@ import { formatAmount } from "@/lib/utils";
 import { isSampleDiscovered } from "@/lib/sampleFilter";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { formatDate } from "@/lib/utils";
+import { loadProjects, projectToProfile, type SpendingProject } from "@/lib/projects";
 
 const STATE_TONE: Record<VerifyState, string> = {
   user_visible: "bg-green-100 text-green-800",
@@ -22,17 +23,23 @@ export default function SearchReviewPage() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<VerifyState | "all">("all");
+  const [projects, setProjects] = useState<SpendingProject[]>([]);
+  const [projectId, setProjectId] = useState("");
 
   useEffect(() => {
+    setProjects(loadProjects());
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
   }, []);
 
   const rows = useMemo(() => {
+    // 案件を選ぶと、その案件の視点（地域・経費）で検証する
+    const sel = projects.find((p) => p.id === projectId);
+    const profile = sel ? projectToProfile(sel) : null;
     return items
       .filter((i) => !isSampleDiscovered(i))
-      .map((i) => ({ i, v: verifyItem(i, null) }))
+      .map((i) => ({ i, v: verifyItem(i, profile) }))
       .sort((a, b) => b.v.score - a.v.score);
-  }, [items]);
+  }, [items, projects, projectId]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -52,6 +59,16 @@ export default function SearchReviewPage() {
         検索・収集で見つけた候補を「公式・制度ページ・要件・ノイズ」で検証した結果です。
         ユーザー画面には「表示OK／公式確認待ち」だけが出ます。ノイズ・古い・参考情報はここで管理します。
       </p>
+
+      {/* 案件別レビュー：案件を選ぶと、その案件の地域・経費で検証する */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-gray-600">案件別に検証：</span>
+        <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="rounded-md border px-3 py-1.5">
+          <option value="">一般検証（案件なし）</option>
+          {projects.map((p) => <option key={p.id} value={p.id}>{p.name || "支出案件"}</option>)}
+        </select>
+        {projectId && <span className="text-xs text-gray-400">選択中の案件の視点で地域・経費を判定しています</span>}
+      </div>
 
       <div className="mb-4 flex flex-wrap gap-1.5 text-xs">
         <button onClick={() => setFilter("all")} className={`rounded-full border px-2.5 py-1 ${filter === "all" ? "border-accent bg-accent/10 text-accent" : "text-gray-600 hover:bg-gray-50"}`}>すべて（{rows.length}）</button>

@@ -334,7 +334,11 @@ export function deleteProject(id: string) {
 export function projectToProfile(p: SpendingProject): BusinessProfile {
   const tpl = getTemplate(p.templateKey);
   const answerText = Object.values(p.answers ?? {}).join(" ");
-  const text = `${p.name} ${p.purpose} ${p.uses.join(" ")} ${p.industry} ${p.store} ${answerText} ${(tpl?.tags ?? []).join(" ")}`;
+  // テンプレの categories / genres / tags / 回答 も判定テキストに含める（経費・地域判定に効く）
+  const text = [
+    p.name, p.purpose, p.uses.join(" "), p.industry, p.store, answerText,
+    (tpl?.tags ?? []).join(" "), (tpl?.categories ?? []).join(" "), (tpl?.genres ?? []).join(" "),
+  ].filter(Boolean).join(" ");
   const ex = expandQuery(text);
   const regions = Array.from(new Set([...expandRegions(p.location), ...expandRegions(p.store), ...expandRegions(p.name)]));
   const now = new Date().toISOString();
@@ -347,8 +351,9 @@ export function projectToProfile(p: SpendingProject): BusinessProfile {
     industries: Array.from(new Set([...(p.industry ? [p.industry] : []), ...ex.industries])),
     description: p.purpose || null,
     purposes: ex.purposes,
-    expenses: ex.expenses,
-    keywords: Array.from(new Set([...ex.keywords, ...p.uses])),
+    // テンプレの「よくある対象経費」を明示的に経費カテゴリへ反映（経費近似判定に重要）
+    expenses: Array.from(new Set([...ex.expenses, ...(tpl?.expenses ?? [])])),
+    keywords: Array.from(new Set([...ex.keywords, ...p.uses, ...(tpl?.tags ?? [])])),
     exclude_keywords: [],
     desired_amount: p.budget,
     notes: p.memo || null,
@@ -358,7 +363,7 @@ export function projectToProfile(p: SpendingProject): BusinessProfile {
 }
 
 // 案件ごとの「今日やること」を1つだけ返す（最も重要なものを優先）。完了済みなら null。
-export type ProjectTask = { projectId: string; projectName: string; action: string; reason: string };
+export type ProjectTask = { projectId: string; projectName: string; taskKey: string; action: string; reason: string };
 
 const IT_USE = /(AI|POS|在庫|EC|ホームページ|システム|DX|デジタル)/i;
 
@@ -372,27 +377,27 @@ export function projectTasks(project: SpendingProject, match?: ProjectMatch): Pr
   const out: ProjectTask[] = [];
 
   if ((project.orderStatus === "none" || project.orderStatus === "estimate") && !c["pre_order"]) {
-    out.push({ ...base, action: "発注前か確認してください", reason: "発注済みだと対象外になる補助金があります" });
+    out.push({ ...base, taskKey: "pre_order", action: "発注前か確認してください", reason: "発注済みだと対象外になる補助金があります" });
   }
   // IT/DX系はGビズIDを上位に
   if (isIT && !c["gbizid"]) {
-    out.push({ ...base, action: "GビズIDを確認してください", reason: "IT・DX系補助金で必要になる可能性があります" });
+    out.push({ ...base, taskKey: "gbizid", action: "GビズIDを確認してください", reason: "IT・DX系補助金で必要になる可能性があります" });
   }
   if (project.employees == null) {
-    out.push({ ...base, action: "従業員数を入力してください", reason: "小規模事業者向け補助金の判定に必要です" });
+    out.push({ ...base, taskKey: "employees", action: "従業員数を入力してください", reason: "小規模事業者向け補助金の判定に必要です" });
   }
   if (project.budget == null) {
-    out.push({ ...base, action: "予算を入力してください", reason: "対象になる補助金を見つけやすくなります" });
+    out.push({ ...base, taskKey: "budget", action: "予算を入力してください", reason: "対象になる補助金を見つけやすくなります" });
   }
   const dd = match?.top ? match.top.r.lc.deadlineDays : null;
   if (dd != null && dd >= 0 && dd <= 14 && !c["deadline"]) {
-    out.push({ ...base, action: "締切が近い制度があります。締切を確認してください", reason: `あと${dd}日の候補があります` });
+    out.push({ ...base, taskKey: "deadline", action: "締切が近い制度があります。締切を確認してください", reason: `あと${dd}日の候補があります` });
   }
   if (!c["guideline"]) {
-    out.push({ ...base, action: "公式の公募要領を確認してください", reason: "対象経費・締切・条件を確認できます" });
+    out.push({ ...base, taskKey: "guideline", action: "公式の公募要領を確認してください", reason: "対象経費・締切・条件を確認できます" });
   }
   if (!c["estimate"]) {
-    out.push({ ...base, action: "見積を取得しましょう", reason: "多くの補助金で見積書が必要になります" });
+    out.push({ ...base, taskKey: "estimate", action: "見積を取得しましょう", reason: "多くの補助金で見積書が必要になります" });
   }
   return out;
 }

@@ -6,8 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  getProject, upsertProject, deleteProject, classifyForProject, orderAdvice, getTemplate,
-  ORDER_STATUS_LABEL, PROJECT_CHECKLIST, type SpendingProject, type ProjectMatch,
+  getProject, upsertProject, deleteProject, classifyForProject, orderAdvice, getTemplate, projectTasks,
+  ORDER_STATUS_LABEL, PROJECT_CHECKLIST, type SpendingProject, type ProjectMatch, type ProjectTask,
 } from "@/lib/projects";
 import { TRIAGE_META, type TriageKey, type TriageResult } from "@/lib/triage";
 import type { VerifyResult } from "@/lib/verify";
@@ -35,20 +35,39 @@ export default function ProjectDetailPage() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [highlightTask, setHighlightTask] = useState<string | null>(null);
 
   useEffect(() => {
     const p = getProject(id);
     if (!p) { setNotFound(true); setLoading(false); return; }
     setProject(p);
+    if (typeof window !== "undefined") setHighlightTask(new URLSearchParams(window.location.search).get("task"));
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
   }, [id]);
 
   const match = useMemo(() => (project ? classifyForProject(project, items) : null), [project, items]);
+  const tasks = useMemo(() => (project ? projectTasks(project, match ?? undefined) : []), [project, match]);
 
   function toggleCheck(key: string) {
     if (!project) return;
     const next = { ...project, checklist: { ...project.checklist, [key]: !project.checklist[key] } };
     setProject(upsertProject(next));
+  }
+
+  // 「次にやること」の完了：チェック項目は true に、従業員数/予算は入力して消す
+  function completeTask(t: ProjectTask) {
+    if (!project) return;
+    if (t.taskKey === "employees") {
+      const v = window.prompt("従業員数（人）を入力してください");
+      if (v != null && v.trim()) setProject(upsertProject({ ...project, employees: Number(v.replace(/[^0-9]/g, "")) || null }));
+      return;
+    }
+    if (t.taskKey === "budget") {
+      const v = window.prompt("予算（万円）を入力してください");
+      if (v != null && v.trim()) setProject(upsertProject({ ...project, budget: (Number(v.replace(/[^0-9]/g, "")) || 0) * 10000 }));
+      return;
+    }
+    setProject(upsertProject({ ...project, checklist: { ...project.checklist, [t.taskKey]: true } }));
   }
   function remove() {
     if (!project) return;
@@ -101,6 +120,24 @@ export default function ProjectDetailPage() {
         <p className="text-base font-bold">{adv.wait ? "🟢" : "⚠️"} {adv.title}</p>
         <p className="mt-1 text-sm leading-relaxed">{adv.text}</p>
       </div>
+
+      {/* 次にやること（完了できる） */}
+      {tasks.length > 0 && (
+        <div className="mt-3 rounded-xl border bg-white p-4">
+          <h2 className="mb-2 text-sm font-bold text-ink">次にやること</h2>
+          <ol className="space-y-1.5">
+            {tasks.slice(0, 3).map((t) => (
+              <li key={t.taskKey} className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 ${highlightTask === t.taskKey ? "bg-amber-50 ring-1 ring-amber-300" : ""}`}>
+                <span className="min-w-0 text-sm">
+                  <span className="font-medium text-ink">{t.action}</span>
+                  <span className="ml-1 text-xs text-gray-400">（{t.reason}）</span>
+                </span>
+                <button onClick={() => completeTask(t)} className="shrink-0 rounded-md border border-green-300 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-50">完了</button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       {/* 2. この案件の結論 */}
       {conclusion && (
