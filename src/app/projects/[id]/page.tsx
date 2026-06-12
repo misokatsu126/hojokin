@@ -169,6 +169,16 @@ export default function ProjectDetailPage() {
       <div className={`mt-4 rounded-xl border-2 p-4 ${adv.tone}`}>
         <p className="text-base font-bold">{adv.wait ? "🟢" : "⚠️"} {adv.title}</p>
         <p className="mt-1 text-sm leading-relaxed">{adv.text}</p>
+        {!adv.wait && (
+          <div className="mt-2 rounded-md bg-white/60 p-2 text-xs text-gray-700">
+            <p className="font-medium">それでもできること（あきらめないで）：</p>
+            <ul className="mt-0.5 list-disc pl-5">
+              <li>追加経費・別の経費で使える制度がないか確認する</li>
+              <li>次回公募を確認する（次回狙い）</li>
+              <li>専門家（商工会議所・士業）に相談する</li>
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* 次にやること（完了できる） */}
@@ -176,7 +186,7 @@ export default function ProjectDetailPage() {
         <div className="mt-3 rounded-xl border bg-white p-4">
           <h2 className="mb-2 text-sm font-bold text-ink">次にやること</h2>
           <ol className="space-y-1.5">
-            {tasks.slice(0, 5).map((t) => (
+            {tasks.map((t) => (
               <li key={t.taskKey} className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 ${highlightTask === t.taskKey ? "bg-amber-50 ring-1 ring-amber-300" : ""}`}>
                 <span className="min-w-0 text-sm">
                   <span className="font-medium text-ink">{t.action}</span>
