@@ -9,7 +9,7 @@ import {
   type SpendingProject, type OrderStatus, type Urgency, type ProjectTemplate,
 } from "@/lib/projects";
 
-const STEPS = ["何に使う？", "どこで？", "予算・時期", "発注状況", "会社情報", "確認"];
+const STEPS = ["支出テーマ", "どこで？", "予算・時期", "発注状況", "会社情報", "確認"];
 
 function NewProjectWizard() {
   const router = useRouter();
@@ -62,8 +62,8 @@ function NewProjectWizard() {
         {/* ステップ1：テンプレート */}
         {step === 0 && (
           <div>
-            <h2 className="mb-1 text-base font-semibold text-ink">何にお金を使いたいですか？</h2>
-            <p className="mb-3 text-xs text-gray-500">近いものを選んでください。あとから変えられます。</p>
+            <h2 className="mb-1 text-base font-semibold text-ink">何にお金を使う予定ですか？</h2>
+            <p className="mb-3 text-xs text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を確認したい支出内容です。近いものを選んでください（あとから変えられます）。</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {PROJECT_TEMPLATES.map((t) => (
                 <button key={t.key} onClick={() => pickTemplate(t)}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, classifyForProject, projectTasks, orderAdvice, getTemplate, PROJECT_TEMPLATES, PROJECT_CHECKLIST,
+  loadProjects, classifyForProject, projectTasks, orderAdvice, getTemplate, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST,
   type SpendingProject, type ProjectMatch, type ProjectTask,
 } from "@/lib/projects";
 
@@ -85,18 +85,24 @@ export function HomeDashboard() {
       <div>
         <Title />
         <div className="rounded-xl border bg-white p-6">
-          <p className="mb-1 text-base font-semibold text-ink">まだ支出案件がありません</p>
-          <p className="mb-3 text-sm text-gray-500">まずは、何にお金を使いたいか選んでください。</p>
-          <p className="mb-2 text-xs font-medium text-gray-600">おすすめテンプレート</p>
-          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {PROJECT_TEMPLATES.slice(0, 6).map((t) => (
-              <Link key={t.key} href={`/projects/new?template=${t.key}`} className="rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm">
-                <div className="font-medium text-ink">{t.label}</div>
-              </Link>
+          <p className="mb-1 text-base font-semibold text-ink">補助金チェックしたい支出を選んでください</p>
+          <p className="mb-3 text-sm text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を確認したい<strong>支出テーマ</strong>です。</p>
+          <div className="space-y-3">
+            {PROJECT_TEMPLATE_GROUPS.map((g) => (
+              <div key={g.title}>
+                <p className="mb-1 text-xs font-semibold text-gray-600">{g.title}</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {g.keys.map((k) => getTemplate(k)).filter(Boolean).map((t) => (
+                    <Link key={t!.key} href={`/projects/new?template=${t!.key}`} className="rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm">
+                      <div className="font-medium text-ink">{t!.label}</div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/projects/new" className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">テンプレートから作る</Link>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href="/projects/new" className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">支出テーマを選ぶ</Link>
             <Link href="/search" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">相談して作る</Link>
           </div>
         </div>
