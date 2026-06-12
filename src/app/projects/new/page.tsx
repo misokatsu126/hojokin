@@ -38,7 +38,7 @@ function NewProjectWizard() {
   function save() {
     const name = p.name.trim() || p.uses[0] || "新しい支出案件";
     const saved = upsertProject({ ...p, name });
-    router.push(`/projects/${saved.id}`);
+    router.push(`/projects/${saved.id}?created=1`);
   }
 
   const canNext = !!p.templateKey || p.uses.length > 0 || p.name.trim().length > 0;

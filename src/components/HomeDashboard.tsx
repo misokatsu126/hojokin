@@ -77,11 +77,13 @@ export function HomeDashboard() {
   }, [rows]);
 
   const anyOrdered = rows.some((r) => r.orderedRisk);
-  // 今日やること＝全案件の申請準備タスクを優先度順に最大5件（支出テーマは含めない）
-  const topTasks = useMemo(
-    () => rows.flatMap((r) => r.tasks).sort((a, b) => a.priority - b.priority).slice(0, 5),
+  // 今日やること＝全案件の申請準備タスクを優先度順（支出テーマは含めない）
+  const allTopTasks = useMemo(
+    () => rows.flatMap((r) => r.tasks).sort((a, b) => a.priority - b.priority),
     [rows]
   );
+  const [showAllTasks, setShowAllTasks] = useState(false);
+  const topTasks = showAllTasks ? allTopTasks.slice(0, 12) : allTopTasks.slice(0, 3);
 
   // ---- 空状態：テンプレート入口 ----
   if (loaded && projects.length === 0) {
@@ -160,6 +162,11 @@ export function HomeDashboard() {
               </li>
             ))}
           </ol>
+        )}
+        {allTopTasks.length > 3 && (
+          <button onClick={() => setShowAllTasks((v) => !v)} className="mt-2 text-xs text-accent hover:underline">
+            {showAllTasks ? "閉じる" : `もっと見る（あと${allTopTasks.length - 3}件）`}
+          </button>
         )}
       </div>
 

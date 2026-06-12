@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, getTemplate,
+  loadProjects, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate,
   type SpendingProject,
 } from "@/lib/projects";
 import { TRIAGE_META } from "@/lib/triage";
@@ -81,6 +81,8 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
   const adv = orderAdvice(project.orderStatus);
   const meta = top ? TRIAGE_META[top.r.key] : null;
   const next = top?.r.nextActions ?? ["公式の公募要領を確認する", "対象経費を確認する"];
+  const done = PROJECT_CHECKLIST.filter((c) => project.checklist?.[c.key]).length;
+  const pct = Math.round((done / PROJECT_CHECKLIST.length) * 100);
 
   return (
     <Link href={`/projects/${project.id}`} className="block rounded-xl border bg-white p-4 transition hover:border-accent hover:shadow-sm">
@@ -119,6 +121,12 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
           </>
         )}
         <p className="mt-1 text-[11px] text-gray-500">見逃しリスク：<span className={match.missRisk === "高" ? "font-semibold text-orange-700" : match.missRisk === "中" ? "text-amber-700" : "text-green-700"}>{match.missRisk}</span></p>
+        <div className="mt-1 flex items-center gap-2">
+          <div className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-200">
+            <div className="h-full bg-green-500" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="text-[11px] text-gray-500">申請準備 {done}/{PROJECT_CHECKLIST.length}</span>
+        </div>
         {!adv.wait && <p className="mt-0.5 text-[11px] text-amber-700">注意：すでに発注済みだと対象外の可能性があります</p>}
       </div>
 
