@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate, getTopProjectTasks,
+  loadProjects, syncProjectsFromSupabase, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate, getTopProjectTasks,
   type SpendingProject,
 } from "@/lib/projects";
 import { TRIAGE_META } from "@/lib/triage";
@@ -20,6 +20,7 @@ export function ProjectsHome({ heading = "今ある支出案件", showIntro = tr
     setProjects(loadProjects());
     const onChange = () => setProjects(loadProjects());
     window.addEventListener("projects-changed", onChange);
+    syncProjectsFromSupabase().catch(() => {}); // クラウドと最新化
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
     return () => window.removeEventListener("projects-changed", onChange);
   }, []);

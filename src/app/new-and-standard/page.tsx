@@ -7,7 +7,7 @@ import type { DiscoveredItem, BusinessProfile } from "@/lib/types";
 import { isSampleDiscovered } from "@/lib/sampleFilter";
 import { triageDiscovered, TRIAGE_META } from "@/lib/triage";
 import { verifyItem } from "@/lib/verify";
-import { loadProjects, type SpendingProject } from "@/lib/projects";
+import { loadProjects, syncProjectsFromSupabase, type SpendingProject } from "@/lib/projects";
 import { CORE_PROGRAM_MASTER, getCoreProgramChecks, coreFreshness, OFFICIAL_STATUS_LABEL, OFFICIAL_STATUS_TONE, type CoreGroup } from "@/lib/coreMaster";
 import { formatDate, daysUntil } from "@/lib/utils";
 
@@ -32,6 +32,7 @@ export default function NewAndStandardPage() {
 
   useEffect(() => {
     setProjects(loadProjects());
+    syncProjectsFromSupabase().then(setProjects).catch(() => {});
     Promise.all([fetchDiscoveredItems(), fetchProfiles()])
       .then(([it, p]) => { setItems(it); setProfiles(p); })
       .catch((e) => setError(e.message ?? "読み込みに失敗しました"))

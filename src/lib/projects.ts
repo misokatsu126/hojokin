@@ -1,7 +1,8 @@
 // 支出案件（Spending Project）：このツールの新しい主語。
 //   ユーザーは「補助金名」ではなく「この支出に使える補助金があるか」を知りたい。
 //   案件を登録し、案件 × 補助金 で候補を判定する。
-//   MVP はブラウザの localStorage に保存（SQL不要で即動作。将来サーバ同期に拡張可能）。
+//   保存はブラウザの localStorage（即時・オフライン）をキャッシュにしつつ、
+//   Supabase を設定していれば共有の保存先（別PC・社内共有・管理者確認）に同期する。
 
 import type { BusinessProfile, DiscoveredItem } from "./types";
 import { expandQuery, expandRegions } from "./synonyms";
@@ -9,6 +10,10 @@ import { triageDiscovered, TRIAGE_ORDER, type TriageKey, type TriageResult } fro
 import { verifyItem, type VerifyResult } from "./verify";
 import { getCoreProgramChecks } from "./coreMaster";
 import { isSampleDiscovered } from "./sampleFilter";
+import {
+  supabaseConfigured, fetchSpendingProjectRows, upsertSpendingProjectRow, deleteSpendingProjectRow,
+  type SpendingProjectRow,
+} from "./supabase";
 
 export type OrderStatus = "none" | "estimate" | "contract" | "ordered" | "paid";
 export type Urgency = "low" | "mid" | "high";
@@ -402,11 +407,91 @@ export function upsertProject(p: SpendingProject): SpendingProject {
   if (idx >= 0) list[idx] = saved;
   else list.unshift(saved);
   persist(list);
+  // クラウドへ反映（ベストエフォート。失敗してもローカルは保持する）
+  pushProjectToCloud(saved);
   return saved;
 }
 
 export function deleteProject(id: string) {
   persist(loadProjects().filter((p) => p.id !== id));
+  if (supabaseConfigured) {
+    deleteSpendingProjectRow(id).catch((e) => console.warn("[projects] cloud delete failed:", e?.message ?? e));
+  }
+}
+
+// ---- Supabase 同期（任意。未設定なら何もしない） ----
+//   ローカル(localStorage)を即時キャッシュにしつつ、共有保存先(Supabase)と突き合わせる。
+//   競合は updated_at の新しい方を採用（last-write-wins）。
+
+function projectToRow(p: SpendingProject): SpendingProjectRow {
+  return {
+    id: p.id, name: p.name, purpose: p.purpose, uses: p.uses, store: p.store, location: p.location,
+    entity: p.entity, industry: p.industry, employees: p.employees, budget: p.budget, schedule: p.schedule,
+    order_status: p.orderStatus, urgency: p.urgency, memo: p.memo, checklist: p.checklist,
+    template_key: p.templateKey ?? "", answers: p.answers ?? {}, core_checks: p.coreChecks ?? {},
+    created_at: p.created_at, updated_at: p.updated_at,
+  };
+}
+
+function rowToProject(r: SpendingProjectRow): SpendingProject {
+  return normalize({
+    id: r.id, name: r.name ?? "", purpose: r.purpose ?? "", uses: r.uses, store: r.store ?? "",
+    location: r.location ?? "", entity: r.entity ?? "", industry: r.industry ?? "",
+    employees: r.employees != null ? Number(r.employees) : null, budget: r.budget != null ? Number(r.budget) : null, schedule: r.schedule ?? "",
+    orderStatus: r.order_status ?? "none", urgency: r.urgency ?? "mid", memo: r.memo ?? "",
+    checklist: r.checklist, templateKey: r.template_key ?? "", answers: r.answers, coreChecks: r.core_checks,
+    created_at: r.created_at ?? new Date().toISOString(), updated_at: r.updated_at ?? new Date().toISOString(),
+  });
+}
+
+function pushProjectToCloud(p: SpendingProject) {
+  if (!supabaseConfigured) return;
+  upsertSpendingProjectRow(projectToRow(p)).catch((e) => console.warn("[projects] cloud upsert failed:", e?.message ?? e));
+}
+
+// 直接 localStorage に書く（イベントは呼び出し側で制御）。同期マージ用。
+function writeCache(list: SpendingProject[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(KEY, JSON.stringify(list));
+}
+
+let syncInFlight: Promise<SpendingProject[]> | null = null;
+
+// Supabase と localStorage を突き合わせて最新化する。
+//   - 両方にある案件は updated_at が新しい方を採用
+//   - ローカルにしか無い案件は Supabase へ移行（push）
+//   - Supabase にしか無い案件はローカルへ取り込む
+//   未設定・失敗時はローカルをそのまま返す（止めない）。
+export async function syncProjectsFromSupabase(): Promise<SpendingProject[]> {
+  const local = loadProjects();
+  if (!supabaseConfigured || typeof window === "undefined") return local;
+  if (syncInFlight) return syncInFlight;
+  syncInFlight = (async () => {
+    try {
+      const rows = await fetchSpendingProjectRows();
+      const remote = rows.map(rowToProject);
+      const byId = new Map<string, SpendingProject>();
+      for (const p of remote) byId.set(p.id, p);
+      const toPush: SpendingProject[] = [];
+      for (const lp of local) {
+        const rp = byId.get(lp.id);
+        if (!rp) { byId.set(lp.id, lp); toPush.push(lp); }          // ローカルのみ → 移行
+        else if (Date.parse(lp.updated_at) > Date.parse(rp.updated_at)) { byId.set(lp.id, lp); toPush.push(lp); } // ローカルが新しい
+      }
+      const merged = [...byId.values()].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+      writeCache(merged);
+      window.dispatchEvent(new Event("projects-changed"));
+      // ローカル優先分を裏で push（移行・競合解決）
+      await Promise.allSettled(toPush.map((p) => upsertSpendingProjectRow(projectToRow(p))));
+      return merged;
+    } catch (e) {
+      console.warn("[projects] sync failed (localStorage を継続使用):", (e as any)?.message ?? e);
+      return local;
+    } finally {
+      syncInFlight = null;
+    }
+  })();
+  return syncInFlight;
 }
 
 // ---- 案件 → 仮想の事業プロフィール（案件×補助金 判定の入力） ----

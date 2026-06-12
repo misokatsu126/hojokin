@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CloudSyncStatus } from "@/components/CloudSyncStatus";
 
 const GROUPS = [
   {
@@ -34,6 +35,7 @@ export default function SettingsPage() {
   return (
     <div>
       <h1 className="mb-4 text-xl font-bold text-ink">設定・メニュー</h1>
+      <CloudSyncStatus />
       <div className="space-y-6">
         {GROUPS.map((g) => (
           <div key={g.title}>

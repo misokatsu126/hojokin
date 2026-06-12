@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, classifyForProject, projectTasks, orderAdvice, getTemplate, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST,
+  loadProjects, syncProjectsFromSupabase, classifyForProject, projectTasks, orderAdvice, getTemplate, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST,
   type SpendingProject, type ProjectMatch, type ProjectTask,
 } from "@/lib/projects";
 
@@ -39,6 +39,7 @@ export function HomeDashboard() {
     setProjects(loadProjects());
     const onChange = () => setProjects(loadProjects());
     window.addEventListener("projects-changed", onChange);
+    syncProjectsFromSupabase().catch(() => {}); // クラウドと最新化（完了時 projects-changed で反映）
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoaded(true));
     return () => window.removeEventListener("projects-changed", onChange);
   }, []);

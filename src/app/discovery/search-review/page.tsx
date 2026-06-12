@@ -9,7 +9,7 @@ import { formatAmount } from "@/lib/utils";
 import { isSampleDiscovered } from "@/lib/sampleFilter";
 import { DiscoveryNav } from "@/components/DiscoveryNav";
 import { formatDate } from "@/lib/utils";
-import { loadProjects, projectToProfile, type SpendingProject } from "@/lib/projects";
+import { loadProjects, syncProjectsFromSupabase, projectToProfile, type SpendingProject } from "@/lib/projects";
 
 const STATE_TONE: Record<VerifyState, string> = {
   user_visible: "bg-green-100 text-green-800",
@@ -28,6 +28,7 @@ export default function SearchReviewPage() {
 
   useEffect(() => {
     setProjects(loadProjects());
+    syncProjectsFromSupabase().then(setProjects).catch(() => {});
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
   }, []);
 

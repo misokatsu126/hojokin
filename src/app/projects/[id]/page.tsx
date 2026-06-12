@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  getProject, upsertProject, deleteProject, classifyForProject, orderAdvice, getTemplate, projectTasks,
+  getProject, upsertProject, deleteProject, syncProjectsFromSupabase, classifyForProject, orderAdvice, getTemplate, projectTasks,
   missingInfo, estimateRange, generateConsultMemo, generateEstimateMemo,
   ORDER_STATUS_LABEL, PROJECT_CHECKLIST, type SpendingProject, type ProjectMatch, type ProjectTask,
 } from "@/lib/projects";
@@ -41,15 +41,25 @@ export default function ProjectDetailPage() {
   const [showDiagnosis, setShowDiagnosis] = useState(false);
 
   useEffect(() => {
-    const p = getProject(id);
-    if (!p) { setNotFound(true); setLoading(false); return; }
-    setProject(p);
+    const applyLocal = () => {
+      const p = getProject(id);
+      if (p) { setProject(p); setNotFound(false); }
+      return p;
+    };
+    const local = applyLocal();
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search);
       setHighlightTask(q.get("task"));
       setShowDiagnosis(q.get("created") === "1");
     }
+    const onChange = () => applyLocal();
+    window.addEventListener("projects-changed", onChange);
+    // クラウド同期：別端末で作られた案件もここで取り込む。見つからない場合のみ同期後に判定。
+    syncProjectsFromSupabase()
+      .then(() => { if (!getProject(id) && !local) setNotFound(true); })
+      .catch(() => { if (!local) setNotFound(true); });
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
+    return () => window.removeEventListener("projects-changed", onChange);
   }, [id]);
 
   const match = useMemo(() => (project ? classifyForProject(project, items) : null), [project, items]);
