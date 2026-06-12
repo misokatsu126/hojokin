@@ -9,7 +9,8 @@ const LINKS = [
   { href: "/search", label: "相談して探す", icon: "💬", match: (p: string) => p.startsWith("/search") },
   { href: "/calendar", label: "締切カレンダー", icon: "🗓", match: (p: string) => p.startsWith("/calendar") },
   { href: "/new-and-standard", label: "新着・定番", icon: "🆕", match: (p: string) => p.startsWith("/new-and-standard") },
-  { href: "/settings", label: "設定", icon: "⚙️", match: (p: string) => p.startsWith("/settings") || p.startsWith("/profiles") || p.startsWith("/setup") || p.startsWith("/guide") || p.startsWith("/reports") },
+  { href: "/guide", label: "使い方ガイド", icon: "❓", match: (p: string) => p.startsWith("/guide") },
+  { href: "/settings", label: "設定", icon: "⚙️", match: (p: string) => p.startsWith("/settings") || p.startsWith("/profiles") || p.startsWith("/setup") || p.startsWith("/reports") },
   { href: "/discovery", label: "管理者画面", icon: "🛠", match: (p: string) => p === "/discovery" || p.startsWith("/discovery/") || p.startsWith("/admin") || p.startsWith("/grants") },
 ];
 
