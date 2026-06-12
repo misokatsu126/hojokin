@@ -8,7 +8,8 @@ import type { DiscoveredItem } from "@/lib/types";
 import {
   getProject, upsertProject, deleteProject, syncProjectsFromSupabase, classifyForProject, orderAdvice, getTemplate, projectTasks,
   missingInfo, estimateRange, generateConsultMemo, generateEstimateMemo,
-  ORDER_STATUS_LABEL, PROJECT_CHECKLIST, type SpendingProject, type ProjectMatch, type ProjectTask,
+  ORDER_STATUS_LABEL, PROJECT_CHECKLIST, APP_STATUS_ORDER, APP_STATUS_LABEL,
+  type SpendingProject, type ProjectMatch, type ProjectTask, type AppStatus,
 } from "@/lib/projects";
 import { TRIAGE_META, type TriageKey, type TriageResult } from "@/lib/triage";
 import type { VerifyResult } from "@/lib/verify";
@@ -108,6 +109,11 @@ export default function ProjectDetailPage() {
     const next = { ...project, coreChecks: { ...project.coreChecks, [key]: cur === val ? undefined as any : val } };
     if (next.coreChecks[key] === undefined) delete next.coreChecks[key];
     setProject(upsertProject(next));
+  }
+
+  function setAppStatus(s: AppStatus) {
+    if (!project) return;
+    setProject(upsertProject({ ...project, appStatus: s }));
   }
 
   function toggleCheck(key: string) {
@@ -251,6 +257,9 @@ export default function ProjectDetailPage() {
           <div className="mt-3 rounded-lg border bg-white p-3 text-sm">
             <p className="font-semibold text-ink">概算イメージ</p>
             <p className="mt-0.5 text-gray-700">予算：{formatAmount(est.budget)}／補助率の例：{est.rateLabel}／戻る可能性のある金額：{formatAmount(est.low)}〜{formatAmount(est.high)} 程度</p>
+            <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-900">
+              補助金は<strong>後払い</strong>です。まず<strong>{formatAmount(est.budget)}を自分で用意</strong>して支払い、あとから{formatAmount(est.low)}〜{formatAmount(est.high)}が戻る流れです（実質の負担は約{formatAmount(est.budget - est.high)}〜{formatAmount(est.budget - est.low)}）。
+            </p>
             <p className="mt-0.5 text-[11px] text-gray-400">※ 制度・要件・採択結果により変わります。最終判断は公式サイトで確認してください。</p>
           </div>
         ) : (
@@ -275,6 +284,20 @@ export default function ProjectDetailPage() {
           <textarea readOnly value={memo.text} rows={memo.text.split("\n").length + 1} className="w-full rounded-md border bg-slate-50 p-2 text-xs text-gray-700" />
         </div>
       )}
+
+      {/* 進行状況（いまどの段階か） */}
+      <section className="mt-6">
+        <h2 className="mb-1 text-lg font-bold text-ink">いまどの段階？</h2>
+        <p className="mb-2 text-xs text-gray-500">進めるごとに更新すると、下の「進め方」とホームの通知が正確になります。</p>
+        <div className="flex flex-wrap gap-1.5">
+          {APP_STATUS_ORDER.map((s) => (
+            <button key={s} onClick={() => setAppStatus(s)}
+              className={`rounded-full border px-3 py-1.5 text-xs ${(project.appStatus ?? "considering") === s ? "border-accent bg-accent text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+              {APP_STATUS_LABEL[s]}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* 見つけたあとの進め方＋相談先 */}
       <ApplicationRoadmap project={project} />

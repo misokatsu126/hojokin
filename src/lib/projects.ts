@@ -17,6 +17,8 @@ import {
 
 export type OrderStatus = "none" | "estimate" | "contract" | "ordered" | "paid";
 export type Urgency = "low" | "mid" | "high";
+// 申請の進行ステータス（補助金が見つかったあとの段取り）
+export type AppStatus = "considering" | "preparing" | "applied" | "approved" | "implementing" | "reported" | "received";
 
 export type SpendingProject = {
   id: string;
@@ -31,6 +33,7 @@ export type SpendingProject = {
   budget: number | null; // 予算（円）
   schedule: string; // 実施予定時期
   orderStatus: OrderStatus; // 見積/契約/発注/支払い
+  appStatus?: AppStatus; // 申請の進行ステータス（検討中→申請→交付決定→入金）
   urgency: Urgency;
   memo: string;
   checklist: Record<string, boolean>; // 申請準備チェック
@@ -475,6 +478,17 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 
 export const URGENCY_LABEL: Record<Urgency, string> = { low: "ゆっくり", mid: "ふつう", high: "急ぎ" };
 
+// 申請の進行ステータス（補助金が見つかったあとの段取り）
+export const APP_STATUS_ORDER: AppStatus[] = ["considering", "preparing", "applied", "approved", "implementing", "reported", "received"];
+export const APP_STATUS_LABEL: Record<AppStatus, string> = {
+  considering: "検討中", preparing: "申請準備中", applied: "申請した", approved: "交付決定",
+  implementing: "実施中", reported: "実績報告した", received: "入金された",
+};
+// 進行ステータス → 進め方ロードマップのステップ位置（0始まり、6=完了）
+export const APP_STATUS_STEP: Record<AppStatus, number> = {
+  considering: 0, preparing: 1, applied: 3, approved: 4, implementing: 4, reported: 5, received: 6,
+};
+
 export function formatBudget(yen: number): string {
   if (yen >= 100_000_000) return `${(yen / 100_000_000).toLocaleString()}億円`;
   return `${Math.round(yen / 10_000).toLocaleString()}万円`;
@@ -602,6 +616,7 @@ function normalize(p: any): SpendingProject {
     templateKey: typeof p?.templateKey === "string" ? p.templateKey : "",
     urgency: p?.urgency ?? "mid",
     orderStatus: p?.orderStatus ?? "none",
+    appStatus: p?.appStatus ?? "considering",
     id: p?.id ?? base.id,
   };
 }
@@ -635,7 +650,7 @@ export function emptyProject(): SpendingProject {
   const now = new Date().toISOString();
   return {
     id: newProjectId(), name: "", purpose: "", uses: [], store: "", location: "", entity: "", industry: "",
-    employees: null, budget: null, schedule: "", orderStatus: "none", urgency: "mid", memo: "",
+    employees: null, budget: null, schedule: "", orderStatus: "none", appStatus: "considering", urgency: "mid", memo: "",
     checklist: {}, templateKey: "", answers: {}, coreChecks: {}, created_at: now, updated_at: now,
   };
 }
@@ -667,7 +682,7 @@ function projectToRow(p: SpendingProject): SpendingProjectRow {
   return {
     id: p.id, name: p.name, purpose: p.purpose, uses: p.uses, store: p.store, location: p.location,
     entity: p.entity, industry: p.industry, employees: p.employees, budget: p.budget, schedule: p.schedule,
-    order_status: p.orderStatus, urgency: p.urgency, memo: p.memo, checklist: p.checklist,
+    order_status: p.orderStatus, app_status: p.appStatus ?? "considering", urgency: p.urgency, memo: p.memo, checklist: p.checklist,
     template_key: p.templateKey ?? "", answers: p.answers ?? {}, core_checks: p.coreChecks ?? {},
     created_at: p.created_at, updated_at: p.updated_at,
   };
@@ -678,7 +693,7 @@ export function rowToProject(r: SpendingProjectRow): SpendingProject {
     id: r.id, name: r.name ?? "", purpose: r.purpose ?? "", uses: r.uses, store: r.store ?? "",
     location: r.location ?? "", entity: r.entity ?? "", industry: r.industry ?? "",
     employees: r.employees != null ? Number(r.employees) : null, budget: r.budget != null ? Number(r.budget) : null, schedule: r.schedule ?? "",
-    orderStatus: r.order_status ?? "none", urgency: r.urgency ?? "mid", memo: r.memo ?? "",
+    orderStatus: r.order_status ?? "none", appStatus: (r.app_status as any) ?? "considering", urgency: r.urgency ?? "mid", memo: r.memo ?? "",
     checklist: r.checklist, templateKey: r.template_key ?? "", answers: r.answers, coreChecks: r.core_checks,
     created_at: r.created_at ?? new Date().toISOString(), updated_at: r.updated_at ?? new Date().toISOString(),
   });
