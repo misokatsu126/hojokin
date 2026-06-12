@@ -298,6 +298,39 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る"],
     questions: [{ id: "kind", q: "やりたいことは？", options: ["多言語サイト・メニュー", "キャッシュレス・Wi-Fi", "観光誘客", "わからない"] }],
   },
+  {
+    key: "new_business", label: "新規事業・新分野に挑戦したい", description: "新サービス・新分野への進出や事業転換。新事業進出・ものづくり・持続化などが狙えます。",
+    name: "新規事業・新分野展開", uses: ["新規事業・新分野に挑戦したい"], categories: ["新規事業", "新分野展開", "事業転換"],
+    tags: ["新規事業", "新分野", "新サービス", "事業転換", "第二創業", "多角化"],
+    genres: ["新事業進出補助金", "ものづくり補助金", "小規模事業者持続化補助金"],
+    requiredFields: ["所在地", "予算", "発注状況", "新規事業の内容"],
+    caution: PRE_ORDER_CAUTION + " 事業計画（新規性）が必要になる場合があります。",
+    expenses: ["設備費", "システム導入費", "広告宣伝費", "委託費"], killers: ["発注・契約後だと対象外の可能性", "既存事業の延長だと対象外のことがある"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "事業計画を準備する", "見積もりを取る"],
+    questions: [{ id: "stage", q: "段階は？", options: ["アイデア段階", "計画中", "投資内容が固まった", "わからない"] }],
+  },
+  {
+    key: "succession", label: "事業承継・M&Aをしたい", description: "後継者への引継ぎ・譲渡・買収や、承継後の投資。事業承継・M&A補助金が狙えます。",
+    name: "事業承継・M&A", uses: ["事業承継・M&Aをしたい"], categories: ["事業承継", "M&A", "引継ぎ"],
+    tags: ["事業承継", "M&A", "譲渡", "買収", "後継者", "引継ぎ"],
+    genres: ["事業承継・M&A補助金", "自治体の事業承継支援"],
+    requiredFields: ["所在地", "予算", "承継の形態"],
+    caution: "承継・M&Aは専門家（士業・支援機関）の関与や対象期間の確認が必要です。先に相談しましょう。",
+    expenses: ["専門家経費", "委託費", "設備費"], killers: ["対象期間・形態の要件を満たさない可能性", "対象外の費用の可能性"],
+    nextActions: ["公式サイトで条件を確認する", "専門家に相談する", "対象になる費用を確認する"],
+    questions: [{ id: "type", q: "形態は？", options: ["親族内承継", "従業員承継", "第三者・M&A", "わからない"] }],
+  },
+  {
+    key: "wage", label: "賃上げ・最低賃金に対応したい", description: "賃上げや事業場内最低賃金の引上げに合わせた設備・環境整備。業務改善助成金が狙えます。",
+    name: "賃上げ・最低賃金対応", uses: ["賃上げ・最低賃金に対応したい"], categories: ["賃上げ", "生産性向上", "設備導入"],
+    tags: ["賃上げ", "最低賃金", "業務改善", "生産性", "設備"],
+    genres: ["業務改善助成金", "中小企業省力化投資補助金"],
+    requiredFields: ["所在地", "従業員数", "発注状況", "賃上げ計画"],
+    caution: "業務改善助成金は、事業場内最低賃金の引上げが要件で、交付決定前の実施はできません。社会保険労務士への相談を推奨します。",
+    expenses: ["機械装置費", "設備費", "システム導入費", "委託費"], killers: ["交付決定前の実施は対象外", "従業員がいないと対象外の可能性"],
+    nextActions: ["発注前か確認する", "賃上げ予定・最低賃金を確認する", "社会保険労務士に相談する", "見積もりを取る"],
+    questions: [{ id: "plan", q: "賃上げの予定は？", options: ["予定あり", "検討中", "未定"] }],
+  },
 ];
 
 export function getTemplate(key: string | null | undefined): ProjectTemplate | null {
@@ -310,8 +343,8 @@ export const PROJECT_TEMPLATE_GROUPS: { title: string; keys: string[] }[] = [
   { title: "店舗・設備", keys: ["aircon", "renovation", "signboard", "newstore", "energy", "machinery", "vehicle", "hygiene"] },
   { title: "IT・DX", keys: ["ai_pos", "system", "ec", "website"] },
   { title: "広告・販路", keys: ["ad", "event", "export", "inbound"] },
-  { title: "採用・育成", keys: ["hire", "training"] },
-  { title: "経営・備え", keys: ["bcp", "certification"] },
+  { title: "採用・育成", keys: ["hire", "training", "wage"] },
+  { title: "新規事業・経営", keys: ["new_business", "succession", "bcp", "certification"] },
 ];
 
 // 各テーマの「こんな支出に」例文（業種横断で自分ごと化できるように）
@@ -336,6 +369,9 @@ export const TEMPLATE_EXAMPLES: Record<string, string[]> = {
   export: ["海外展示会・商談会", "越境EC・海外通販", "パンフ・サイトの多言語化"],
   certification: ["ISO・HACCP等の認証", "特許・実用新案の出願", "商標・意匠の登録"],
   inbound: ["多言語メニュー・サイト", "キャッシュレス・Wi-Fi整備", "観光客向けの販促"],
+  new_business: ["飲食店が惣菜の通販に参入", "製造業が自社ブランドを開始", "小売がサービス業に多角化"],
+  succession: ["後継者への引継ぎ準備", "第三者へのM&A・譲渡", "承継後の設備投資"],
+  wage: ["賃上げと同時の設備投資", "最低賃金引上げへの対応", "省力化で生産性アップ"],
 };
 
 export function templateExamples(key: string | null | undefined): string[] {
@@ -344,16 +380,16 @@ export function templateExamples(key: string | null | undefined): string[] {
 
 // 業種から選ぶ入口：業種ごとに「よくある支出テーマ」を出し分ける
 export const INDUSTRY_PRESETS: { label: string; keys: string[] }[] = [
-  { label: "飲食店", keys: ["aircon", "renovation", "hygiene", "ai_pos", "signboard", "ad", "inbound"] },
-  { label: "小売・卸", keys: ["ec", "ai_pos", "signboard", "ad", "system", "renovation", "export"] },
-  { label: "製造・加工", keys: ["machinery", "energy", "system", "certification", "export", "bcp"] },
-  { label: "建設・工事", keys: ["vehicle", "system", "machinery", "hire", "certification", "bcp"] },
-  { label: "美容・サロン", keys: ["renovation", "aircon", "ai_pos", "website", "ad", "signboard"] },
-  { label: "医療・介護", keys: ["renovation", "hygiene", "system", "hire", "training", "vehicle"] },
-  { label: "運送・物流", keys: ["vehicle", "system", "machinery", "energy", "hire", "bcp"] },
-  { label: "宿泊・観光", keys: ["inbound", "renovation", "website", "ad", "energy", "ai_pos"] },
-  { label: "IT・Web・士業", keys: ["website", "system", "ec", "ad", "hire", "certification"] },
-  { label: "農業・食品加工", keys: ["machinery", "hygiene", "ec", "export", "energy", "certification"] },
+  { label: "飲食店", keys: ["aircon", "renovation", "hygiene", "ai_pos", "signboard", "ad", "inbound", "new_business"] },
+  { label: "小売・卸", keys: ["ec", "ai_pos", "signboard", "ad", "system", "renovation", "export", "new_business", "succession"] },
+  { label: "製造・加工", keys: ["machinery", "energy", "system", "certification", "export", "bcp", "new_business", "wage", "succession"] },
+  { label: "建設・工事", keys: ["vehicle", "system", "machinery", "hire", "certification", "bcp", "succession", "wage"] },
+  { label: "美容・サロン", keys: ["renovation", "aircon", "ai_pos", "website", "ad", "signboard", "new_business"] },
+  { label: "医療・介護", keys: ["renovation", "hygiene", "system", "hire", "training", "vehicle", "wage"] },
+  { label: "運送・物流", keys: ["vehicle", "system", "machinery", "energy", "hire", "bcp", "wage"] },
+  { label: "宿泊・観光", keys: ["inbound", "renovation", "website", "ad", "energy", "ai_pos", "new_business"] },
+  { label: "IT・Web・士業", keys: ["website", "system", "ec", "ad", "hire", "certification", "new_business"] },
+  { label: "農業・食品加工", keys: ["machinery", "hygiene", "ec", "export", "energy", "certification", "new_business"] },
 ];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
