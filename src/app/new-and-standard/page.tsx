@@ -8,7 +8,7 @@ import { isSampleDiscovered } from "@/lib/sampleFilter";
 import { triageDiscovered, TRIAGE_META } from "@/lib/triage";
 import { verifyItem } from "@/lib/verify";
 import { loadProjects, type SpendingProject } from "@/lib/projects";
-import { CORE_PROGRAM_MASTER, getCoreProgramChecks, type CoreGroup } from "@/lib/coreMaster";
+import { CORE_PROGRAM_MASTER, getCoreProgramChecks, coreFreshness, OFFICIAL_STATUS_LABEL, OFFICIAL_STATUS_TONE, type CoreGroup } from "@/lib/coreMaster";
 import { formatDate, daysUntil } from "@/lib/utils";
 
 function sourceLabel(s: string | null | undefined): string {
@@ -158,6 +158,7 @@ function MasterGroup({ group, title }: { group: CoreGroup; title: string }) {
       <div className="grid gap-2 sm:grid-cols-2">
         {items.map((m) => {
           const href = m.officialUrl ?? (m.officialSearchQuery ? `https://www.google.com/search?q=${encodeURIComponent(m.officialSearchQuery.replace("{region}", "お住まいの自治体"))}` : "https://www.jgrants-portal.go.jp/");
+          const fresh = coreFreshness(m);
           return (
             <div key={m.key} className="rounded-lg border bg-white p-3">
               <div className="flex items-start justify-between gap-2">
@@ -167,8 +168,18 @@ function MasterGroup({ group, title }: { group: CoreGroup; title: string }) {
                 </div>
                 <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-800">{m.confidenceLabel}</span>
               </div>
-              <a href={href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block rounded-md border px-3 py-1.5 text-xs text-emerald-700 hover:bg-gray-50">{m.officialUrl ? "公式ページを見る ↗" : "公式情報を探す ↗"}</a>
-              <div className="mt-1 text-[10px] text-gray-400">年度・公募回は公式で確認してください（マスター最終確認 {m.lastOfficialCheckedAt}）</div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+                <span className={`rounded px-1.5 py-0.5 ${OFFICIAL_STATUS_TONE[m.officialStatus]}`}>{OFFICIAL_STATUS_LABEL[m.officialStatus]}</span>
+                {m.fiscalYear && m.fiscalYear !== "—" && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{m.fiscalYear}年度想定</span>}
+                {m.applicationRound && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{m.applicationRound}</span>}
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">締切：{m.deadline ?? "公式要領で確認"}</span>
+                <span className="text-gray-400">最終確認 {fresh.asOf}</span>
+              </div>
+              {fresh.stale && <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[10px] text-amber-800">⚠ {fresh.note}</p>}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a href={href} target="_blank" rel="noopener noreferrer" className="inline-block rounded-md border px-3 py-1.5 text-xs text-emerald-700 hover:bg-gray-50">{m.officialUrl ? "公式ページを見る ↗" : "公式情報を探す ↗"}</a>
+                {m.guidelineUrl && <a href={m.guidelineUrl} target="_blank" rel="noopener noreferrer" className="inline-block rounded-md border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50">📄 公募要領 ↗</a>}
+              </div>
             </div>
           );
         })}

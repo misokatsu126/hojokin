@@ -12,7 +12,7 @@ import {
 } from "@/lib/projects";
 import { TRIAGE_META, type TriageKey, type TriageResult } from "@/lib/triage";
 import type { VerifyResult } from "@/lib/verify";
-import { getCoreProgramChecks, coreOfficialHref, type CoreProgramCheck, type CoreGroup } from "@/lib/coreMaster";
+import { getCoreProgramChecks, coreOfficialHref, coreGuidelineHref, coreFreshness, OFFICIAL_STATUS_LABEL, OFFICIAL_STATUS_TONE, type CoreProgramCheck, type CoreGroup } from "@/lib/coreMaster";
 
 // 案件詳細での補助金カテゴリ表示順（最有力→条件確認→締切→見逃し→次回→新着）
 const DETAIL_ORDER: TriageKey[] = ["usable", "conditional", "deadline", "missed", "next_time", "new", "unusable"];
@@ -374,6 +374,8 @@ const CORE_PRI_LABEL: Record<string, string> = { high: "高", medium: "中", low
 
 function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "skip"; onSet: (k: string, v: "done" | "skip") => void }) {
   const confTone = c.confidenceLabel === "確認推奨" ? "bg-green-100 text-green-800" : c.confidenceLabel === "条件確認" ? "bg-amber-100 text-amber-800" : "bg-sky-100 text-sky-800";
+  const fresh = coreFreshness(c);
+  const guideline = coreGuidelineHref(c);
   return (
     <div className={`rounded-lg border p-3 ${state === "done" ? "border-green-300 bg-green-50/40" : state === "skip" ? "border-gray-200 bg-gray-50 opacity-70" : "bg-white"}`}>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -384,6 +386,15 @@ function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "
       </div>
       {/* 確認推奨度を必ず上部に明示（「使える」と断定しない） */}
       <p className={`mt-1 inline-block rounded px-2 py-0.5 text-xs font-semibold ${confTone}`}>{c.confidenceLabel}：{CORE_PRI_LABEL[c.priority]}</p>
+      {/* 制度情報のメタ：年度・募集状況・締切・最終確認日（古い場合は注意） */}
+      <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px]">
+        <span className={`rounded px-1.5 py-0.5 ${OFFICIAL_STATUS_TONE[c.officialStatus]}`}>{OFFICIAL_STATUS_LABEL[c.officialStatus]}</span>
+        {c.fiscalYear && c.fiscalYear !== "—" && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{c.fiscalYear}年度想定</span>}
+        {c.applicationRound && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{c.applicationRound}</span>}
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">締切：{c.deadline ?? "公式要領で確認"}</span>
+        <span className="text-gray-400">最終確認 {fresh.asOf}</span>
+      </div>
+      {fresh.stale && <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800">⚠ {fresh.note}</p>}
       <p className="mt-1 text-xs text-gray-500">条件が合えば使える可能性があります。対象になるかは公式要領で確認してください。</p>
       <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">なぜ確認すべきか：</span>{c.projectFitReason}</p>
       {/* 確認パック（何を確認すればいいか） */}
@@ -402,6 +413,7 @@ function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "
       </details>
       <div className="mt-2 flex flex-wrap gap-2 text-xs">
         <a href={coreOfficialHref(c)} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-3 py-1.5 font-medium text-white hover:opacity-90">{c.officialUrl ? "🔗 公式ページを見る ↗" : "🔍 公式情報を探す ↗"}</a>
+        {guideline && <a href={guideline} target="_blank" rel="noopener noreferrer" className="rounded-md border border-emerald-300 px-3 py-1.5 text-emerald-700 hover:bg-emerald-50">📄 公募要領 ↗</a>}
         <button onClick={() => onSet(c.key, "done")} className="rounded-md border border-green-300 px-3 py-1.5 text-green-700 hover:bg-green-50">確認済みにする</button>
         <button onClick={() => onSet(c.key, "skip")} className="rounded-md border px-3 py-1.5 text-gray-500 hover:bg-gray-50">今回は対象外</button>
       </div>
