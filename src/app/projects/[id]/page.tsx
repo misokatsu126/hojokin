@@ -37,12 +37,17 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [highlightTask, setHighlightTask] = useState<string | null>(null);
+  const [showDiagnosis, setShowDiagnosis] = useState(false);
 
   useEffect(() => {
     const p = getProject(id);
     if (!p) { setNotFound(true); setLoading(false); return; }
     setProject(p);
-    if (typeof window !== "undefined") setHighlightTask(new URLSearchParams(window.location.search).get("task"));
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search);
+      setHighlightTask(q.get("task"));
+      setShowDiagnosis(q.get("created") === "1");
+    }
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
   }, [id]);
 
@@ -102,6 +107,41 @@ export default function ProjectDetailPage() {
   return (
     <div>
       <div className="mb-2 text-xs text-gray-400"><Link href="/projects" className="hover:underline">支出案件</Link> ／ 詳細</div>
+
+      {/* 作成直後の診断結果 */}
+      {showDiagnosis && (
+        <div className="mb-4 rounded-xl border-2 border-accent/40 bg-accent/5 p-5">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ink">診断結果：{project.name || "支出案件"}</h2>
+            <button onClick={() => setShowDiagnosis(false)} className="text-xs text-gray-400 hover:text-gray-600">✕ 閉じる</button>
+          </div>
+          <div className={`rounded-lg border p-3 ${adv.tone}`}>
+            <p className="text-sm font-bold">{adv.wait ? "🟢" : "⚠️"} 発注判断：{adv.title}</p>
+            <p className="mt-0.5 text-xs">{adv.text}</p>
+          </div>
+          {coreChecks.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-gray-600">まず確認すべき定番制度</p>
+              <ol className="mt-1 list-decimal pl-5 text-sm text-ink">
+                {coreChecks.slice(0, 3).map((c) => <li key={c.key}>{c.name}<span className="ml-1 text-[11px] text-green-700">（{c.confidenceLabel}）</span></li>)}
+              </ol>
+            </div>
+          )}
+          {tasks.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-gray-600">今日やる申請準備</p>
+              <ol className="mt-1 list-decimal pl-5 text-sm text-ink">
+                {tasks.slice(0, 3).map((t) => <li key={t.taskKey}>{t.action}</li>)}
+              </ol>
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {coreChecks[0] && <a href={coreOfficialHref(coreChecks[0])} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:opacity-90">🔗 公式情報を確認する</a>}
+            {tasks[0] && <button onClick={() => completeTask(tasks[0])} className="rounded-md border border-green-300 px-4 py-2 text-xs font-medium text-green-700 hover:bg-green-50">このタスクを完了する</button>}
+            <button onClick={() => setShowDiagnosis(false)} className="rounded-md border px-4 py-2 text-xs text-gray-700 hover:bg-gray-50">案件詳細を見る</button>
+          </div>
+        </div>
+      )}
 
       {/* ヘッダー */}
       <div className="rounded-xl border bg-white p-5">
@@ -179,7 +219,29 @@ export default function ProjectDetailPage() {
         </section>
       )}
 
-      {/* この支出で使えそうな補助金（検索・収集で見つかった候補） */}
+      {/* 申請準備の進捗（チェックリスト） */}
+      <section className="mt-6">
+        <h2 className="mb-1 text-lg font-bold text-ink">申請準備の進捗</h2>
+        <div className="mb-2">
+          <div className="flex items-center gap-2 text-xs text-gray-600">
+            <div className="h-2.5 w-40 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-full bg-green-500" style={{ width: `${Math.round((doneCount / PROJECT_CHECKLIST.length) * 100)}%` }} />
+            </div>
+            <span className="font-semibold text-ink">{doneCount}/{PROJECT_CHECKLIST.length} 完了</span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">{prepHint(project, doneCount)}</p>
+        </div>
+        <div className="grid gap-1.5 rounded-lg border bg-white p-4 sm:grid-cols-2">
+          {PROJECT_CHECKLIST.map((c) => (
+            <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-50">
+              <input type="checkbox" checked={!!project.checklist[c.key]} onChange={() => toggleCheck(c.key)} className="h-4 w-4" />
+              <span className={project.checklist[c.key] ? "text-gray-400 line-through" : "text-ink"}>{c.label}</span>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {/* 検索・収集で見つかった候補（定番制度より下） */}
       <section className="mt-6">
         <h2 className="mb-2 text-lg font-bold text-ink">検索・収集で見つかった候補</h2>
         {loading ? (
@@ -215,20 +277,6 @@ export default function ProjectDetailPage() {
             ))}
           </div>
         )}
-      </section>
-
-      {/* 申請準備チェックリスト */}
-      <section className="mt-6">
-        <h2 className="mb-1 text-lg font-bold text-ink">申請準備チェックリスト</h2>
-        <p className="mb-2 text-xs text-gray-500">この案件で確認すべきこと（{doneCount}/{PROJECT_CHECKLIST.length} 完了）。{prepHint(project, doneCount)}</p>
-        <div className="grid gap-1.5 rounded-lg border bg-white p-4 sm:grid-cols-2">
-          {PROJECT_CHECKLIST.map((c) => (
-            <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-50">
-              <input type="checkbox" checked={!!project.checklist[c.key]} onChange={() => toggleCheck(c.key)} className="h-4 w-4" />
-              <span className={project.checklist[c.key] ? "text-gray-400 line-through" : "text-ink"}>{c.label}</span>
-            </label>
-          ))}
-        </div>
       </section>
     </div>
   );
@@ -281,24 +329,30 @@ function CandidateCard({ item, r, v, catKey }: { item: DiscoveredItem; r: Triage
   const dd = daysUntil(r.deadline);
   return (
     <div className={`rounded-lg border p-3 ${m.tone}`}>
-      <p className="text-sm font-bold text-ink">結論：{r.conclusion}</p>
-      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-sm font-semibold text-ink">{item.title}</span>
-        {r.score > 0 && <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-bold text-ink">合いそう {r.score}</span>}
-        {r.deadline && <span className={`rounded bg-white/70 px-1.5 py-0.5 text-[10px] ${dd != null && dd <= 14 ? "font-semibold text-red-600" : "text-gray-600"}`}>締切 {formatDate(r.deadline)}{dd != null && dd >= 0 ? `（あと${dd}日）` : ""}</span>}
+        <span className={`rounded px-1.5 py-0.5 text-[11px] ${v.tone}`}>{v.label}</span>
       </div>
-      {/* 確認状況（弱い表現）と、なぜこの案件に関係するか */}
-      <p className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] ${v.tone}`}>{v.label}</p>
-      <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">関係する理由：</span>{v.projectRelationReason}</p>
-      <p className="mt-0.5 text-xs text-gray-600"><span className="text-gray-400">地域：</span>{regionWord(v.regionMatchType)}　<span className="text-gray-400">理由：</span>{v.regionMatchReason}</p>
-      <p className="mt-0.5 text-xs text-gray-600"><span className="text-gray-400">経費：</span>{expenseWord(v.expenseMatchType)}　<span className="text-gray-400">理由：</span>{v.expenseMatchReason}</p>
-      {v.matchedConditions.length > 0 && <p className="mt-0.5 text-xs text-green-700"><span className="text-green-500">一致している条件：</span>{v.matchedConditions.join("・")}</p>}
-      {v.missingFields.length > 0 && <p className="mt-0.5 text-xs text-amber-800"><span className="text-amber-500">未確認項目：</span>{v.missingFields.slice(0, 5).join("・")}</p>}
-      {r.killers.length > 0 && <p className="mt-1 text-xs text-red-700">注意：{r.killers.join(" / ")}</p>}
-      {r.nextActions.length > 0 && <p className="mt-1 text-xs text-orange-700">今やること：{r.nextActions.slice(0, 3).join(" → ")}</p>}
-      {(item.official_url || item.url) && (
-        <a href={item.official_url ?? item.url ?? "#"} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">🔗 公式ページを見る ↗</a>
-      )}
+      {/* 3行：結論・理由・次にやること */}
+      <p className="mt-1 text-sm font-bold text-ink">結論：{r.conclusion}</p>
+      <p className="mt-0.5 text-xs text-gray-600">理由：{v.projectRelationReason}</p>
+      {r.nextActions.length > 0 && <p className="mt-0.5 text-xs text-orange-700">次：{r.nextActions.slice(0, 3).join(" → ")}</p>}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {(item.official_url || item.url) && (
+          <a href={item.official_url ?? item.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">🔗 公式ページを見る ↗</a>
+        )}
+      </div>
+      {/* 詳細は折りたたみ */}
+      <details className="mt-2">
+        <summary className="cursor-pointer text-xs text-gray-400 hover:text-accent">くわしく見る</summary>
+        <div className="mt-1 space-y-0.5">
+          <p className="text-xs text-gray-600">地域：{regionWord(v.regionMatchType)}（{v.regionMatchReason}）</p>
+          <p className="text-xs text-gray-600">経費：{expenseWord(v.expenseMatchType)}（{v.expenseMatchReason}）</p>
+          {r.deadline && <p className="text-xs text-gray-600">締切：{formatDate(r.deadline)}{dd != null && dd >= 0 ? `（あと${dd}日）` : ""}</p>}
+          {v.missingFields.length > 0 && <p className="text-xs text-amber-800">未確認項目：{v.missingFields.slice(0, 5).join("・")}</p>}
+          {r.killers.length > 0 && <p className="text-xs text-red-700">注意：{r.killers.join(" / ")}</p>}
+        </div>
+      </details>
     </div>
   );
 }
