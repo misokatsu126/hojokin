@@ -134,7 +134,7 @@ export function HomeDashboard() {
       {/* 3. サマリーカード */}
       <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <SummaryCard n={counts.preOrder} label="発注前確認が必要" tone="red" href="/projects" />
-        <SummaryCard n={counts.todo} label="今日やること" tone="blue" href="/projects" />
+        <SummaryCard n={counts.todo} label="今日やる申請準備" tone="blue" href="/projects" />
         <SummaryCard n={counts.usable} label="使える可能性が高い" tone="green" href="/projects" />
         <SummaryCard n={counts.missed} label="見逃し注意" tone="orange" href="/projects" />
         <SummaryCard n={counts.next} label="次回狙い" tone="purple" href="/projects" />
