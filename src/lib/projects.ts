@@ -7,6 +7,7 @@ import type { BusinessProfile, DiscoveredItem } from "./types";
 import { expandQuery, expandRegions } from "./synonyms";
 import { triageDiscovered, TRIAGE_ORDER, type TriageKey, type TriageResult } from "./triage";
 import { verifyItem, type VerifyResult } from "./verify";
+import { getCoreProgramChecks } from "./coreMaster";
 import { isSampleDiscovered } from "./sampleFilter";
 
 export type OrderStatus = "none" | "estimate" | "contract" | "ordered" | "paid";
@@ -35,11 +36,12 @@ export type SpendingProject = {
   updated_at: string;
 };
 
-// 支出案件テンプレート（初心者は自由入力が難しいので、まず「何をしたい」をカードで選ばせる）
+// 支出案件テンプレート（＝「補助金チェックしたい支出テーマ」。今日やること＝申請準備タスクとは別物）。
+//   label = 支出テーマ表示名 / uses = 支出用途タグ / nextActions = 申請準備タスク
 export type TemplateQuestion = { id: string; q: string; options: string[] };
 export type ProjectTemplate = {
   key: string;
-  label: string; // 何をしたいですか（選択肢の表示）
+  label: string; // 支出テーマ表示名（例：空調を入れ替えたい）。※これは「やること」ではない
   description: string; // 説明文
   name: string; // 案件名の雛形
   uses: string[]; // 用途タグ（synonyms 辞書が反応）
@@ -209,6 +211,14 @@ export function getTemplate(key: string | null | undefined): ProjectTemplate | n
   if (!key) return null;
   return PROJECT_TEMPLATES.find((t) => t.key === key) ?? null;
 }
+
+// 支出テーマのカテゴリ分け（「今日やること」と混同しないよう、テーマはカテゴリで見せる）
+export const PROJECT_TEMPLATE_GROUPS: { title: string; keys: string[] }[] = [
+  { title: "店舗・設備", keys: ["aircon", "renovation", "signboard", "newstore", "energy"] },
+  { title: "IT・DX", keys: ["ai_pos", "ec", "website"] },
+  { title: "広告・販路", keys: ["ad", "event"] },
+  { title: "採用・研修", keys: ["hire", "training"] },
+];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   none: "まだ何もしていない",
@@ -397,6 +407,20 @@ export function projectTasks(project: SpendingProject, match?: ProjectMatch): Pr
   if (dd != null && dd >= 0 && dd <= 14 && !c["deadline"]) {
     out.push({ ...base, taskKey: "deadline", action: "締切が近い制度があります。締切を確認してください", reason: `あと${dd}日の候補があります` });
   }
+  // 定番制度（CORE_PROGRAM_MASTER）由来の確認タスク。確認済み(done)・対象外(skip)は出さない。
+  const activeCore = new Set(
+    getCoreProgramChecks(project).filter((cc) => project.coreChecks?.[cc.key] !== "done").map((cc) => cc.key)
+  );
+  const addCore = (cond: boolean, key: string, action: string, reason: string) => {
+    if (cond && !c[key]) out.push({ ...base, taskKey: key, action, reason });
+  };
+  addCore(activeCore.has("jizokuka"), "shokokai", "商工会／商工会議所に相談してください", "小規模事業者持続化補助金で必要になることがあります");
+  addCore(activeCore.has("it_donyu"), "it_tool", "対象ツール・IT導入支援事業者を確認してください", "IT導入補助金は対象ツール・支援事業者の指定があります");
+  addCore(activeCore.has("local_energy"), "spec_check", "設備の型番・省エネ性能を確認してください", "省エネ・設備導入補助金で必要になります");
+  addCore(activeCore.has("local_vacant"), "area_check", "対象区域・賃貸契約前か・事前相談を確認してください", "空き店舗・中心市街地補助金で必要になります");
+  addCore(activeCore.has("gyomu_kaizen"), "chinage", "賃上げ予定・事業場内最低賃金を確認してください", "業務改善助成金で必要です");
+  addCore(activeCore.has("career_up"), "koyou", "雇用形態・就業規則を確認（社労士に相談）してください", "キャリアアップ助成金で必要です");
+
   if (!c["guideline"]) {
     out.push({ ...base, taskKey: "guideline", action: "公式の公募要領を確認してください", reason: "対象経費・締切・条件を確認できます" });
   }

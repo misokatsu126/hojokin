@@ -170,7 +170,7 @@ export default function ProjectDetailPage() {
       {coreChecks.length > 0 && (
         <section className="mt-6">
           <h2 className="mb-1 text-lg font-bold text-ink">まず確認すべき定番制度</h2>
-          <p className="mb-2 text-xs text-gray-500">中小企業・小規模事業者が一般的にまず確認する制度です。「使える」と断定するものではありません。条件が合えば使える可能性があります。</p>
+          <p className="mb-2 text-xs text-gray-500">中小企業・小規模事業者が一般的にまず確認する制度です。「使える」と断定するものではありません。条件が合えば使える可能性があります。年度・公募回は公式で確認してください。</p>
           <div className="space-y-2">
             {coreChecks.map((c) => (
               <CoreCard key={c.key} c={c} state={project.coreChecks?.[c.key]} onSet={setCoreCheck} />

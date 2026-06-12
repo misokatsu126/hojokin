@@ -168,6 +168,7 @@ function MasterGroup({ group, title }: { group: CoreGroup; title: string }) {
                 <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-800">{m.confidenceLabel}</span>
               </div>
               <a href={href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block rounded-md border px-3 py-1.5 text-xs text-emerald-700 hover:bg-gray-50">{m.officialUrl ? "公式ページを見る ↗" : "公式情報を探す ↗"}</a>
+              <div className="mt-1 text-[10px] text-gray-400">年度・公募回は公式で確認してください（マスター最終確認 {m.lastOfficialCheckedAt}）</div>
             </div>
           );
         })}
