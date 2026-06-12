@@ -100,7 +100,7 @@ export function HomeDashboard() {
       const r = rows.find((x) => x.orderedRisk)!;
       return {
         tone: "red", title: "発注後の案件があります（要注意）",
-        text: `「${r.p.name || "支出案件"}」は契約・注文のあとなので、その費用は補助金の対象外になることがあります。別の費用や次回の募集で使えないか確認しましょう。`,
+        text: `「${r.p.name || "（名称未設定）"}」は契約・注文のあとなので、その費用は補助金の対象外になることがあります。別の費用や次回の募集で使えないか確認しましょう。`,
         cta: { href: `/projects/${r.p.id}`, label: "対象外か確認する" },
       };
     }
@@ -109,7 +109,7 @@ export function HomeDashboard() {
       const dd = deadlineRow.match.top?.r.lc.deadlineDays ?? 0;
       return {
         tone: "amber", title: "締切が近い補助金があります",
-        text: `「${deadlineRow.p.name || "支出案件"}」に、あと${dd}日でしめ切られる候補があります。まず公式サイトで、締切と「対象になる費用」を確認しましょう。`,
+        text: `「${deadlineRow.p.name || "（名称未設定）"}」に、あと${dd}日でしめ切られる候補があります。まず公式サイトで、締切と「対象になる費用」を確認しましょう。`,
         cta: { href: `/projects/${deadlineRow.p.id}`, label: "締切を確認する" },
       };
     }
@@ -117,8 +117,8 @@ export function HomeDashboard() {
     if (preRow) {
       return {
         tone: "amber", title: `発注の前に確認したい案件が${counts.preOrder}件あります`,
-        text: `まず急ぐのは「${preRow.p.name || "支出案件"}」。契約・注文する前に、補助金が使えるか公式サイトで条件を確認しましょう。発注のあとだと対象外になることがあります。`,
-        cta: { href: `/projects/${preRow.p.id}`, label: "この案件を確認する" },
+        text: `まず急ぐのは「${preRow.p.name || "（名称未設定）"}」。契約・注文する前に、補助金が使えるか公式サイトで条件を確認しましょう。発注のあとだと対象外になることがあります。`,
+        cta: { href: `/projects/${preRow.p.id}`, label: "この補助金チェックを見る" },
       };
     }
     if (allTopTasks.length > 0) {
@@ -132,7 +132,7 @@ export function HomeDashboard() {
     return {
       tone: "green", title: "いま急いで対応することはありません",
       text: total > 0 ? "登録した案件は確認が進んでいます。新しい支出が出たら追加して、契約・注文の前に補助金が使えるかチェックしましょう。" : "補助金を使えるか確認したい支出を選んで、チェックを始めましょう。",
-      cta: { href: "/projects/new", label: "支出案件を追加する" },
+      cta: { href: "/projects/new", label: "補助金チェックを追加する" },
     };
   }, [rows, counts, allTopTasks, anyOrdered]);
 
@@ -194,7 +194,7 @@ export function HomeDashboard() {
         <h2 className="text-base font-bold text-ink">📋 今日やる申請準備</h2>
         <p className="mb-2 text-xs text-gray-500">支出内容ではなく、補助金申請のために先に確認することです。</p>
         {topTasks.length === 0 ? (
-          <p className="rounded-lg border bg-white p-4 text-sm text-gray-500">いま確認することはありません。新しい支出案件を作って確認しましょう。</p>
+          <p className="rounded-lg border bg-white p-4 text-sm text-gray-500">いま確認することはありません。新しい補助金チェックを作って確認しましょう。</p>
         ) : (
           <ol className="space-y-2">
             {topTasks.map((t, i) => (
@@ -219,21 +219,21 @@ export function HomeDashboard() {
 
       {/* 5. メインCTA */}
       <div className="mb-6 grid gap-3 sm:grid-cols-2">
-        <Link href="/projects/new" className="rounded-xl bg-accent px-5 py-4 text-center text-base font-semibold text-white hover:opacity-90">＋ 支出案件を作る</Link>
+        <Link href="/projects/new" className="rounded-xl bg-accent px-5 py-4 text-center text-base font-semibold text-white hover:opacity-90">＋ 補助金チェックを作る</Link>
         <Link href="/search" className="rounded-xl border-2 border-accent px-5 py-4 text-center text-base font-semibold text-accent hover:bg-accent/5">💬 相談して探す</Link>
       </div>
 
-      {/* 6. 進行中の支出案件 */}
+      {/* 6. 進行中の補助金チェック */}
       {rows.length > 0 && (
         <div className="mb-6">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-bold text-ink">進行中の支出案件</h2>
+            <h2 className="text-base font-bold text-ink">進行中の補助金チェック</h2>
             <Link href="/projects" className="text-xs text-accent hover:underline">すべて見る →</Link>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {rows.slice(0, 3).map((r) => (
               <Link key={r.p.id} href={`/projects/${r.p.id}`} className="rounded-lg border bg-white p-3 transition hover:border-accent">
-                <div className="truncate text-sm font-semibold text-ink">{r.p.name || "支出案件"}</div>
+                <div className="truncate text-sm font-semibold text-ink">{r.p.name || "（名称未設定）"}</div>
                 <div className="mt-0.5 truncate text-xs text-gray-500">{r.p.location || r.p.store || ""}{r.match.total > 0 ? `／候補 ${r.match.total}件` : ""}</div>
                 <div className={`mt-1 text-xs font-medium ${r.tone === "red" ? "text-red-600" : r.tone === "amber" ? "text-amber-700" : r.tone === "green" ? "text-green-700" : "text-blue-700"}`}>{r.headline}</div>
                 <div className="mt-1 text-[11px] text-gray-500">申請準備：{r.done}/{PROJECT_CHECKLIST.length} 完了{r.tasks[0] ? `　次：${r.tasks[0].action}` : ""}</div>

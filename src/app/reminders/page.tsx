@@ -64,7 +64,7 @@ export default function RemindersPage() {
     <div>
       <h1 className="mb-1 text-xl font-bold text-ink">🔔 通知・リマインド</h1>
       <p className="mb-4 text-sm leading-relaxed text-gray-600">
-        登録した支出案件から、<strong>発注前に確認すべきこと・締切が近いこと</strong>などをまとめています。
+        登録した補助金チェックから、<strong>発注前に確認すべきこと・締切が近いこと</strong>などをまとめています。
         対応したものは「対応済みにする」で消せます。
       </p>
       <div className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
@@ -84,8 +84,8 @@ export default function RemindersPage() {
       {active.length === 0 ? (
         <div className="rounded-xl border bg-white p-8 text-center">
           <p className="text-sm font-medium text-ink">いま確認が必要な通知はありません。</p>
-          <p className="mt-1 text-xs text-gray-500">支出案件を登録すると、発注前の注意や締切のリマインドが出ます。</p>
-          <Link href="/projects/new" className="mt-3 inline-block rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90">＋ 支出案件を追加</Link>
+          <p className="mt-1 text-xs text-gray-500">補助金チェックを登録すると、発注前の注意や締切のリマインドが出ます。</p>
+          <Link href="/projects/new" className="mt-3 inline-block rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90">＋ 補助金チェックを追加</Link>
         </div>
       ) : (
         <div className="space-y-5">
@@ -141,7 +141,7 @@ function AlertCard({ a, onDone }: { a: ProjectAlert; onDone: () => void }) {
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-2 text-xs">
-        <Link href={href} className="rounded-md bg-accent px-3 py-1.5 font-medium text-white hover:opacity-90">この案件を確認する →</Link>
+        <Link href={href} className="rounded-md bg-accent px-3 py-1.5 font-medium text-white hover:opacity-90">この補助金チェックを見る →</Link>
         <button onClick={onDone} className="rounded-md border px-3 py-1.5 text-gray-600 hover:bg-white">対応済みにする</button>
       </div>
     </div>

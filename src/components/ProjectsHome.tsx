@@ -11,7 +11,7 @@ import {
 import { TRIAGE_META } from "@/lib/triage";
 import { formatAmount } from "@/lib/utils";
 
-export function ProjectsHome({ heading = "今ある支出案件", showIntro = true }: { heading?: string; showIntro?: boolean }) {
+export function ProjectsHome({ heading = "今ある補助金チェック", showIntro = true }: { heading?: string; showIntro?: boolean }) {
   const [projects, setProjects] = useState<SpendingProject[]>([]);
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,12 +33,12 @@ export function ProjectsHome({ heading = "今ある支出案件", showIntro = tr
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-ink sm:text-2xl">{heading}</h1>
-        <Link href="/projects/new" className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90">＋ 支出案件を追加</Link>
+        <Link href="/projects/new" className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90">＋ 補助金チェックを追加</Link>
       </div>
       {showIntro && (
         <p className="mb-4 text-sm leading-relaxed text-gray-600">
           「何にお金を使う予定か」を登録すると、その支出に使える補助金がないかを判定します。
-          発注してよいか、いま何をすればよいかも、案件ごとにわかります。
+          発注してよいか、いま何をすればよいかも、ひとつずつわかります。
         </p>
       )}
 
@@ -91,7 +91,7 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
     <Link href={`/projects/${project.id}`} className="block rounded-xl border bg-white p-4 transition hover:border-accent hover:shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-base font-bold text-ink">{project.name || "（名称未設定の案件）"}</h2>
+          <h2 className="text-base font-bold text-ink">{project.name || "（名称未設定）"}</h2>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
             {project.store && <span>🏬{project.store}</span>}
             {project.location && <span>📍{project.location}</span>}
@@ -136,7 +136,7 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
         {!adv.wait && <p className="mt-0.5 text-[11px] text-amber-700">注意：すでに発注済みだと対象外の可能性があります</p>}
       </div>
 
-      <div className="mt-2 text-right text-xs font-medium text-accent">この案件の詳細・補助金候補を見る →</div>
+      <div className="mt-2 text-right text-xs font-medium text-accent">この補助金チェックの詳細を見る →</div>
     </Link>
   );
 }
