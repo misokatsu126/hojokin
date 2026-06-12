@@ -73,7 +73,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["従業員数要件あり", "商工会/商工会議所の確認が必要", "交付決定前の発注はNG"],
     requiredInfo: ["従業員数", "事業所の所在地", "使いたい経費"],
     officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["signboard", "website", "ad", "ec", "renovation", "event", "newstore", "export", "inbound", "certification"],
+    templates: ["signboard", "website", "ad", "ec", "renovation", "event", "newstore", "export", "inbound", "certification", "new_business"],
     keywords: /広告|チラシ|LP|ホームページ|ＨＰ|EC|看板|販路|展示会|販促|店舗改装|集客|新店舗|出店|海外|輸出|越境|多言語|インバウンド|認証|商標/i,
   },
   {
@@ -93,7 +93,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["事業計画書が必要", "革新性・賃上げ要件", "交付決定前の発注はNG"],
     requiredInfo: ["投資内容と金額", "事業計画"],
     officialUrl: "https://portal.monodukuri-hojo.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["ai_pos", "energy", "aircon", "newstore", "machinery", "hygiene", "bcp", "certification"],
+    templates: ["ai_pos", "energy", "aircon", "newstore", "machinery", "hygiene", "bcp", "certification", "new_business"],
     keywords: /設備投資|システム構築|新サービス|生産性|試作|機械装置|革新|加工機|検査|HACCP|特許|認証/i,
   },
   {
@@ -103,7 +103,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["対象カタログ・製品の指定あり", "交付決定前の発注はNG"],
     requiredInfo: ["導入予定の設備・製品", "人手不足の状況"],
     officialUrl: "https://shoryokuka.smrj.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["ai_pos", "aircon", "energy", "machinery", "vehicle", "system"],
+    templates: ["ai_pos", "aircon", "energy", "machinery", "vehicle", "system", "wage"],
     keywords: /省力化|省人化|自動化|ロボット|POS|在庫|IoT|AI|人手不足|運搬|フォークリフト/i,
   },
   {
@@ -113,8 +113,8 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["新規性・事業計画が必要", "交付決定前の発注はNG"],
     requiredInfo: ["新規事業の内容", "投資内容"],
     officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["newstore"],
-    keywords: /新事業|新分野|新規事業|新店舗|新業態|新サービス|第二創業/i,
+    templates: ["newstore", "new_business"],
+    keywords: /新事業|新分野|新規事業|新店舗|新業態|新サービス|第二創業|事業転換|多角化/i,
   },
   {
     key: "shokei_ma", name: "事業承継・M&A補助金", aliasNames: ["事業承継補助金", "M&A補助金"], group: "national_subsidy", priority: "medium", confidenceLabel: "確認推奨",
@@ -123,7 +123,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["承継形態の要件", "対象経費・期間の確認"],
     requiredInfo: ["承継・M&Aの形態", "専門家の関与"],
     officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: [],
+    templates: ["succession"],
     keywords: /M&A|Ｍ＆Ａ|事業承継|事業譲|買収|引継|後継|PMI/i,
   },
   {
@@ -144,7 +144,7 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     caution: ["従業員が必要", "事業場内最低賃金の引上げが要件", "交付決定前実施NG"],
     requiredInfo: ["従業員数", "事業場内最低賃金", "賃上げ計画"],
     officialUrl: "https://www.mhlw.go.jp/", sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
-    templates: ["hire", "training"],
+    templates: ["hire", "training", "wage"],
     keywords: /賃上げ|最低賃金|業務改善/i,
   },
   {
