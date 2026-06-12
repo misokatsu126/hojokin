@@ -11,6 +11,7 @@ import {
 } from "@/lib/projects";
 import { TRIAGE_META, type TriageKey, type TriageResult } from "@/lib/triage";
 import type { VerifyResult } from "@/lib/verify";
+import { getCoreProgramChecks, coreOfficialHref, type CoreProgramCheck, type CoreGroup } from "@/lib/coreMaster";
 
 // 案件詳細での補助金カテゴリ表示順（最有力→条件確認→締切→見逃し→次回→新着）
 const DETAIL_ORDER: TriageKey[] = ["usable", "conditional", "deadline", "missed", "next_time", "new", "unusable"];
@@ -47,6 +48,15 @@ export default function ProjectDetailPage() {
 
   const match = useMemo(() => (project ? classifyForProject(project, items) : null), [project, items]);
   const tasks = useMemo(() => (project ? projectTasks(project, match ?? undefined) : []), [project, match]);
+  const coreChecks = useMemo(() => (project ? getCoreProgramChecks(project) : []), [project]);
+
+  function setCoreCheck(key: string, val: "done" | "skip") {
+    if (!project) return;
+    const cur = project.coreChecks?.[key];
+    const next = { ...project, coreChecks: { ...project.coreChecks, [key]: cur === val ? undefined as any : val } };
+    if (next.coreChecks[key] === undefined) delete next.coreChecks[key];
+    setProject(upsertProject(next));
+  }
 
   function toggleCheck(key: string) {
     if (!project) return;
@@ -156,9 +166,22 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* この支出で使えそうな補助金 */}
+      {/* まず確認すべき定番制度（検索に依存せず、案件タイプから必ず表示） */}
+      {coreChecks.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-1 text-lg font-bold text-ink">まず確認すべき定番制度</h2>
+          <p className="mb-2 text-xs text-gray-500">中小企業・小規模事業者が一般的にまず確認する制度です。「使える」と断定するものではありません。条件が合えば使える可能性があります。</p>
+          <div className="space-y-2">
+            {coreChecks.map((c) => (
+              <CoreCard key={c.key} c={c} state={project.coreChecks?.[c.key]} onSet={setCoreCheck} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* この支出で使えそうな補助金（検索・収集で見つかった候補） */}
       <section className="mt-6">
-        <h2 className="mb-2 text-lg font-bold text-ink">この支出で使えそうな補助金</h2>
+        <h2 className="mb-2 text-lg font-bold text-ink">検索・収集で見つかった候補</h2>
         {loading ? (
           <p className="rounded-lg border bg-white p-5 text-sm text-gray-400">補助金候補を読み込み中…</p>
         ) : !match || match.total === 0 ? (
@@ -225,6 +248,32 @@ function regionWord(t: VerifyResult["regionMatchType"]): string {
 }
 function expenseWord(t: VerifyResult["expenseMatchType"]): string {
   return t === "exact" ? "一致" : t === "near" ? "近い" : t === "possible" ? "要確認" : t === "unknown" ? "未確認" : "不一致";
+}
+
+const CORE_GROUP_LABEL: Record<CoreGroup, string> = { national_subsidy: "国の定番", labor_grant: "厚労省系助成金", local_pattern: "自治体で探す" };
+
+function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "skip"; onSet: (k: string, v: "done" | "skip") => void }) {
+  const confTone = c.confidenceLabel === "確認推奨" ? "bg-green-100 text-green-800" : c.confidenceLabel === "条件確認" ? "bg-amber-100 text-amber-800" : "bg-sky-100 text-sky-800";
+  return (
+    <div className={`rounded-lg border p-3 ${state === "done" ? "border-green-300 bg-green-50/40" : state === "skip" ? "border-gray-200 bg-gray-50 opacity-70" : "bg-white"}`}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-sm font-bold text-ink">{c.name}</span>
+        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${confTone}`}>{c.confidenceLabel}</span>
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{CORE_GROUP_LABEL[c.group]}</span>
+        {state === "done" && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">確認済み</span>}
+        {state === "skip" && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">今回は対象外</span>}
+      </div>
+      <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">なぜ確認すべきか：</span>{c.projectFitReason}</p>
+      {c.whatToCheck.length > 0 && <p className="mt-0.5 text-xs text-gray-600"><span className="text-gray-400">何を確認：</span>{c.whatToCheck.join("／")}</p>}
+      {c.caution.length > 0 && <p className="mt-0.5 text-xs text-amber-700"><span className="text-amber-500">注意：</span>{c.caution.join("／")}</p>}
+      {c.requiredInfo.length > 0 && <p className="mt-0.5 text-xs text-gray-500">必要な情報：{c.requiredInfo.join("・")}</p>}
+      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+        <a href={coreOfficialHref(c)} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-3 py-1.5 font-medium text-white hover:opacity-90">{c.officialUrl ? "🔗 公式ページを見る ↗" : "🔍 公式情報を探す ↗"}</a>
+        <button onClick={() => onSet(c.key, "done")} className="rounded-md border border-green-300 px-3 py-1.5 text-green-700 hover:bg-green-50">確認済みにする</button>
+        <button onClick={() => onSet(c.key, "skip")} className="rounded-md border px-3 py-1.5 text-gray-500 hover:bg-gray-50">今回は対象外</button>
+      </div>
+    </div>
+  );
 }
 
 function CandidateCard({ item, r, v, catKey }: { item: DiscoveredItem; r: TriageResult; v: VerifyResult; catKey: TriageKey }) {

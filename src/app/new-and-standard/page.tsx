@@ -5,9 +5,10 @@ import Link from "next/link";
 import { fetchDiscoveredItems, fetchProfiles } from "@/lib/supabase";
 import type { DiscoveredItem, BusinessProfile } from "@/lib/types";
 import { isSampleDiscovered } from "@/lib/sampleFilter";
-import { triageDiscovered, TRIAGE_META, STANDARD_SUBSIDIES, JGRANTS_PORTAL_URL } from "@/lib/triage";
+import { triageDiscovered, TRIAGE_META } from "@/lib/triage";
 import { verifyItem } from "@/lib/verify";
 import { loadProjects, type SpendingProject } from "@/lib/projects";
+import { CORE_PROGRAM_MASTER, getCoreProgramChecks, type CoreGroup } from "@/lib/coreMaster";
 import { formatDate, daysUntil } from "@/lib/utils";
 
 function sourceLabel(s: string | null | undefined): string {
@@ -37,13 +38,18 @@ export default function NewAndStandardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 定番補助金に「関係しそうな案件」を紐づける（タグが案件名・用途・メモに含まれるか）
-  function relatedProjects(tags: string[]): SpendingProject[] {
-    return projects.filter((p) => {
-      const text = `${p.name} ${p.purpose} ${p.uses.join(" ")} ${p.industry} ${p.memo}`;
-      return tags.some((t) => text.includes(t));
-    });
-  }
+  // 案件横断で「まず見る定番制度」を集計（key → 関係する案件）
+  const coreByProject = useMemo(() => {
+    const map = new Map<string, { name: string; confidence: string; projects: SpendingProject[] }>();
+    for (const p of projects) {
+      for (const c of getCoreProgramChecks(p)) {
+        const e = map.get(c.key) ?? { name: c.name, confidence: c.confidenceLabel, projects: [] };
+        e.projects.push(p);
+        map.set(c.key, e);
+      }
+    }
+    return [...map.values()].sort((a, b) => b.projects.length - a.projects.length);
+  }, [projects]);
 
   // 直近14日以内に検知/取得した候補（新着・更新）
   const recent = useMemo(() => {
@@ -109,36 +115,63 @@ export default function NewAndStandardPage() {
         )}
       </section>
 
-      {/* 一般的によく使われる定番 */}
-      <section>
-        <h2 className="mb-1 text-base font-bold text-ink">📌 一般的によく使われる補助金（定番）</h2>
-        <p className="mb-2 text-xs text-gray-500">あなた向け判定とは別に、多くの中小企業・小規模事業者が確認する価値のある制度です（一般確認推奨）。</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {STANDARD_SUBSIDIES.map((s) => {
-            const rel = relatedProjects(s.tags);
-            return (
-              <div key={s.name} className="rounded-lg border bg-white p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-ink">{s.name}</div>
-                    <div className="truncate text-xs text-gray-500">{s.use}</div>
-                  </div>
-                  <a href={JGRANTS_PORTAL_URL} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md border px-3 py-1.5 text-xs text-emerald-700 hover:bg-gray-50">公式ポータルで探す ↗</a>
-                </div>
-                {rel.length > 0 && (
-                  <div className="mt-2 rounded-md bg-sky-50 p-2 text-[11px] text-sky-900">
-                    <span className="font-medium">関係しそうな案件：</span>
-                    {rel.slice(0, 2).map((p, i) => (
-                      <span key={p.id}>{i > 0 ? "、" : ""}<Link href={`/projects/${p.id}`} className="underline">{p.name}</Link></span>
-                    ))}
-                    <div className="mt-0.5 text-sky-700">確認理由：{s.reason}</div>
-                  </div>
-                )}
+      {/* 1. あなたの案件でまず見る定番制度 */}
+      {coreByProject.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-2 text-base font-bold text-ink">⭐ あなたの案件でまず見る定番制度</h2>
+          <div className="space-y-2">
+            {coreByProject.slice(0, 8).map((e) => (
+              <div key={e.name} className="rounded-lg border bg-white p-3 text-sm">
+                <span className="font-semibold text-ink">{e.name}</span>
+                <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-800">{e.confidence}</span>
+                <span className="ml-2 text-xs text-gray-500">関係する案件：{e.projects.slice(0, 3).map((p) => p.name || "支出案件").join("、")}</span>
               </div>
-            );
-          })}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 2〜4. 制度マスター（国／厚労省系／自治体パターン） */}
+      <MasterGroup group="national_subsidy" title="🏛 国の定番補助金" />
+      <MasterGroup group="labor_grant" title="👥 厚労省系の助成金" />
+      <MasterGroup group="local_pattern" title="📍 自治体で探すべき定番パターン" />
+
+      <p className="mt-6 text-[11px] leading-relaxed text-gray-400">
+        ※ 定番制度は「使える」と断定するものではありません。条件が合えば使える可能性があります。対象になるかは公式要領で確認し、発注前に確認してください。年度・名称は変わることがあります。
+      </p>
     </div>
+  );
+}
+
+const GROUP_NOTE: Record<CoreGroup, string> = {
+  national_subsidy: "中小企業・小規模事業者がまず確認する国の定番です。",
+  labor_grant: "採用・賃上げ・研修に関わる厚労省系の助成金です。",
+  local_pattern: "地域ごとに探すべき定番パターンです。自治体名で検索して確認します。",
+};
+
+function MasterGroup({ group, title }: { group: CoreGroup; title: string }) {
+  const items = CORE_PROGRAM_MASTER.filter((m) => m.group === group);
+  return (
+    <section className="mb-6">
+      <h2 className="mb-1 text-base font-bold text-ink">{title}</h2>
+      <p className="mb-2 text-xs text-gray-500">{GROUP_NOTE[group]}</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {items.map((m) => {
+          const href = m.officialUrl ?? (m.officialSearchQuery ? `https://www.google.com/search?q=${encodeURIComponent(m.officialSearchQuery.replace("{region}", "お住まいの自治体"))}` : "https://www.jgrants-portal.go.jp/");
+          return (
+            <div key={m.key} className="rounded-lg border bg-white p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-ink">{m.name}</div>
+                  <div className="mt-0.5 text-xs text-gray-500">{m.relatedReason}</div>
+                </div>
+                <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-800">{m.confidenceLabel}</span>
+              </div>
+              <a href={href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block rounded-md border px-3 py-1.5 text-xs text-emerald-700 hover:bg-gray-50">{m.officialUrl ? "公式ページを見る ↗" : "公式情報を探す ↗"}</a>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
