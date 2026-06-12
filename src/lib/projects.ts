@@ -267,20 +267,20 @@ export function orderAdvice(s: OrderStatus): { wait: boolean; tone: string; icon
     return {
       wait: true, tone: "border-amber-300 bg-amber-50 text-amber-800", icon: "🟠",
       title: "まだ発注しないでください",
-      text: "補助金を使う可能性があります。発注前に公式の公募要領を確認してください。",
+      text: "この支出は補助金を使えるかもしれません。契約・注文する前に、公式サイトで条件（対象になる費用・締切）を確認しましょう。",
     };
   }
   if (s === "estimate") {
     return {
       wait: true, tone: "border-sky-300 bg-sky-50 text-sky-800", icon: "🔵",
-      title: "見積だけならまだ間に合う可能性があります",
-      text: "契約・発注・支払い前に、対象経費と募集期間を公式要領で確認してください。",
+      title: "見積もりだけなら、まだ間に合うかもしれません",
+      text: "契約・注文・支払いをする前に、公式サイトで「対象になる費用」と「募集期間」を確認しましょう。",
     };
   }
   return {
     wait: false, tone: "border-red-300 bg-red-50 text-red-700", icon: "🔴",
-    title: "今回の経費は対象外になる可能性があります",
-    text: "すでに契約・発注・支払い済みの経費は対象外になる可能性があります。ただし、追加経費・別案件・次回公募で使える可能性があります。",
+    title: "この費用は対象外になるかもしれません",
+    text: "すでに契約・注文・支払い済みの費用は、補助金の対象外になることがあります。ただし、別の費用や次回の募集なら使えることもあるので確認しましょう。",
   };
 }
 

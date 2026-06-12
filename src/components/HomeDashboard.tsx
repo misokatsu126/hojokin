@@ -99,8 +99,8 @@ export function HomeDashboard() {
     if (anyOrdered) {
       const r = rows.find((x) => x.orderedRisk)!;
       return {
-        tone: "red", title: "発注済みの案件があります",
-        text: `「${r.p.name || "支出案件"}」など発注後の経費は対象外になる可能性があります。別の経費・次回公募で使えないか確認しましょう。`,
+        tone: "red", title: "発注後の案件があります（要注意）",
+        text: `「${r.p.name || "支出案件"}」は契約・注文のあとなので、その費用は補助金の対象外になることがあります。別の費用や次回の募集で使えないか確認しましょう。`,
         cta: { href: `/projects/${r.p.id}`, label: "対象外か確認する" },
       };
     }
@@ -109,15 +109,15 @@ export function HomeDashboard() {
       const dd = deadlineRow.match.top?.r.lc.deadlineDays ?? 0;
       return {
         tone: "amber", title: "締切が近い補助金があります",
-        text: `「${deadlineRow.p.name || "支出案件"}」にあと${dd}日の候補があります。まず公式要領で締切と対象経費を確認してください。`,
+        text: `「${deadlineRow.p.name || "支出案件"}」に、あと${dd}日でしめ切られる候補があります。まず公式サイトで、締切と「対象になる費用」を確認しましょう。`,
         cta: { href: `/projects/${deadlineRow.p.id}`, label: "締切を確認する" },
       };
     }
     const preRow = rows.find((r) => r.preOrderRisk);
     if (preRow) {
       return {
-        tone: "amber", title: `発注前に確認すべき案件が${counts.preOrder}件あります`,
-        text: `補助金を使う可能性があります。まずは「${preRow.p.name || "支出案件"}」の公式要領を確認してから発注してください。`,
+        tone: "amber", title: `発注の前に確認したい案件が${counts.preOrder}件あります`,
+        text: `まず急ぐのは「${preRow.p.name || "支出案件"}」。契約・注文する前に、補助金が使えるか公式サイトで条件を確認しましょう。発注のあとだと対象外になることがあります。`,
         cta: { href: `/projects/${preRow.p.id}`, label: "この案件を確認する" },
       };
     }
@@ -125,13 +125,13 @@ export function HomeDashboard() {
       const t = allTopTasks[0];
       return {
         tone: "blue", title: `今日やる申請準備が${allTopTasks.length}件あります`,
-        text: `支出内容ではなく申請のための準備です。まずは「${t.action}」（${t.projectName}）から進めましょう。`,
-        cta: { href: `/projects/${t.projectId}?task=${t.taskKey}`, label: "今すぐ確認する" },
+        text: `支出そのものではなく、補助金を申請するための準備です。まずは「${t.action}」（${t.projectName}）から進めましょう。`,
+        cta: { href: `/projects/${t.projectId}?task=${t.taskKey}`, label: "今すぐ進める" },
       };
     }
     return {
-      tone: "green", title: "いま急ぎの申請準備はありません",
-      text: total > 0 ? "登録済みの案件は確認が進んでいます。新しい支出があれば追加して、発注前に補助金を確認しましょう。" : "補助金を使えるか確認したい支出テーマを選んで、チェックを始めてください。",
+      tone: "green", title: "いま急いで対応することはありません",
+      text: total > 0 ? "登録した案件は確認が進んでいます。新しい支出が出たら追加して、契約・注文の前に補助金が使えるかチェックしましょう。" : "補助金を使えるか確認したい支出を選んで、チェックを始めましょう。",
       cta: { href: "/projects/new", label: "支出案件を追加する" },
     };
   }, [rows, counts, allTopTasks, anyOrdered]);
