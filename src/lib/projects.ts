@@ -385,7 +385,9 @@ export type ProjectTask = {
   reason: string;
   priority: number; // 小さいほど優先
   source: "basic" | "core_program" | "deadline" | "project_missing_info";
-  relatedProgramKey?: string;
+  relatedProgramKeys?: string[];
+  relatedProgramNames?: string[];
+  isCompleted?: boolean;
 };
 
 const IT_USE = /(AI|POS|在庫|EC|ホームページ|システム|DX|デジタル)/i;
@@ -406,8 +408,8 @@ const PROGRAM_SHORT: Record<string, string> = {
 
 type Contribution = { taskKey: string; action: string; reason: string; source: ProjectTask["source"]; programKey?: string };
 
-// 案件の申請準備タスクを優先度順に返す（重複は taskKey でまとめる）。
-export function projectTasks(project: SpendingProject, match?: ProjectMatch): ProjectTask[] {
+// 案件の申請準備タスクを優先度順に「すべて」返す（重複は taskKey でまとめる）。
+export function getAllProjectTasks(project: SpendingProject, match?: ProjectMatch): ProjectTask[] {
   const c = project.checklist ?? {};
   const tpl = getTemplate(project.templateKey);
   const usesText = `${project.name} ${project.purpose} ${project.uses.join(" ")} ${(tpl?.tags ?? []).join(" ")}`;
@@ -445,29 +447,42 @@ export function projectTasks(project: SpendingProject, match?: ProjectMatch): Pr
   core("it_donyu", "expense", "対象経費を確認してください", "");
   core("local_vacant", "area_check", "対象区域・賃貸契約前か・事前相談を確認してください", "");
   core("gyomu_kaizen", "chinage", "賃上げ予定・事業場内最低賃金を確認してください", "");
-  core("gyomu_kaizen", "employees", "従業員数を入力してください", "");
+  core("gyomu_kaizen", "employees", "従業員がいるか（従業員数）を確認してください", "");
+  core("gyomu_kaizen", "pro", "社会保険労務士に相談してください", "");
   core("career_up", "koyou", "雇用形態・就業規則を確認してください", "");
   core("career_up", "pro", "社会保険労務士に相談してください", "");
+  core("jinzai_kaihatsu", "training_plan", "研修内容・訓練時間・事前届出を確認してください", "");
   core("jinzai_kaihatsu", "pro", "社会保険労務士に相談してください", "");
 
   // taskKey で重複排除（複数制度に関係する場合は理由に併記）
-  const byKey = new Map<string, { action: string; baseReason: string; source: ProjectTask["source"]; programs: Set<string>; firstProgram?: string }>();
+  const byKey = new Map<string, { action: string; baseReason: string; source: ProjectTask["source"]; keys: Set<string>; names: Set<string> }>();
   for (const c0 of contribs) {
     const e = byKey.get(c0.taskKey);
     const short = c0.programKey ? PROGRAM_SHORT[c0.programKey] : undefined;
-    if (!e) byKey.set(c0.taskKey, { action: c0.action, baseReason: c0.reason, source: c0.source, programs: short ? new Set([short]) : new Set(), firstProgram: c0.programKey });
-    else if (short) e.programs.add(short);
+    if (!e) byKey.set(c0.taskKey, { action: c0.action, baseReason: c0.reason, source: c0.source, keys: c0.programKey ? new Set([c0.programKey]) : new Set(), names: short ? new Set([short]) : new Set() });
+    else { if (c0.programKey) e.keys.add(c0.programKey); if (short) e.names.add(short); }
   }
 
   const base = { projectId: project.id, projectName: project.name || "支出案件" };
   const tasks: ProjectTask[] = [];
   for (const [taskKey, e] of byKey) {
-    const progs = [...e.programs];
-    const reason = progs.length > 0 ? `${progs.join("・")}で必要です` : e.baseReason;
-    tasks.push({ ...base, taskKey, action: e.action, reason, priority: TASK_PRIORITY[taskKey] ?? 50, source: e.source, relatedProgramKey: e.firstProgram });
+    const names = [...e.names];
+    const reason = names.length > 0 ? `${names.join("・")}で必要です` : e.baseReason;
+    tasks.push({
+      ...base, taskKey, action: e.action, reason,
+      priority: TASK_PRIORITY[taskKey] ?? 50, source: e.source,
+      relatedProgramKeys: [...e.keys], relatedProgramNames: names, isCompleted: false,
+    });
   }
   return tasks.sort((a, b) => a.priority - b.priority);
 }
+
+// ホーム用：未完了・優先度順・最大 limit 件
+export function getTopProjectTasks(project: SpendingProject, match?: ProjectMatch, limit = 5): ProjectTask[] {
+  return getAllProjectTasks(project, match).slice(0, limit);
+}
+// 既存互換の別名
+export const projectTasks = getAllProjectTasks;
 
 // 案件ごとの「今日やること」を1つだけ返す（最優先）。完了済みなら null。
 export function nextTask(project: SpendingProject, match?: ProjectMatch): ProjectTask | null {
