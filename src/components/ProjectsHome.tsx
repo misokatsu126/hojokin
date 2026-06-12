@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import {
-  loadProjects, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate,
+  loadProjects, classifyForProject, orderAdvice, URGENCY_LABEL, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, getTemplate, getTopProjectTasks,
   type SpendingProject,
 } from "@/lib/projects";
 import { TRIAGE_META } from "@/lib/triage";
@@ -80,7 +80,7 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
   const top = match.top;
   const adv = orderAdvice(project.orderStatus);
   const meta = top ? TRIAGE_META[top.r.key] : null;
-  const next = top?.r.nextActions ?? ["公式の公募要領を確認する", "対象経費を確認する"];
+  const next = getTopProjectTasks(project, match, 3).map((t) => t.action);
   const done = PROJECT_CHECKLIST.filter((c) => project.checklist?.[c.key]).length;
   const pct = Math.round((done / PROJECT_CHECKLIST.length) * 100);
 
@@ -117,10 +117,10 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
               <span className="ml-2 text-xs font-normal text-gray-500">候補 {match.total} 件</span>
             </p>
             {top && <p className="mt-0.5 text-xs text-gray-600">最有力候補：{top.item.title}</p>}
-            <p className="mt-0.5 text-xs text-orange-700">次にやること：{next.slice(0, 3).join(" → ")}</p>
+            <p className="mt-0.5 text-xs text-orange-700">次にやる申請準備：{next.length ? next.join(" → ") : "公式要領を確認する"}</p>
           </>
         )}
-        <p className="mt-1 text-[11px] text-gray-500">見逃しリスク：<span className={match.missRisk === "高" ? "font-semibold text-orange-700" : match.missRisk === "中" ? "text-amber-700" : "text-green-700"}>{match.missRisk}</span></p>
+        <p className="mt-1 text-[11px] text-gray-500">見逃し注意：<span className={match.missRisk === "高" ? "font-semibold text-orange-700" : match.missRisk === "中" ? "text-amber-700" : "text-green-700"}>{match.missRisk}</span></p>
         <div className="mt-1 flex items-center gap-2">
           <div className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-200">
             <div className="h-full bg-green-500" style={{ width: `${pct}%` }} />

@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  emptyProject, upsertProject, getTemplate, PROJECT_TEMPLATES, PURPOSE_TAGS,
+  emptyProject, upsertProject, getTemplate, PROJECT_TEMPLATE_GROUPS, PURPOSE_TAGS,
   ORDER_STATUS_LABEL, URGENCY_LABEL, formatBudget,
   type SpendingProject, type OrderStatus, type Urgency, type ProjectTemplate,
 } from "@/lib/projects";
@@ -62,15 +62,21 @@ function NewProjectWizard() {
         {/* ステップ1：テンプレート */}
         {step === 0 && (
           <div>
-            <h2 className="mb-1 text-base font-semibold text-ink">何にお金を使う予定ですか？</h2>
+            <h2 className="mb-1 text-base font-semibold text-ink">支出テーマを選ぶ</h2>
             <p className="mb-3 text-xs text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を確認したい支出内容です。近いものを選んでください（あとから変えられます）。</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {PROJECT_TEMPLATES.map((t) => (
-                <button key={t.key} onClick={() => pickTemplate(t)}
-                  className={`rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm ${p.templateKey === t.key ? "border-accent bg-accent/5" : ""}`}>
-                  <div className="font-medium text-ink">{t.label}</div>
-                  <div className="mt-0.5 text-[11px] text-gray-400">{t.categories.slice(0, 2).join("・")}</div>
-                </button>
+            <div className="space-y-3">
+              {PROJECT_TEMPLATE_GROUPS.map((g) => (
+                <div key={g.title}>
+                  <p className="mb-1 text-xs font-semibold text-gray-600">{g.title}</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {g.keys.map((k) => getTemplate(k)).filter(Boolean).map((t) => (
+                      <button key={t!.key} onClick={() => pickTemplate(t!)}
+                        className={`rounded-lg border p-3 text-left text-sm transition hover:border-accent hover:shadow-sm ${p.templateKey === t!.key ? "border-accent bg-accent/5" : ""}`}>
+                        <div className="font-medium text-ink">{t!.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
             {/* 選んだテンプレートの説明＋固有の質問 */}

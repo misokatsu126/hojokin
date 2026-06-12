@@ -256,21 +256,88 @@ export const PROJECT_CHECKLIST: { key: string; label: string }[] = [
 ];
 
 // 発注してよいか / 待つべきか
-export function orderAdvice(s: OrderStatus): { wait: boolean; tone: string; title: string; text: string } {
-  if (s === "none" || s === "estimate") {
+export function orderAdvice(s: OrderStatus): { wait: boolean; tone: string; icon: string; title: string; text: string } {
+  // 色：未発注=アンバー、見積のみ=青、発注済み=赤。緑は「進めてOK」に見えるため使わない。
+  if (s === "none") {
     return {
-      wait: true,
-      tone: "border-green-200 bg-green-50 text-green-800",
-      title: s === "none" ? "まだ発注しないでください（申請できる可能性があります）" : "契約・発注の前に確認しましょう（まだ間に合う可能性）",
-      text: "補助金は交付決定前の契約・発注・支払いが対象外になることが多いです。先に公式の公募要領を確認してください。",
+      wait: true, tone: "border-amber-300 bg-amber-50 text-amber-800", icon: "🟠",
+      title: "まだ発注しないでください",
+      text: "補助金を使う可能性があります。発注前に公式の公募要領を確認してください。",
+    };
+  }
+  if (s === "estimate") {
+    return {
+      wait: true, tone: "border-sky-300 bg-sky-50 text-sky-800", icon: "🔵",
+      title: "見積だけならまだ間に合う可能性があります",
+      text: "契約・発注・支払い前に、対象経費と募集期間を公式要領で確認してください。",
     };
   }
   return {
-    wait: false,
-    tone: "border-amber-200 bg-amber-50 text-amber-800",
-    title: "この経費は対象外の可能性があります",
-    text: "すでに契約・発注・支払い済みの経費は対象外になる可能性があります。ただし、追加経費・別の経費・次回公募で使える可能性はあります。",
+    wait: false, tone: "border-red-300 bg-red-50 text-red-700", icon: "🔴",
+    title: "今回の経費は対象外になる可能性があります",
+    text: "すでに契約・発注・支払い済みの経費は対象外になる可能性があります。ただし、追加経費・別案件・次回公募で使える可能性があります。",
   };
+}
+
+// 判定を強くするために足りない情報（最大3件・入力済みは出さない）
+export function missingInfo(project: SpendingProject): { key: string; label: string }[] {
+  const out: { key: string; label: string }[] = [];
+  if (project.budget == null) out.push({ key: "budget", label: "見積・予算はいくらですか？" });
+  if (project.employees == null) out.push({ key: "employees", label: "従業員数は何人ですか？" });
+  if (!project.location) out.push({ key: "location", label: "どこで使いますか？（市区町村）" });
+  if (!project.industry) out.push({ key: "industry", label: "業種は何ですか？" });
+  if (!project.schedule) out.push({ key: "schedule", label: "いつ頃実施しますか？" });
+  return out.slice(0, 3);
+}
+
+// 概算の補助額イメージ（断定しない。補助率不明なら null）
+export function estimateRange(project: SpendingProject): { budget: number; low: number; high: number; rateLabel: string } | null {
+  if (project.budget == null) return null;
+  return { budget: project.budget, low: Math.round(project.budget * 0.5), high: Math.round((project.budget * 2) / 3), rateLabel: "1/2〜2/3" };
+}
+
+// 相談用メモ（商工会議所・士業・自治体窓口向け）を生成
+export function generateConsultMemo(project: SpendingProject, coreNames: string[]): string {
+  const where = project.location || "（地域未入力）";
+  const budget = project.budget != null ? `約${formatBudget(project.budget)}` : "（予算未入力）";
+  const order = ORDER_STATUS_LABEL[project.orderStatus];
+  const theme = project.uses[0] || project.purpose || project.name || "支出";
+  const programs = coreNames.slice(0, 3).join("、") || "関係する補助金";
+  return [
+    "【相談したい内容】",
+    `${where}で「${theme}」を予定しています。予算は${budget}、現在は「${order}」の状況です。`,
+    `${programs} の対象になるか確認したいです。`,
+    "",
+    "【確認したいこと】",
+    "1. 発注前に申請が必要か",
+    "2. この支出が対象経費になるか",
+    "3. 申請期限・募集期間",
+    "4. 必要書類",
+    "5. 商工会議所・事前相談が必要か",
+    "",
+    "【相談先候補】",
+    "・商工会議所／商工会",
+    "・自治体の産業振興課",
+    "・認定支援機関",
+    "・社労士／行政書士／税理士",
+  ].join("\n");
+}
+
+// 見積依頼メモ（支出テーマ別の記載依頼）を生成
+export function generateEstimateMemo(project: SpendingProject): string {
+  const tk = project.templateKey ?? "";
+  const head = "補助金申請を検討しているため、見積書には以下を記載してください。";
+  let items: string[];
+  if (["aircon", "energy"].includes(tk)) {
+    items = ["機器名", "型番", "数量", "単価", "工事費", "既存機器の撤去費", "省エネ性能が分かる資料", "発行日", "宛名"];
+  } else if (["ai_pos", "ec", "website"].includes(tk)) {
+    items = ["ツール名", "初期費用", "月額費用", "導入支援費", "保守費", "対象ツール登録の有無", "ベンダー名", "発行日", "宛名"];
+  } else if (["ad", "signboard", "event"].includes(tk)) {
+    items = ["制作物の内容", "掲載期間", "制作費", "広告運用費", "デザイン費", "印刷費", "施工費", "発行日", "宛名"];
+  } else {
+    items = ["品目・内容", "数量", "単価", "工事費・委託費", "発行日", "宛名"];
+  }
+  return [head, "", ...items.map((i) => `・${i}`)].join("\n");
 }
 
 // ---- localStorage ストア ----
@@ -430,7 +497,7 @@ export function getAllProjectTasks(project: SpendingProject, match?: ProjectMatc
 
   // 定番制度（CORE）由来タスク。確認済み(done)・対象外(skip)は出さない。
   const activeCore = new Set(
-    getCoreProgramChecks(project).filter((cc) => project.coreChecks?.[cc.key] !== "done").map((cc) => cc.key)
+    getCoreProgramChecks(project).filter((cc) => !["done", "skip"].includes(project.coreChecks?.[cc.key] ?? "")).map((cc) => cc.key)
   );
   const core = (key: string, taskKey: string, action: string, reason: string) => {
     if (activeCore.has(key) && !c[taskKey]) contribs.push({ taskKey, action, reason, source: "core_program", programKey: key });

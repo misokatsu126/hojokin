@@ -23,6 +23,13 @@ type Row = {
   rank: number; // 並び順（小さいほど上）
 };
 
+type Conclusion = {
+  tone: "red" | "amber" | "blue" | "green";
+  title: string;
+  text: string;
+  cta: { href: string; label: string };
+};
+
 export function HomeDashboard() {
   const [projects, setProjects] = useState<SpendingProject[]>([]);
   const [items, setItems] = useState<DiscoveredItem[]>([]);
@@ -77,7 +84,6 @@ export function HomeDashboard() {
   }, [rows]);
 
   const anyOrdered = rows.some((r) => r.orderedRisk);
-  const anyEstimate = rows.some((r) => r.p.orderStatus === "estimate");
   // 今日やること＝全案件の申請準備タスクを優先度順（支出テーマは含めない）
   const allTopTasks = useMemo(
     () => rows.flatMap((r) => r.tasks).sort((a, b) => a.priority - b.priority),
@@ -85,6 +91,49 @@ export function HomeDashboard() {
   );
   const [showAllTasks, setShowAllTasks] = useState(false);
   const topTasks = showAllTasks ? allTopTasks.slice(0, 12) : allTopTasks.slice(0, 3);
+
+  // 今の結論：案件数・発注状況・今日やる申請準備・締切リスクから1つの結論を作る
+  const conclusion = useMemo<Conclusion>(() => {
+    const total = rows.length;
+    if (anyOrdered) {
+      const r = rows.find((x) => x.orderedRisk)!;
+      return {
+        tone: "red", title: "発注済みの案件があります",
+        text: `「${r.p.name || "支出案件"}」など発注後の経費は対象外になる可能性があります。別の経費・次回公募で使えないか確認しましょう。`,
+        cta: { href: `/projects/${r.p.id}`, label: "対象外か確認する" },
+      };
+    }
+    const deadlineRow = rows.find((r) => { const d = r.match.top?.r.lc.deadlineDays ?? 999; return d >= 0 && d <= 14; });
+    if (deadlineRow) {
+      const dd = deadlineRow.match.top?.r.lc.deadlineDays ?? 0;
+      return {
+        tone: "amber", title: "締切が近い補助金があります",
+        text: `「${deadlineRow.p.name || "支出案件"}」にあと${dd}日の候補があります。まず公式要領で締切と対象経費を確認してください。`,
+        cta: { href: `/projects/${deadlineRow.p.id}`, label: "締切を確認する" },
+      };
+    }
+    const preRow = rows.find((r) => r.preOrderRisk);
+    if (preRow) {
+      return {
+        tone: "amber", title: `発注前に確認すべき案件が${counts.preOrder}件あります`,
+        text: `補助金を使う可能性があります。まずは「${preRow.p.name || "支出案件"}」の公式要領を確認してから発注してください。`,
+        cta: { href: `/projects/${preRow.p.id}`, label: "この案件を確認する" },
+      };
+    }
+    if (allTopTasks.length > 0) {
+      const t = allTopTasks[0];
+      return {
+        tone: "blue", title: `今日やる申請準備が${allTopTasks.length}件あります`,
+        text: `支出内容ではなく申請のための準備です。まずは「${t.action}」（${t.projectName}）から進めましょう。`,
+        cta: { href: `/projects/${t.projectId}?task=${t.taskKey}`, label: "今すぐ確認する" },
+      };
+    }
+    return {
+      tone: "green", title: "いま急ぎの申請準備はありません",
+      text: total > 0 ? "登録済みの案件は確認が進んでいます。新しい支出があれば追加して、発注前に補助金を確認しましょう。" : "補助金を使えるか確認したい支出テーマを選んで、チェックを始めてください。",
+      cta: { href: "/projects/new", label: "支出案件を追加する" },
+    };
+  }, [rows, counts, allTopTasks, anyOrdered]);
 
   // ---- 空状態：テンプレート入口 ----
   if (loaded && projects.length === 0) {
@@ -121,20 +170,8 @@ export function HomeDashboard() {
 
   return (
     <div>
-      {/* 1. 重要アラート（発注前確認） */}
-      {anyOrdered ? (
-        <div className="mb-4 rounded-lg border-2 border-red-300 bg-red-50 p-4 text-sm text-red-800">
-          <span className="font-bold">⚠ 発注済みの案件があります。</span> 今回の経費は補助対象外になる可能性があります。別の経費・次回公募で使えないか確認しましょう。
-        </div>
-      ) : anyEstimate ? (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          <span className="font-semibold">見積だけならまだ間に合う可能性があります。</span> 契約・発注・支払い前に公式要領を確認してください。
-        </div>
-      ) : (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          <span className="font-semibold">重要：</span>補助金を使う可能性がある支出は、<strong>契約・発注・支払い前</strong>に確認してください。
-        </div>
-      )}
+      {/* 1. 今の結論 */}
+      <ConclusionBlock c={conclusion} />
 
       {/* 2. タイトル */}
       <Title />
@@ -203,6 +240,31 @@ export function HomeDashboard() {
       )}
 
       <FooterLinks />
+    </div>
+  );
+}
+
+function ConclusionBlock({ c }: { c: Conclusion }) {
+  const map: Record<Conclusion["tone"], string> = {
+    red: "border-red-300 bg-red-50 text-red-800",
+    amber: "border-amber-300 bg-amber-50 text-amber-900",
+    blue: "border-sky-300 bg-sky-50 text-sky-900",
+    green: "border-green-300 bg-green-50 text-green-800",
+  };
+  const btn: Record<Conclusion["tone"], string> = {
+    red: "bg-red-600 hover:bg-red-700",
+    amber: "bg-amber-600 hover:bg-amber-700",
+    blue: "bg-sky-600 hover:bg-sky-700",
+    green: "bg-green-600 hover:bg-green-700",
+  };
+  return (
+    <div className={`mb-5 rounded-xl border-2 p-4 ${map[c.tone]}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70">今の結論</p>
+      <p className="mt-0.5 text-base font-bold">{c.title}</p>
+      <p className="mt-1 text-sm leading-relaxed">{c.text}</p>
+      <Link href={c.cta.href} className={`mt-3 inline-block rounded-md px-4 py-2 text-sm font-semibold text-white ${btn[c.tone]}`}>
+        {c.cta.label} →
+      </Link>
     </div>
   );
 }
