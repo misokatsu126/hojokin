@@ -61,7 +61,7 @@ export type ProjectTemplate = {
   questions: TemplateQuestion[]; // テンプレ固有の質問
 };
 
-const PRE_ORDER_CAUTION = "補助金を使う場合、契約・発注・支払い前に公式の公募要領を確認してください。";
+const PRE_ORDER_CAUTION = "補助金を使う場合は、契約・注文・支払いの前に、公式サイトで条件を確認してください。";
 
 export const PROJECT_TEMPLATES: ProjectTemplate[] = [
   {
@@ -72,7 +72,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "見積状況", "省エネ性能・型番"],
     caution: PRE_ORDER_CAUTION + " 省エネ性能・型番・見積が必要になる可能性があります。",
     expenses: ["機械装置費", "設備費"], killers: ["発注・契約後だと対象外の可能性", "型番・省エネ性能が要件に合わない可能性"],
-    nextActions: ["発注前か確認する", "公式の公募要領を確認する", "見積を取得する", "対象経費を確認する"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る", "対象になる費用を確認する"],
     questions: [
       { id: "type", q: "業務用エアコンですか？", options: ["業務用", "家庭用", "わからない"] },
       { id: "work", q: "入替ですか？新設ですか？", options: ["入替", "新設", "わからない"] },
@@ -87,7 +87,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "見積状況"],
     caution: PRE_ORDER_CAUTION + " 図面・見積・商工会議所の確認が必要になる場合があります。",
     expenses: ["内装工事費", "設備費"], killers: ["発注・契約後だと対象外の可能性", "建物所有形態・用途で対象外の可能性"],
-    nextActions: ["発注前か確認する", "公式の公募要領を確認する", "見積を取得する", "商工会議所に相談する"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る", "商工会議所に相談する"],
     questions: [
       { id: "scope", q: "どこを直しますか？", options: ["内装", "外装", "両方", "わからない"] },
       { id: "vacant", q: "空き店舗の活用ですか？", options: ["はい", "いいえ"] },
@@ -101,7 +101,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "従業員数"],
     caution: PRE_ORDER_CAUTION + " 持続化補助金は商工会議所・商工会の確認が必要な場合があります。",
     expenses: ["広告宣伝費", "外注費"], killers: ["発注・契約後だと対象外の可能性", "従業員数の要件を超える可能性"],
-    nextActions: ["発注前か確認する", "従業員数を確認する", "商工会議所に相談する", "見積を取得する"],
+    nextActions: ["発注前か確認する", "従業員数を確認する", "商工会議所に相談する", "見積もりを取る"],
     questions: [{ id: "goal", q: "目的は販路開拓・集客ですか？", options: ["はい", "いいえ"] }],
   },
   {
@@ -112,7 +112,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "制作委託先"],
     caution: PRE_ORDER_CAUTION + " 制作費・委託先・見積が必要になる可能性があります。",
     expenses: ["委託費", "外注費", "広告宣伝費"], killers: ["発注・契約後だと対象外の可能性", "対象ツール・委託先が要件外の可能性"],
-    nextActions: ["発注前か確認する", "公式の公募要領を確認する", "見積を取得する"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る"],
     questions: [{ id: "kind", q: "種類は？", options: ["コーポレートサイト", "LP", "EC", "わからない"] }],
   },
   {
@@ -123,7 +123,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "利用ツール"],
     caution: PRE_ORDER_CAUTION + " 対象ツール・委託費・見積の確認が必要になる可能性があります。",
     expenses: ["システム導入費", "ソフトウェア費", "委託費"], killers: ["発注・契約後だと対象外の可能性", "対象ツール登録が無い可能性"],
-    nextActions: ["発注前か確認する", "対象ツールか確認する", "GビズIDを確認する", "見積を取得する"],
+    nextActions: ["発注前か確認する", "対象ツールか確認する", "GビズIDを確認する", "見積もりを取る"],
     questions: [{ id: "tool", q: "使うツールは決まっていますか？", options: ["決まっている", "これから"] }],
   },
   {
@@ -134,7 +134,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "GビズID", "ベンダー"],
     caution: PRE_ORDER_CAUTION + " 対象ツール登録の有無・GビズIDが必要になる可能性があります。",
     expenses: ["システム導入費", "ソフトウェア費", "委託費"], killers: ["発注・契約後だと対象外の可能性", "自社開発・クラウド利用料は対象外のことがある"],
-    nextActions: ["発注前か確認する", "GビズIDを確認する", "対象ツールか確認する", "見積を取得する"],
+    nextActions: ["発注前か確認する", "GビズIDを確認する", "対象ツールか確認する", "見積もりを取る"],
     questions: [
       { id: "kind", q: "ソフトですか？自社開発ですか？", options: ["市販ソフト", "自社開発", "クラウド利用", "わからない"] },
       { id: "vendor", q: "ベンダーは決まっていますか？", options: ["決まっている", "これから"] },
@@ -149,7 +149,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "従業員数", "広告媒体"],
     caution: PRE_ORDER_CAUTION + " 従業員数の要件・商工会議所の確認が必要な場合があります。",
     expenses: ["広告宣伝費", "委託費", "外注費"], killers: ["発注・契約後だと対象外の可能性", "従業員数の要件を超える可能性"],
-    nextActions: ["発注前か確認する", "従業員数を確認する", "商工会議所に相談する", "見積を取得する"],
+    nextActions: ["発注前か確認する", "従業員数を確認する", "商工会議所に相談する", "見積もりを取る"],
     questions: [
       { id: "media", q: "広告媒体は？", options: ["LP", "チラシ", "SNS広告", "看板", "イベント告知"] },
       { id: "goal", q: "販路開拓が目的ですか？", options: ["はい", "いいえ"] },
@@ -161,9 +161,9 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     tags: ["イベント", "展示会", "販路", "地域"],
     genres: ["自治体のイベント・地域活性補助", "持続化補助金"],
     requiredFields: ["所在地", "予算", "発注状況", "実施時期"],
-    caution: PRE_ORDER_CAUTION + " 対象経費・実施時期・地域要件の確認が必要になる場合があります。",
+    caution: PRE_ORDER_CAUTION + " 対象になる費用・実施時期・地域の条件を確認する必要がある場合があります。",
     expenses: ["委託費", "外注費", "広告宣伝費"], killers: ["発注・契約後だと対象外の可能性", "実施時期が補助対象期間外の可能性"],
-    nextActions: ["発注前か確認する", "実施時期を確認する", "公式の公募要領を確認する"],
+    nextActions: ["発注前か確認する", "実施時期を確認する", "公式サイトで条件を確認する"],
     questions: [{ id: "kind", q: "種類は？", options: ["展示会出展", "自主開催イベント", "セミナー", "わからない"] }],
   },
   {
@@ -174,7 +174,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "法人種別", "従業員数", "雇用形態"],
     caution: "雇用系の助成金は、社労士の確認や事前の計画届が必要な場合があります。先に確認してください。",
     expenses: ["人件費"], killers: ["事前の計画届が必要なことがある", "対象労働者・期間の要件を満たさない可能性"],
-    nextActions: ["公式の公募要領を確認する", "社労士に相談する", "従業員数・雇用形態を確認する"],
+    nextActions: ["公式サイトで条件を確認する", "社労士に相談する", "従業員数・雇用形態を確認する"],
     questions: [{ id: "type", q: "どんな採用ですか？", options: ["新規採用", "正社員化", "アルバイト", "わからない"] }],
   },
   {
@@ -185,7 +185,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "法人種別", "従業員数", "研修内容"],
     caution: "研修系の助成金は、事前の計画提出・社労士の確認が必要な場合があります。先に確認してください。",
     expenses: ["研修費", "人件費"], killers: ["事前の計画提出が必要なことがある", "対象研修・時間の要件を満たさない可能性"],
-    nextActions: ["公式の公募要領を確認する", "社労士に相談する", "研修内容を確認する"],
+    nextActions: ["公式サイトで条件を確認する", "社労士に相談する", "研修内容を確認する"],
     questions: [{ id: "kind", q: "研修の種類は？", options: ["技能研修", "OJT", "外部研修", "わからない"] }],
   },
   {
@@ -196,7 +196,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "見積状況", "省エネ性能・型番"],
     caution: PRE_ORDER_CAUTION + " 省エネ性能・型番・見積が必要になる可能性があります。",
     expenses: ["機械装置費", "設備費"], killers: ["発注・契約後だと対象外の可能性", "省エネ性能が要件に達しない可能性"],
-    nextActions: ["発注前か確認する", "公式の公募要領を確認する", "見積を取得する", "省エネ性能・型番を確認する"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "見積もりを取る", "省エネ性能・型番を確認する"],
     questions: [{ id: "spec", q: "省エネ性能・型番は分かりますか？", options: ["分かる", "これから確認"] }],
   },
   {
@@ -207,7 +207,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     requiredFields: ["所在地", "予算", "発注状況", "創業年数"],
     caution: PRE_ORDER_CAUTION + " 物件・内装・創業要件の確認が必要になる場合があります。",
     expenses: ["内装工事費", "設備費", "委託費"], killers: ["発注・契約後だと対象外の可能性", "創業時期・要件を満たさない可能性"],
-    nextActions: ["発注前か確認する", "公式の公募要領を確認する", "創業要件を確認する", "見積を取得する"],
+    nextActions: ["発注前か確認する", "公式サイトで条件を確認する", "創業要件を確認する", "見積もりを取る"],
     questions: [{ id: "stage", q: "出店の段階は？", options: ["物件検討中", "物件決定", "内装見積中", "わからない"] }],
   },
 ];
@@ -248,16 +248,16 @@ export const PURPOSE_TAGS = [
 ];
 
 export const PROJECT_CHECKLIST: { key: string; label: string }[] = [
-  { key: "pre_order", label: "発注前か確認した" },
-  { key: "guideline", label: "公式の公募要領を確認した" },
-  { key: "expense", label: "対象経費を確認した" },
-  { key: "area", label: "対象地域を確認した" },
-  { key: "employees", label: "従業員数の要件を確認した" },
+  { key: "pre_order", label: "発注（契約・注文）の前か確認した" },
+  { key: "guideline", label: "公式サイトで条件を確認した" },
+  { key: "expense", label: "補助金の対象になる費用を確認した" },
+  { key: "area", label: "対象の地域か確認した" },
+  { key: "employees", label: "従業員数の条件を確認した" },
   { key: "gbizid", label: "GビズIDを確認した" },
-  { key: "estimate", label: "見積書を取得した" },
-  { key: "shokokai", label: "商工会議所に相談した" },
-  { key: "pro", label: "士業（社労士・行政書士等）に確認した" },
-  { key: "deadline", label: "申請締切を確認した" },
+  { key: "estimate", label: "見積書を用意した" },
+  { key: "shokokai", label: "商工会議所・商工会に相談した" },
+  { key: "pro", label: "専門家（社労士・行政書士など）に確認した" },
+  { key: "deadline", label: "申請の締切を確認した" },
 ];
 
 // 発注してよいか / 待つべきか
@@ -315,7 +315,7 @@ export function generateConsultMemo(project: SpendingProject, coreNames: string[
     "",
     "【確認したいこと】",
     "1. 発注前に申請が必要か",
-    "2. この支出が対象経費になるか",
+    "2. この支出が補助金の対象になるか",
     "3. 申請期限・募集期間",
     "4. 必要書類",
     "5. 商工会議所・事前相談が必要か",
@@ -574,8 +574,8 @@ export function getAllProjectTasks(project: SpendingProject, match?: ProjectMatc
     contribs.push({ taskKey: "pre_order", action: "発注前か確認してください", reason: "発注済みだと対象外になる補助金があります", source: "basic" });
   if (dd != null && dd >= 0 && dd <= 14 && !c["deadline"])
     contribs.push({ taskKey: "deadline", action: "締切が近い制度を確認してください", reason: `あと${dd}日の候補があります`, source: "deadline" });
-  if (!c["guideline"]) contribs.push({ taskKey: "guideline", action: "公式の公募要領を確認してください", reason: "対象経費・締切・条件を確認できます", source: "basic" });
-  if (!c["estimate"]) contribs.push({ taskKey: "estimate", action: "見積を取得しましょう", reason: "多くの補助金で見積書が必要になります", source: "basic" });
+  if (!c["guideline"]) contribs.push({ taskKey: "guideline", action: "公式サイトで条件を確認してください", reason: "対象になる費用・締切・条件を確認できます", source: "basic" });
+  if (!c["estimate"]) contribs.push({ taskKey: "estimate", action: "見積もりを取りましょう", reason: "多くの補助金で見積書が必要になります", source: "basic" });
   if (isIT && !c["gbizid"]) contribs.push({ taskKey: "gbizid", action: "GビズIDを確認してください", reason: "IT・DX系補助金で必要になります", source: "basic" });
   if (project.employees == null) contribs.push({ taskKey: "employees", action: "従業員数を入力してください", reason: "小規模事業者向け補助金の判定に必要です", source: "project_missing_info" });
   if (project.budget == null) contribs.push({ taskKey: "budget", action: "予算を入力してください", reason: "対象になる補助金を見つけやすくなります", source: "project_missing_info" });
@@ -594,9 +594,9 @@ export function getAllProjectTasks(project: SpendingProject, match?: ProjectMatc
   core("jizokuka", "shokokai", "商工会／商工会議所に相談してください", "");
   core("jizokuka", "purpose_check", "販路開拓が目的か確認してください", "");
   core("local_energy", "spec_check", "設備の型番・省エネ性能を確認してください", "");
-  core("monozukuri", "expense", "対象経費を確認してください", "");
-  core("shoryokuka", "expense", "対象経費を確認してください", "");
-  core("it_donyu", "expense", "対象経費を確認してください", "");
+  core("monozukuri", "expense", "補助金の対象になる費用を確認してください", "");
+  core("shoryokuka", "expense", "補助金の対象になる費用を確認してください", "");
+  core("it_donyu", "expense", "補助金の対象になる費用を確認してください", "");
   core("local_vacant", "area_check", "対象区域・賃貸契約前か・事前相談を確認してください", "");
   core("gyomu_kaizen", "chinage", "賃上げ予定・事業場内最低賃金を確認してください", "");
   core("gyomu_kaizen", "employees", "従業員がいるか（従業員数）を確認してください", "");

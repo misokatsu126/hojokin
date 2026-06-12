@@ -138,7 +138,7 @@ export default function NewAndStandardPage() {
       <MasterGroup group="local_pattern" title="📍 自治体で探すべき定番パターン" />
 
       <p className="mt-6 text-[11px] leading-relaxed text-gray-400">
-        ※ 定番制度は「使える」と断定するものではありません。条件が合えば使える可能性があります。対象になるかは公式要領で確認し、発注前に確認してください。年度・名称は変わることがあります。
+        ※ 定番制度は「使える」と断定するものではありません。条件が合えば使える可能性があります。対象になるかは公式サイトで確認し、発注前に確認してください。年度・名称は変わることがあります。
       </p>
     </div>
   );
@@ -173,7 +173,7 @@ function MasterGroup({ group, title }: { group: CoreGroup; title: string }) {
                 <span className={`rounded px-1.5 py-0.5 ${OFFICIAL_STATUS_TONE[m.officialStatus]}`}>{OFFICIAL_STATUS_LABEL[m.officialStatus]}</span>
                 {m.fiscalYear && m.fiscalYear !== "—" && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{m.fiscalYear}年度想定</span>}
                 {m.applicationRound && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{m.applicationRound}</span>}
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">締切：{m.deadline ?? "公式要領で確認"}</span>
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">締切：{m.deadline ?? "公式サイトで確認"}</span>
                 <span className="text-gray-400">最終確認 {fresh.asOf}</span>
               </div>
               {fresh.stale && <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[10px] text-amber-800">⚠ {fresh.note}</p>}

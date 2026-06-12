@@ -200,7 +200,7 @@ export default function ProjectDetailPage() {
           <div className="mt-2 rounded-md bg-white/60 p-2 text-xs text-gray-700">
             <p className="font-medium">それでもできること（あきらめないで）：</p>
             <ul className="mt-0.5 list-disc pl-5">
-              <li>追加経費・別の経費で使える制度がないか確認する</li>
+              <li>追加の費用や別の費用で使える制度がないか確認する</li>
               <li>次回公募を確認する（次回狙い）</li>
               <li>専門家（商工会議所・士業）に相談する</li>
             </ul>
@@ -227,10 +227,10 @@ export default function ProjectDetailPage() {
           <div className="mt-3 rounded-lg border bg-white p-3 text-sm">
             <p className="font-semibold text-ink">概算イメージ</p>
             <p className="mt-0.5 text-gray-700">予算：{formatAmount(est.budget)}／補助率の例：{est.rateLabel}／戻る可能性のある金額：{formatAmount(est.low)}〜{formatAmount(est.high)} 程度</p>
-            <p className="mt-0.5 text-[11px] text-gray-400">※ 制度・要件・採択結果により変わります。最終判断は公式要領で確認してください。</p>
+            <p className="mt-0.5 text-[11px] text-gray-400">※ 制度・要件・採択結果により変わります。最終判断は公式サイトで確認してください。</p>
           </div>
         ) : (
-          <p className="mt-3 rounded-lg border bg-white p-3 text-xs text-gray-500">補助率は公式要領で確認してください。（予算を入力すると概算イメージを表示します）</p>
+          <p className="mt-3 rounded-lg border bg-white p-3 text-xs text-gray-500">補助率は公式サイトで確認してください。（予算を入力すると概算イメージを表示します）</p>
         );
       })()}
 
@@ -281,7 +281,7 @@ export default function ProjectDetailPage() {
       {tpl && (
         <div className="mt-3 grid gap-2 rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 sm:grid-cols-2">
           <p className="sm:col-span-2"><span className="font-medium">注意点：</span>{tpl.caution}</p>
-          <p><span className="font-medium">よくある対象経費：</span>{tpl.expenses.join("、")}</p>
+          <p><span className="font-medium">対象になりやすい費用：</span>{tpl.expenses.join("、")}</p>
           <p><span className="font-medium">関係しそうな補助金：</span>{tpl.genres.join("、")}</p>
           {tpl.killers.length > 0 && <p className="text-rose-700 sm:col-span-2"><span className="font-medium">ダメになりやすい条件：</span>{tpl.killers.join(" / ")}</p>}
         </div>
@@ -366,8 +366,8 @@ export default function ProjectDetailPage() {
 // 次に何をすべきかの一言
 function prepHint(p: SpendingProject, done: number): string {
   if (!p.checklist["pre_order"]) return "まず発注前か確認してください。";
-  if (!p.checklist["guideline"]) return "次に公式の公募要領を確認してください。";
-  if (!p.checklist["estimate"]) return "見積取得の前に対象経費を確認しましょう。";
+  if (!p.checklist["guideline"]) return "次に公式サイトで条件を確認してください。";
+  if (!p.checklist["estimate"]) return "見積もりの前に、補助金の対象になる費用を確認しましょう。";
   if (done >= PROJECT_CHECKLIST.length) return "準備完了です。締切前に申請しましょう。";
   return "残りの確認を進めましょう。";
 }
@@ -401,11 +401,11 @@ function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "
         <span className={`rounded px-1.5 py-0.5 ${OFFICIAL_STATUS_TONE[c.officialStatus]}`}>{OFFICIAL_STATUS_LABEL[c.officialStatus]}</span>
         {c.fiscalYear && c.fiscalYear !== "—" && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{c.fiscalYear}年度想定</span>}
         {c.applicationRound && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{c.applicationRound}</span>}
-        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">締切：{c.deadline ?? "公式要領で確認"}</span>
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">締切：{c.deadline ?? "公式サイトで確認"}</span>
         <span className="text-gray-400">最終確認 {fresh.asOf}</span>
       </div>
       {fresh.stale && <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800">⚠ {fresh.note}</p>}
-      <p className="mt-1 text-xs text-gray-500">条件が合えば使える可能性があります。対象になるかは公式要領で確認してください。</p>
+      <p className="mt-1 text-xs text-gray-500">条件が合えば使える可能性があります。対象になるかは公式サイトで確認してください。</p>
       <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">なぜ確認すべきか：</span>{c.projectFitReason}</p>
       {/* 確認パック（何を確認すればいいか） */}
       {c.whatToCheck.length > 0 && (
