@@ -299,6 +299,7 @@ function expenseWord(t: VerifyResult["expenseMatchType"]): string {
 }
 
 const CORE_GROUP_LABEL: Record<CoreGroup, string> = { national_subsidy: "国の定番", labor_grant: "厚労省系助成金", local_pattern: "自治体で探す" };
+const CORE_PRI_LABEL: Record<string, string> = { high: "高", medium: "中", low: "低" };
 
 function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "skip"; onSet: (k: string, v: "done" | "skip") => void }) {
   const confTone = c.confidenceLabel === "確認推奨" ? "bg-green-100 text-green-800" : c.confidenceLabel === "条件確認" ? "bg-amber-100 text-amber-800" : "bg-sky-100 text-sky-800";
@@ -306,15 +307,20 @@ function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "
     <div className={`rounded-lg border p-3 ${state === "done" ? "border-green-300 bg-green-50/40" : state === "skip" ? "border-gray-200 bg-gray-50 opacity-70" : "bg-white"}`}>
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-sm font-bold text-ink">{c.name}</span>
-        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${confTone}`}>{c.confidenceLabel}</span>
         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{CORE_GROUP_LABEL[c.group]}</span>
         {state === "done" && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">確認済み</span>}
         {state === "skip" && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">今回は対象外</span>}
       </div>
+      {/* 確認推奨度を必ず上部に明示（「使える」と断定しない） */}
+      <p className={`mt-1 inline-block rounded px-2 py-0.5 text-xs font-semibold ${confTone}`}>{c.confidenceLabel}：{CORE_PRI_LABEL[c.priority]}</p>
+      <p className="mt-1 text-xs text-gray-500">条件が合えば使える可能性があります。対象になるかは公式要領で確認してください。</p>
       <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">なぜ確認すべきか：</span>{c.projectFitReason}</p>
-      {c.whatToCheck.length > 0 && <p className="mt-0.5 text-xs text-gray-600"><span className="text-gray-400">何を確認：</span>{c.whatToCheck.join("／")}</p>}
-      {c.caution.length > 0 && <p className="mt-0.5 text-xs text-amber-700"><span className="text-amber-500">注意：</span>{c.caution.join("／")}</p>}
-      {c.requiredInfo.length > 0 && <p className="mt-0.5 text-xs text-gray-500">必要な情報：{c.requiredInfo.join("・")}</p>}
+      {c.whatToCheck.length > 0 && <p className="mt-0.5 text-xs text-gray-600"><span className="text-gray-400">確認すること：</span>{c.whatToCheck.join("／")}</p>}
+      <details className="mt-1">
+        <summary className="cursor-pointer text-[11px] text-gray-400 hover:text-accent">注意点・必要な情報</summary>
+        {c.caution.length > 0 && <p className="mt-1 text-xs text-amber-700">注意：{c.caution.join("／")}</p>}
+        {c.requiredInfo.length > 0 && <p className="mt-0.5 text-xs text-gray-500">必要な情報：{c.requiredInfo.join("・")}</p>}
+      </details>
       <div className="mt-2 flex flex-wrap gap-2 text-xs">
         <a href={coreOfficialHref(c)} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-3 py-1.5 font-medium text-white hover:opacity-90">{c.officialUrl ? "🔗 公式ページを見る ↗" : "🔍 公式情報を探す ↗"}</a>
         <button onClick={() => onSet(c.key, "done")} className="rounded-md border border-green-300 px-3 py-1.5 text-green-700 hover:bg-green-50">確認済みにする</button>

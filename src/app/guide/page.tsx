@@ -68,7 +68,7 @@ export default function GuidePage() {
       </div>
 
       {/* 5. まず確認すべき定番制度 */}
-      <Card title="⑤ まず確認すべき定番制度">
+      <Card title="⑤ まず確認すべき定番制度" collapsible>
         <p className="text-sm text-gray-700">検索で見つかった制度だけでなく、中小企業・小規模事業者が一般的に確認すべき定番制度も支出案件ごとに表示します。</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2 text-xs text-gray-600">
           <div className="rounded border p-2"><b>AI・在庫管理・POS</b>：IT導入補助金／省力化投資補助金／ものづくり補助金</div>
@@ -80,7 +80,7 @@ export default function GuidePage() {
       </Card>
 
       {/* 6. 基本の使い方 */}
-      <Card title="⑥ 基本の使い方">
+      <Card title="⑥ 基本の使い方" collapsible>
         <ol className="grid gap-1.5 text-sm text-gray-700 sm:grid-cols-2">
           {["ホームを見る", "今日やる申請準備を確認する", "支出案件を作る", "発注判断を確認する", "まず確認すべき定番制度を見る", "公式情報を確認する", "チェックリストを完了していく"].map((s, i) => (
             <li key={s} className="flex items-center gap-2 rounded-md border bg-white px-3 py-2"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">{i + 1}</span>{s}</li>
@@ -102,7 +102,7 @@ export default function GuidePage() {
       </div>
 
       {/* 8. 管理者画面について */}
-      <Card title="⑧ 管理者画面について">
+      <Card title="⑧ 管理者画面について" collapsible>
         <p className="text-sm text-gray-700">
           管理者画面では、検索結果の確認・公式情報の確認・ノイズ除外・制度情報の管理を行います。
           通常利用では、まず<strong>ホーム・支出案件・今日やる申請準備</strong>を見れば十分です。
@@ -117,7 +117,15 @@ export default function GuidePage() {
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children, collapsible }: { title: string; children: React.ReactNode; collapsible?: boolean }) {
+  if (collapsible) {
+    return (
+      <details className="mb-4 rounded-xl border bg-white p-5">
+        <summary className="cursor-pointer text-base font-bold text-ink">{title}</summary>
+        <div className="mt-2">{children}</div>
+      </details>
+    );
+  }
   return (
     <div className="mb-4 rounded-xl border bg-white p-5">
       <h2 className="mb-2 text-base font-bold text-ink">{title}</h2>
