@@ -25,7 +25,8 @@ const GROUPS = [
   {
     title: "お知らせ・ガイド",
     links: [
-      { href: "/notifications", label: "お知らせ候補", desc: "特に合いそう・締切間近などのお知らせ" },
+      { href: "/reminders", label: "通知・リマインド", desc: "発注前・締切など、案件ごとの確認リマインド" },
+      { href: "/notifications", label: "お知らせ候補（管理者向け）", desc: "自動収集で見つかった合いそうな補助金" },
       { href: "/guide", label: "使い方ガイド", desc: "5ステップの使い方" },
     ],
   },

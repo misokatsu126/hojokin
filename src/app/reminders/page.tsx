@@ -15,6 +15,29 @@ export default function RemindersPage() {
   const [items, setItems] = useState<DiscoveredItem[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [showDone, setShowDone] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendMsg, setSendMsg] = useState<string | null>(null);
+
+  async function sendNow() {
+    setSending(true);
+    setSendMsg(null);
+    try {
+      const r = await fetch("/api/reminders/send", { method: "POST" });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error ?? "送信に失敗しました");
+      setSendMsg(
+        d.skipped > 0
+          ? `送信は未有効化です（${d.note ?? "NOTIFICATION_ENABLED 未設定"}）。対象 ${d.candidates} 件。`
+          : d.candidates === 0
+          ? "いま送る通知はありません。"
+          : `送信しました：成功 ${d.sent} 件・失敗 ${d.failed} 件（本日送信済み ${d.alreadySent} 件はスキップ）。`
+      );
+    } catch (e: any) {
+      setSendMsg(`送信エラー：${e.message}`);
+    } finally {
+      setSending(false);
+    }
+  }
 
   useEffect(() => {
     setProjects(loadProjects());
@@ -44,9 +67,19 @@ export default function RemindersPage() {
         登録した支出案件から、<strong>発注前に確認すべきこと・締切が近いこと</strong>などをまとめています。
         対応したものは「対応済みにする」で消せます。
       </p>
-      <p className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
-        メール・LINEでの通知は今後対応予定です。今はこの画面とホームで確認できます。
-      </p>
+      <div className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span>この画面とホームでいつでも確認できます。LINE / Webhook への送信を設定すると、まとめて送れます。</span>
+          <button onClick={sendNow} disabled={sending} className="shrink-0 rounded-md border border-sky-300 bg-white px-3 py-1.5 font-medium text-sky-800 hover:bg-sky-100 disabled:opacity-50">
+            {sending ? "送信中…" : "至急の通知を送信"}
+          </button>
+        </div>
+        {sendMsg && <p className="mt-2 text-sky-900">{sendMsg}</p>}
+        <p className="mt-1 text-[11px] text-sky-700">
+          毎日自動で送るには、サーバの定期実行（Vercel Cron / GitHub Actions 等）から <code>/api/reminders/send</code> を呼び、
+          <code>NOTIFICATION_ENABLED=true</code> と送信先（<code>LINE_USER_ID</code> 等）を設定します。
+        </p>
+      </div>
 
       {active.length === 0 ? (
         <div className="rounded-xl border bg-white p-8 text-center">
