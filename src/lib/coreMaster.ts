@@ -57,8 +57,25 @@ export type CoreProgramCheck = {
   officialStatus: CoreProgram["officialStatus"];
   applicationRound?: string;
   deadline?: string;
+  rateText?: string; // 補助率の目安（断定しない・公式で確認）
+  maxText?: string;  // 上限の目安
   needsAnnualRefresh: boolean;
   lastOfficialCheckedAt: string;
+};
+
+// 制度別の補助率・上限の「目安」（年度・枠で変わるため断定せず目安。正確な額は公式要領で確認）
+const PROGRAM_RATE: Record<string, { rate?: string; max?: string }> = {
+  jizokuka: { rate: "2/3 程度", max: "50万〜250万円（枠による）" },
+  it_donyu: { rate: "1/2〜（枠による）", max: "〜450万円程度" },
+  monozukuri: { rate: "1/2〜2/3", max: "750万円〜（類型による）" },
+  shoryokuka: { rate: "1/2 程度", max: "従業員規模による" },
+  shinjigyo: { rate: "1/2 程度", max: "枠による" },
+  shokei_ma: { rate: "1/2〜2/3", max: "数百万円規模" },
+  seichou: { rate: "1/3〜1/2", max: "大規模（億円規模）" },
+  gyomu_kaizen: { rate: "賃上げ額・人数による", max: "〜600万円程度" },
+  career_up: { rate: "対象者1人あたり定額", max: "人数による" },
+  jinzai_kaihatsu: { rate: "経費＋賃金の助成（定率/定額）", max: "コースによる" },
+  hatarakikata: { rate: "定率（成果目標による）", max: "コースによる" },
 };
 
 const JGRANTS = "https://www.jgrants-portal.go.jp/";
@@ -265,6 +282,7 @@ export function getCoreProgramChecks(project: SpendingProject): CoreProgramCheck
       officialSearchQuery: m.officialSearchQuery ? m.officialSearchQuery.replace("{region}", region) : undefined,
       sourceAuthority: m.sourceAuthority, aliasNames: m.aliasNames, fiscalYear: m.fiscalYear, officialStatus: m.officialStatus,
       applicationRound: m.applicationRound, deadline: m.deadline,
+      rateText: PROGRAM_RATE[m.key]?.rate, maxText: PROGRAM_RATE[m.key]?.max,
       needsAnnualRefresh: m.needsAnnualRefresh, lastOfficialCheckedAt: m.lastOfficialCheckedAt,
     });
   }

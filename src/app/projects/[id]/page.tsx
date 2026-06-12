@@ -260,7 +260,7 @@ export default function ProjectDetailPage() {
             <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-900">
               補助金は<strong>後払い</strong>です。まず<strong>{formatAmount(est.budget)}を自分で用意</strong>して支払い、あとから{formatAmount(est.low)}〜{formatAmount(est.high)}が戻る流れです（実質の負担は約{formatAmount(est.budget - est.high)}〜{formatAmount(est.budget - est.low)}）。
             </p>
-            <p className="mt-0.5 text-[11px] text-gray-400">※ 制度・要件・採択結果により変わります。最終判断は公式サイトで確認してください。</p>
+            <p className="mt-0.5 text-[11px] text-gray-400">※ 補助率・上限は制度ごとに違います。下の「まず確認すべき定番制度」に制度別の目安を表示します。最終判断は公式サイトで確認してください。</p>
           </div>
         ) : (
           <p className="mt-3 rounded-lg border bg-white p-3 text-xs text-gray-500">補助率は公式サイトで確認してください。（予算を入力すると概算イメージを表示します）</p>
@@ -477,6 +477,11 @@ function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "
         <span className="text-gray-400">最終確認 {fresh.asOf}</span>
       </div>
       {fresh.stale && <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800">⚠ {fresh.note}</p>}
+      {(c.rateText || c.maxText) ? (
+        <p className="mt-1 text-xs text-gray-600">補助率の目安：{c.rateText ?? "—"}／上限の目安：{c.maxText ?? "—"}<span className="text-gray-400">（正確な額は公式要領で確認）</span></p>
+      ) : c.group === "local_pattern" ? (
+        <p className="mt-1 text-xs text-gray-500">補助率・上限は自治体により異なります（公式で確認）。</p>
+      ) : null}
       <p className="mt-1 text-xs text-gray-500">条件が合えば使える可能性があります。対象になるかは公式サイトで確認してください。</p>
       <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">なぜ確認すべきか：</span>{c.projectFitReason}</p>
       {/* 確認パック（何を確認すればいいか） */}
