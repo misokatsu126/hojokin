@@ -315,7 +315,7 @@ export default function ProjectDetailPage() {
       {/* 次にやること（完了できる） */}
       {tasks.length > 0 && (
         <div className="mt-3 rounded-xl border bg-white p-4">
-          <h2 className="mb-2 text-sm font-bold text-ink">次にやること</h2>
+          <h2 className="mb-2 text-sm font-bold text-ink">次にやる申請準備</h2>
           <ol className="space-y-1.5">
             {tasks.map((t) => (
               <li key={t.taskKey} className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 ${highlightTask === t.taskKey ? "bg-amber-50 ring-1 ring-amber-300" : ""}`}>

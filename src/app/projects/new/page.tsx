@@ -65,8 +65,8 @@ function NewProjectWizard() {
         {/* ステップ1：テンプレート */}
         {step === 0 && (
           <div>
-            <h2 className="mb-1 text-base font-semibold text-ink">支出テーマを選ぶ</h2>
-            <p className="mb-3 text-xs text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を確認したい支出内容です。近いものを選んでください（あとから変えられます）。</p>
+            <h2 className="mb-1 text-base font-semibold text-ink">何にお金を使う予定ですか？</h2>
+            <p className="mb-3 text-xs text-gray-500">ここで選ぶのは「今日やる作業」ではなく、補助金を確認したい支出内容です。近いものを選んでください（あとから変えられます）。</p>
 
             {/* 選び方の切替：テーマから / 業種から */}
             <div className="mb-3 inline-flex rounded-md border p-0.5 text-xs">
@@ -174,8 +174,8 @@ function NewProjectWizard() {
         {/* ステップ2：どこで */}
         {step === 1 && (
           <div className="space-y-4">
-            <Field label="対象の店舗・事業（任意）"><input value={p.store} onChange={(e) => set("store", e.target.value)} placeholder="例：岐阜店" className="w-full rounded-md border px-3 py-2 text-sm" /></Field>
-            <Field label="どこで使いますか？（所在地）" hint="市区町村・都道府県でOK"><input value={p.location} onChange={(e) => set("location", e.target.value)} placeholder="例：岐阜市 / 愛知県" className="w-full rounded-md border px-3 py-2 text-sm" /></Field>
+            <Field label="対象の店舗・事業（任意）"><input value={p.store} onChange={(e) => set("store", e.target.value)} placeholder="例：本店 / ◯◯店" className="w-full rounded-md border px-3 py-2 text-sm" /></Field>
+            <Field label="どこで使いますか？（所在地）" hint="市区町村・都道府県でOK"><input value={p.location} onChange={(e) => set("location", e.target.value)} placeholder="例：市区町村・都道府県" className="w-full rounded-md border px-3 py-2 text-sm" /></Field>
           </div>
         )}
 

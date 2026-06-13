@@ -14,6 +14,7 @@ type Row = {
   p: SpendingProject;
   match: ProjectMatch;
   tasks: ProjectTask[];
+  tplLabel: string;
   preOrderRisk: boolean; // 発注前確認が必要
   orderedRisk: boolean; // すでに発注済み（対象外の恐れ）
   headline: string;
@@ -76,7 +77,7 @@ export function HomeDashboard() {
       const done = PROJECT_CHECKLIST.filter((c) => p.checklist?.[c.key]).length;
       const deadlineNear = (match.top?.r.lc.deadlineDays ?? 999) <= 14;
       const rank = orderedRisk || preOrderRisk ? 0 : deadlineNear ? 1 : tasks.length ? 2 : 3;
-      return { p, match, tasks, preOrderRisk, orderedRisk, headline, topTaskKey: tasks[0]?.taskKey ?? null, tone, nextActions, done, rank };
+      return { p, match, tasks, tplLabel: tpl?.label ?? "", preOrderRisk, orderedRisk, headline, topTaskKey: tasks[0]?.taskKey ?? null, tone, nextActions, done, rank };
     }).sort((a, b) => a.rank - b.rank);
   }, [projects, items]);
 
@@ -109,7 +110,7 @@ export function HomeDashboard() {
       return {
         tone: "red", title: "発注後の案件があります（要注意）",
         text: `「${r.p.name || "（名称未設定）"}」は契約・注文のあとなので、その費用は補助金の対象外になることがあります。別の費用や次回の募集で使えないか確認しましょう。`,
-        cta: { href: `/projects/${r.p.id}`, label: "対象外か確認する" },
+        cta: { href: `/projects/${r.p.id}`, label: "対象案件を確認する" },
       };
     }
     const deadlineRow = rows.find((r) => { const d = r.match.top?.r.lc.deadlineDays ?? 999; return d >= 0 && d <= 14; });
@@ -118,7 +119,7 @@ export function HomeDashboard() {
       return {
         tone: "amber", title: "締切が近い補助金があります",
         text: `「${deadlineRow.p.name || "（名称未設定）"}」に、あと${dd}日でしめ切られる候補があります。まず公式サイトで、締切と「対象になる費用」を確認しましょう。`,
-        cta: { href: `/projects/${deadlineRow.p.id}`, label: "締切を確認する" },
+        cta: { href: `/projects/${deadlineRow.p.id}`, label: "急ぎの案件を確認する" },
       };
     }
     const preRow = rows.find((r) => r.preOrderRisk);
@@ -126,7 +127,7 @@ export function HomeDashboard() {
       return {
         tone: "amber", title: `発注の前に確認したい案件が${counts.preOrder}件あります`,
         text: `まず急ぐのは「${preRow.p.name || "（名称未設定）"}」。契約・注文する前に、補助金が使えるか公式サイトで条件を確認しましょう。発注のあとだと対象外になることがあります。`,
-        cta: { href: `/projects/${preRow.p.id}`, label: "この補助金チェックを見る" },
+        cta: { href: `/projects/${preRow.p.id}`, label: "発注前確認を進める" },
       };
     }
     if (allTopTasks.length > 0) {
@@ -134,13 +135,13 @@ export function HomeDashboard() {
       return {
         tone: "blue", title: `今日やる申請準備が${allTopTasks.length}件あります`,
         text: `支出そのものではなく、補助金を申請するための準備です。まずは「${t.action}」（${t.projectName}）から進めましょう。`,
-        cta: { href: `/projects/${t.projectId}?task=${t.taskKey}`, label: "今すぐ進める" },
+        cta: { href: `/projects/${t.projectId}?task=${t.taskKey}`, label: "今日の準備を見る" },
       };
     }
     return {
       tone: "green", title: "いま急いで対応することはありません",
       text: total > 0 ? "登録した案件は確認が進んでいます。新しい支出が出たら追加して、契約・注文の前に補助金が使えるかチェックしましょう。" : "補助金を使えるか確認したい支出を選んで、チェックを始めましょう。",
-      cta: { href: "/projects/new", label: "補助金チェックを追加する" },
+      cta: { href: "/projects/new", label: "支出を登録する" },
     };
   }, [rows, counts, allTopTasks, anyOrdered]);
 
@@ -151,16 +152,15 @@ export function HomeDashboard() {
     return m;
   }, [rows]);
 
-  // ---- 空状態：テンプレート入口 ----
+  // ---- 空状態：支出テーマ入口 ----
   if (loaded && projects.length === 0) {
     return (
       <div>
         <OwnerSwitcher compact />
-        <Title />
-        <IntroSteps />
-        <div className="rounded-xl border bg-white p-6">
-          <p className="mb-1 text-base font-semibold text-ink">まずは、補助金を確認したい支出を選びましょう</p>
-          <p className="mb-3 text-sm text-gray-500">ここで選ぶのは「今日やること」ではなく、補助金を使えるか確認したい<strong>支出の内容</strong>です（例：看板を作りたい）。</p>
+        <Hero />
+        <div className="mb-6 rounded-xl border bg-white p-5 sm:p-6">
+          <p className="text-lg font-bold text-ink">まずは、これから使うお金を選びましょう</p>
+          <p className="mt-1 mb-4 text-sm text-gray-600">補助金名を知らなくても大丈夫です。空調・看板・広告・EC・AI・採用など、<strong>支出テーマ</strong>から補助金チェックを始められます。</p>
           <div className="space-y-3">
             {PROJECT_TEMPLATE_GROUPS.map((g) => (
               <div key={g.title}>
@@ -177,10 +177,19 @@ export function HomeDashboard() {
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/projects/new" className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">支出を選んで始める</Link>
+            <Link href="/projects/new" className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">支出テーマを選ぶ</Link>
             <Link href="/projects/new" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">業種から選ぶ</Link>
             <Link href="/search" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">相談しながら探す</Link>
-            <Link href="/start" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">▶ スタートナビ</Link>
+          </div>
+          <p className="mt-3 text-[11px] text-gray-400">ここで選ぶのは「今日やること」ではなく、補助金を確認したい支出内容です。</p>
+        </div>
+        <AiPromoCard />
+        <div className="mb-6 rounded-xl border bg-white p-4">
+          <p className="text-sm font-semibold text-ink">使い方が知りたいときは</p>
+          <p className="mt-0.5 text-xs text-gray-600">3ステップの流れと、補助金の基本（後払い・発注前確認など）を確認できます。</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link href="/start" className="rounded-md border border-accent/40 bg-accent/5 px-4 py-2 text-sm font-medium text-accent hover:bg-accent/10">▶ スタートナビ</Link>
+            <Link href="/guide" className="rounded-md border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">❓ 使い方ガイド</Link>
           </div>
         </div>
         <FooterLinks />
@@ -190,22 +199,50 @@ export function HomeDashboard() {
 
   return (
     <div>
-      {/* 0. 利用者（このブラウザの使用者） */}
       <OwnerSwitcher compact />
 
-      {/* 1. 今の結論 */}
+      {/* 1. ヒーロー */}
+      <Hero />
+
+      {/* 2. 今の結論 */}
       <ConclusionBlock c={conclusion} />
 
-      {/* 2. タイトル */}
-      <Title />
+      {/* 3. 今日やる申請準備（最大3件・タスク単位） */}
+      <div className="mb-6">
+        <h2 className="text-base font-bold text-ink">📋 今日やる申請準備</h2>
+        <p className="mb-2 text-xs text-gray-500">支出内容ではなく、補助金申請のために先に確認することです。</p>
+        {topTasks.length === 0 ? (
+          <p className="rounded-lg border bg-white p-4 text-sm text-gray-500">いま確認することはありません。新しい補助金チェックを作って確認しましょう。</p>
+        ) : (
+          <ol className="space-y-2">
+            {topTasks.map((t, i) => (
+              <li key={`${t.projectId}:${t.taskKey}`}>
+                <Link href={`/projects/${t.projectId}?task=${t.taskKey}`} className="flex items-start gap-3 rounded-xl border-l-4 border-blue-400 bg-white p-3 transition hover:shadow-sm">
+                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">{i + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-ink">{t.action}</span>
+                    <span className="mt-0.5 block text-xs text-gray-500">案件：{t.projectName}　／　{t.reason}</span>
+                  </span>
+                  <span className="mt-0.5 shrink-0 self-center rounded-md bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent">進める</span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        )}
+        {allTopTasks.length > 3 && (
+          <button onClick={() => setShowAllTasks((v) => !v)} className="mt-2 text-xs text-accent hover:underline">
+            {showAllTasks ? "閉じる" : `もっと見る（あと${allTopTasks.length - 3}件）`}
+          </button>
+        )}
+      </div>
 
-      {/* 3. サマリーカード */}
-      <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <SummaryCard n={counts.preOrder} label="発注前確認が必要" tone="red" href="/projects" />
-        <SummaryCard n={counts.todo} label="今日やる申請準備" tone="blue" href="/projects" />
-        <SummaryCard n={counts.usable} label="使える可能性が高い" tone="green" href="/projects" />
-        <SummaryCard n={counts.missed} label="見逃し注意" tone="orange" href="/projects" />
-        <SummaryCard n={counts.next} label="次回狙い" tone="purple" href="/projects" />
+      {/* 4. 行動ベースのサマリーカード */}
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <SummaryCard n={counts.preOrder} label="発注前確認" sub="契約・注文の前に確認が必要" tone="red" href="/projects" />
+        <SummaryCard n={counts.todo} label="今日やる申請準備" sub="今すぐ進める確認タスク" tone="blue" href="/projects" />
+        <SummaryCard n={rows.length} label="AIに相談できる" sub="AIに貼る文章を作れます" tone="violet" href="/projects" />
+        <SummaryCard n={counts.missed} label="見逃し注意" sub="複数制度に関係する可能性" tone="orange" href="/projects" />
+        <SummaryCard n={counts.next} label="次回狙い" sub="今回は難しくても次に備える" tone="purple" href="/projects" />
       </div>
 
       {/* 進行状況の内訳 */}
@@ -220,39 +257,8 @@ export function HomeDashboard() {
         </div>
       )}
 
-      {/* 4. 今日やること */}
-      <div className="mb-6">
-        <h2 className="text-base font-bold text-ink">📋 今日やる申請準備</h2>
-        <p className="mb-2 text-xs text-gray-500">支出内容ではなく、補助金申請のために先に確認することです。</p>
-        {topTasks.length === 0 ? (
-          <p className="rounded-lg border bg-white p-4 text-sm text-gray-500">いま確認することはありません。新しい補助金チェックを作って確認しましょう。</p>
-        ) : (
-          <ol className="space-y-2">
-            {topTasks.map((t, i) => (
-              <li key={`${t.projectId}:${t.taskKey}`}>
-                <Link href={`/projects/${t.projectId}?task=${t.taskKey}`} className="flex items-start gap-3 rounded-xl border-l-4 border-blue-400 bg-white p-3 transition hover:shadow-sm">
-                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">{i + 1}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-ink">{t.action}</span>
-                    <span className="mt-0.5 block text-xs text-gray-500">{t.projectName}　／　{t.reason}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ol>
-        )}
-        {allTopTasks.length > 3 && (
-          <button onClick={() => setShowAllTasks((v) => !v)} className="mt-2 text-xs text-accent hover:underline">
-            {showAllTasks ? "閉じる" : `もっと見る（あと${allTopTasks.length - 3}件）`}
-          </button>
-        )}
-      </div>
-
-      {/* 5. メインCTA */}
-      <div className="mb-6 grid gap-3 sm:grid-cols-2">
-        <Link href="/projects/new" className="rounded-xl bg-accent px-5 py-4 text-center text-base font-semibold text-white hover:opacity-90">＋ 補助金チェックを作る</Link>
-        <Link href="/search" className="rounded-xl border-2 border-accent px-5 py-4 text-center text-base font-semibold text-accent hover:bg-accent/5">💬 相談して探す</Link>
-      </div>
+      {/* 5. 自分のAIに相談する紹介 */}
+      <AiPromoCard />
 
       {/* 6. 進行中の補助金チェック */}
       {rows.length > 0 && (
@@ -265,7 +271,7 @@ export function HomeDashboard() {
             {rows.slice(0, 3).map((r) => (
               <Link key={r.p.id} href={`/projects/${r.p.id}`} className="rounded-lg border bg-white p-3 transition hover:border-accent">
                 <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold text-ink">{r.p.name || "（名称未設定）"}</span>
+                  <span className="truncate text-sm font-semibold text-ink">{r.p.name || r.tplLabel || "支出案件"}</span>
                   <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{APP_STATUS_LABEL[r.p.appStatus ?? "considering"]}</span>
                 </div>
                 <div className="mt-0.5 truncate text-xs text-gray-500">{r.p.location || r.p.store || ""}{r.match.total > 0 ? `／候補 ${r.match.total}件` : ""}</div>
@@ -308,60 +314,78 @@ function ConclusionBlock({ c }: { c: Conclusion }) {
   );
 }
 
-function Title() {
+// トップのヒーロー：このサイトが何かと、最初に押す場所を明確にする
+function Hero() {
   return (
-    <div className="mb-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h1 className="text-xl font-bold text-ink sm:text-2xl">あなたの補助金チェック</h1>
-        <div className="flex shrink-0 gap-1.5">
-          <Link href="/start" className="rounded-md border border-accent/40 bg-accent/5 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10">▶ スタートナビ</Link>
-          <Link href="/guide" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">❓ 使い方</Link>
+    <div className="mb-5 overflow-hidden rounded-2xl border bg-gradient-to-br from-violet-50 via-sky-50 to-emerald-50 p-5 sm:p-6">
+      <div className="grid gap-4 sm:grid-cols-5 sm:items-center">
+        <div className="sm:col-span-3">
+          <h1 className="text-2xl font-bold leading-tight text-ink sm:text-3xl">発注前に、補助金の見逃しを防ぐ</h1>
+          <p className="mt-2 text-sm leading-relaxed text-gray-700">
+            これから使うお金に、補助金が使える可能性があるかをチェックします。発注前の注意・今日やる申請準備・まず確認すべき定番制度を整理します。
+          </p>
+          <p className="mt-1.5 text-xs font-medium text-violet-700">🤖 ChatGPT・Claude・Geminiに貼って相談できる文章も作れます。</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/projects/new" className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90">支出を登録してチェックする</Link>
+            <Link href="/start" className="rounded-lg border border-accent/40 bg-white px-4 py-2.5 text-sm font-medium text-accent hover:bg-accent/5">▶ スタートナビ</Link>
+            <Link href="/guide" className="rounded-lg border bg-white px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">使い方を見る</Link>
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <div className="grid gap-2">
+            {[
+              { n: "1", t: "支出を登録", b: "例：空調・看板・広告・EC・AI・採用" },
+              { n: "2", t: "補助金と注意がわかる", b: "使える可能性のある制度と発注前の注意" },
+              { n: "3", t: "今日やる準備が出る", b: "見積・公式確認など、進めることが分かる" },
+            ].map((s) => (
+              <div key={s.n} className="flex items-start gap-2 rounded-lg border border-white/70 bg-white/70 p-2.5 backdrop-blur">
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">{s.n}</span>
+                <span>
+                  <span className="block text-xs font-bold text-ink">{s.t}</span>
+                  <span className="block text-[11px] leading-snug text-gray-600">{s.b}</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-      <p className="mt-1 text-sm leading-relaxed text-gray-600">
-        これからの支出に使える補助金がないかを確認するツールです。補助金の多くは契約・注文の前に申請が必要なので、発注の前にチェックしましょう。
-      </p>
     </div>
   );
 }
 
-// 初めての人向け：このツールは何か・まず何をするか（空状態の先頭に置く）
-function IntroSteps() {
+// トップで「自分のAIに相談する」を軽く紹介（主戦場は案件詳細）
+function AiPromoCard() {
   return (
-    <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4">
-      <p className="text-sm font-bold text-sky-900">このツールでできること</p>
-      <p className="mt-1 text-xs leading-relaxed text-sky-800">
-        お店や会社の「これからの支出」に、使える補助金がないかを判定します。大事なのは順番。多くの補助金は<strong>契約・注文する前</strong>に申請が必要だからです。
+    <div className="mb-6 rounded-xl border border-violet-200 bg-violet-50/50 p-4">
+      <h2 className="text-base font-bold text-violet-900">🤖 自分のAIに相談する文章も作れます</h2>
+      <p className="mt-1 text-xs leading-relaxed text-gray-700">
+        案件情報を整理して、ChatGPT・Claude・Geminiにそのまま貼れる相談文を作ります。公募要領の読み取り、見積書チェック、申請書メモ作成にも使えます。
       </p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {[
-          { n: "1", t: "支出を登録", b: "例：看板を作りたい／空調を入れ替えたい" },
-          { n: "2", t: "補助金と注意がわかる", b: "使える可能性のある制度と、発注前の注意" },
-          { n: "3", t: "やることが出る", b: "見積・公式サイトの確認など、今日やる準備" },
-        ].map((s) => (
-          <div key={s.n} className="rounded-lg border border-sky-100 bg-white p-2.5">
-            <div className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-[11px] font-bold text-white">{s.n}</div>
-            <p className="mt-1 text-xs font-bold text-ink">{s.t}</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-600">{s.b}</p>
-          </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {["補助金についてAIに聞く", "公式要領を読ませる", "見積書をチェックしてもらう"].map((c) => (
+          <span key={c} className="rounded-full border border-violet-200 bg-white px-2.5 py-1 text-[11px] text-violet-700">{c}</span>
         ))}
       </div>
+      <Link href="/projects" className="mt-3 inline-block rounded-md bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:opacity-90">案件詳細でAI相談文を作る →</Link>
+      <p className="mt-1.5 text-[10px] text-gray-400">AIの回答は申請可否を保証しません。最終判断は公式要領・窓口・専門家に確認してください。</p>
     </div>
   );
 }
 
-function SummaryCard({ n, label, tone, href }: { n: number; label: string; tone: string; href: string }) {
+function SummaryCard({ n, label, sub, tone, href }: { n: number; label: string; sub: string; tone: string; href: string }) {
   const map: Record<string, string> = {
     red: "border-red-200 bg-red-50 text-red-700",
     blue: "border-blue-200 bg-blue-50 text-blue-700",
     green: "border-green-200 bg-green-50 text-green-700",
     orange: "border-orange-200 bg-orange-50 text-orange-700",
-    purple: "border-violet-200 bg-violet-50 text-violet-700",
+    purple: "border-purple-200 bg-purple-50 text-purple-700",
+    violet: "border-violet-200 bg-violet-50 text-violet-700",
   };
   return (
-    <Link href={href} className={`rounded-lg border p-3 text-center transition hover:shadow-sm ${map[tone]}`}>
-      <div className="text-2xl font-bold">{n}</div>
-      <div className="mt-0.5 text-[11px] font-medium text-gray-600">{label}</div>
+    <Link href={href} className={`rounded-lg border p-3 transition hover:shadow-sm ${map[tone]}`}>
+      <div className="text-2xl font-bold leading-none">{n}</div>
+      <div className="mt-1 text-xs font-semibold text-ink">{label}</div>
+      <div className="mt-0.5 text-[10px] leading-snug text-gray-500">{sub}</div>
     </Link>
   );
 }
