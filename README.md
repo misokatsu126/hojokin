@@ -49,7 +49,8 @@ npm run dev                          # http://localhost:3000
 3. **SQL Editor** で `supabase/discovery_schema.sql` を実行（自動探索レーダー用の5テーブルを追加）。`schema.sql` とは独立しており、後から追加実行できます。
 3b. **SQL Editor** で `supabase/discovery_collect_schema.sql` → `supabase/discovery_dedup_schema.sql` の順に実行（自動収集の追加列：`audience_type`/`external_id`/`feed_url` 等、および情報源をまたいだ重複検知用の `normalized_key`）。いずれも**冪等**（何度実行しても安全）です。
 3c. **SQL Editor** で `supabase/spending_projects_schema.sql` を実行（支出案件のクラウド保存。`app_status`・`owner` 列を含む。冪等）。利用者ごとの案件を別PC・社内で共有できます。未実行でも localStorage で動作します。
-3d. （任意）`supabase/reminder_log_schema.sql` を実行（通知の重複送信防止。`/api/reminders/send` を使う場合）。
+3d. **SQL Editor** で `supabase/case_records_schema.sql` を実行（必要書類・証憑／期限／公式確認ログ／AIタスクのクラウド保存。冪等）。未実行でも localStorage で動作します。
+3e. （任意）`supabase/reminder_log_schema.sql` を実行（通知の重複送信防止。`/api/reminders/send` を使う場合）。
 4. （任意）`supabase/seed.sql` を実行するとサンプルデータが入ります。
    - ※ SQLで投入した場合、判定・アラートは未生成です。各補助金の詳細ページで「全事業を再照合」を押すか、アプリ内の「サンプル登録」ボタンを使ってください（後者は登録と同時に自動照合します）。
 5. **Settings > API** の URL と anon key を `.env.local` に設定。

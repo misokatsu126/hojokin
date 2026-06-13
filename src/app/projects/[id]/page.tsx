@@ -17,7 +17,7 @@ import { getCoreProgramChecks, coreOfficialHref, coreGuidelineHref, coreFreshnes
 import { ApplicationRoadmap, ConsultRouting } from "@/components/ApplicationRoadmap";
 import { AiConsult } from "@/components/AiConsult";
 import { DocumentBox, DeadlineBox, OfficialCheckLogBox } from "@/components/CaseRecords";
-import { completeTaskCandidateByTaskKey } from "@/lib/caseRecords";
+import { completeTaskCandidateByTaskKey, setCaseOwner, syncCaseRecord } from "@/lib/caseRecords";
 
 // 進行ステータス別の上部ガイダンス
 const STATUS_GUIDANCE: Record<string, { tone: string; text: string }> = {
@@ -65,6 +65,8 @@ export default function ProjectDetailPage() {
       return p;
     };
     const local = applyLocal();
+    setCaseOwner(local?.owner ?? "");
+    syncCaseRecord(id).catch(() => {}); // 実務記録（証憑・期限・確認ログ・AIタスク）をクラウドと同期
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search);
       setHighlightTask(q.get("task"));
