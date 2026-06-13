@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CloudSyncStatus } from "@/components/CloudSyncStatus";
+import { OwnerSwitcher } from "@/components/OwnerSwitcher";
 
 const GROUPS = [
   {
@@ -36,6 +37,7 @@ export default function SettingsPage() {
   return (
     <div>
       <h1 className="mb-4 text-xl font-bold text-ink">設定・メニュー</h1>
+      <OwnerSwitcher />
       <CloudSyncStatus />
       <div className="space-y-6">
         {GROUPS.map((g) => (

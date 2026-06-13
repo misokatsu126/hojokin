@@ -21,6 +21,7 @@ create table if not exists spending_projects (
   schedule text default '',
   order_status text default 'none',          -- none/estimate/contract/ordered/paid
   app_status text default 'considering',     -- considering/preparing/applied/approved/implementing/reported/received
+  owner text default '',                     -- 利用者ID（社内で個人スペースを分ける簡易方式）
   urgency text default 'mid',                -- low/mid/high
   memo text default '',
   checklist jsonb default '{}'::jsonb,       -- 申請準備チェック
@@ -41,6 +42,8 @@ alter table spending_projects add column if not exists answers jsonb default '{}
 alter table spending_projects add column if not exists core_checks jsonb default '{}'::jsonb;
 alter table spending_projects add column if not exists template_key text default '';
 alter table spending_projects add column if not exists app_status text default 'considering';
+alter table spending_projects add column if not exists owner text default '';
+create index if not exists idx_spending_projects_owner on spending_projects (owner);
 
 alter table spending_projects enable row level security;
 do $$
