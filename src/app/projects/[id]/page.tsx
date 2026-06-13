@@ -15,6 +15,7 @@ import { TRIAGE_META, type TriageKey, type TriageResult } from "@/lib/triage";
 import type { VerifyResult } from "@/lib/verify";
 import { getCoreProgramChecks, coreOfficialHref, coreGuidelineHref, coreFreshness, OFFICIAL_STATUS_LABEL, OFFICIAL_STATUS_TONE, type CoreProgramCheck, type CoreGroup } from "@/lib/coreMaster";
 import { ApplicationRoadmap, ConsultRouting } from "@/components/ApplicationRoadmap";
+import { AiConsult } from "@/components/AiConsult";
 
 // 案件詳細での補助金カテゴリ表示順（最有力→条件確認→締切→見逃し→次回→新着）
 const DETAIL_ORDER: TriageKey[] = ["usable", "conditional", "deadline", "missed", "next_time", "new", "unusable"];
@@ -284,6 +285,14 @@ export default function ProjectDetailPage() {
           <textarea readOnly value={memo.text} rows={memo.text.split("\n").length + 1} className="w-full rounded-md border bg-slate-50 p-2 text-xs text-gray-700" />
         </div>
       )}
+
+      {/* 自分のAIに相談する（外部AI用プロンプト生成） */}
+      <AiConsult
+        project={project}
+        coreNames={coreChecks.map((c) => c.name)}
+        tasks={tasks.map((t) => t.action)}
+        missing={missingInfo(project).map((m) => m.label)}
+      />
 
       {/* 進行状況（いまどの段階か） */}
       <section className="mt-6">

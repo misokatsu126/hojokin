@@ -271,6 +271,7 @@ export function HomeDashboard() {
                 <div className="mt-0.5 truncate text-xs text-gray-500">{r.p.location || r.p.store || ""}{r.match.total > 0 ? `／候補 ${r.match.total}件` : ""}</div>
                 <div className={`mt-1 text-xs font-medium ${r.tone === "red" ? "text-red-600" : r.tone === "amber" ? "text-amber-700" : r.tone === "green" ? "text-green-700" : "text-blue-700"}`}>{r.headline}</div>
                 <div className="mt-1 text-[11px] text-gray-500">申請準備：{r.done}/{PROJECT_CHECKLIST.length} 完了{r.tasks[0] ? `　次：${r.tasks[0].action}` : ""}</div>
+                <div className="mt-1 text-[11px] text-violet-600">🤖 この案件を自分のAIに相談する →</div>
               </Link>
             ))}
           </div>
