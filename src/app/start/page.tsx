@@ -90,7 +90,7 @@ export default function StartPage() {
         </div>
       ) : (
         <div className="mb-4 rounded-xl border-2 border-accent/40 bg-accent/5 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">次にやること</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">次に進めること</p>
           <p className="mt-0.5 text-base font-bold text-ink">{STEPS[current].title}</p>
           <p className="mt-1 text-sm text-gray-600">{STEPS[current].desc}</p>
           <Link href={STEPS[current].href(latest)} className="mt-3 inline-block rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">
