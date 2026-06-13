@@ -34,6 +34,7 @@ export type SpendingProject = {
   schedule: string; // 実施予定時期
   orderStatus: OrderStatus; // 見積/契約/発注/支払い
   appStatus?: AppStatus; // 申請の進行ステータス（検討中→申請→交付決定→入金）
+  owner?: string; // 利用者ID（このブラウザの使用者名。社内で個人スペースを分ける簡易方式）
   urgency: Urgency;
   memo: string;
   checklist: Record<string, boolean>; // 申請準備チェック
@@ -601,6 +602,20 @@ export function generateEstimateMemo(project: SpendingProject): string {
 
 // ---- localStorage ストア ----
 const KEY = "spending_projects_v1";
+const OWNER_KEY = "hojokin_owner_v1";
+
+// ---- 利用者ID（簡易マルチユーザー：社内で個人スペースを分ける） ----
+//   ※ パスワード無しの簡易方式。ブラウザに保存した名前で、表示する補助金チェックを絞る。
+export function getOwner(): string {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(OWNER_KEY) ?? "";
+}
+export function setOwner(name: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(OWNER_KEY, name.trim());
+  window.dispatchEvent(new Event("owner-changed"));
+  window.dispatchEvent(new Event("projects-changed"));
+}
 
 // 既存データ（古い形）でも壊れないよう、足りない項目を補完して正規化する。
 //   templateKey が無い案件は custom（テンプレ無し）として扱う。
@@ -614,6 +629,7 @@ function normalize(p: any): SpendingProject {
     answers: p?.answers && typeof p.answers === "object" ? p.answers : {},
     coreChecks: p?.coreChecks && typeof p.coreChecks === "object" ? p.coreChecks : {},
     templateKey: typeof p?.templateKey === "string" ? p.templateKey : "",
+    owner: typeof p?.owner === "string" ? p.owner : "",
     urgency: p?.urgency ?? "mid",
     orderStatus: p?.orderStatus ?? "none",
     appStatus: p?.appStatus ?? "considering",
@@ -621,7 +637,8 @@ function normalize(p: any): SpendingProject {
   };
 }
 
-export function loadProjects(): SpendingProject[] {
+// 生の全件（全利用者ぶん）。保存・同期・初期化の内部処理で使う。
+function loadAllRaw(): SpendingProject[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(KEY);
@@ -630,6 +647,19 @@ export function loadProjects(): SpendingProject[] {
   } catch {
     return [];
   }
+}
+
+// これまでに使われた利用者名の一覧（切り替えの候補に使う）。
+export function knownOwners(): string[] {
+  return Array.from(new Set(loadAllRaw().map((p) => (p.owner ?? "").trim()).filter(Boolean))).sort();
+}
+
+// 表示用：現在の利用者ぶんだけ返す（利用者未設定なら全件＝従来どおり）。
+export function loadProjects(): SpendingProject[] {
+  const all = loadAllRaw();
+  const owner = getOwner();
+  if (!owner) return all;
+  return all.filter((p) => (p.owner ?? "") === owner);
 }
 
 function persist(list: SpendingProject[]) {
@@ -650,15 +680,16 @@ export function emptyProject(): SpendingProject {
   const now = new Date().toISOString();
   return {
     id: newProjectId(), name: "", purpose: "", uses: [], store: "", location: "", entity: "", industry: "",
-    employees: null, budget: null, schedule: "", orderStatus: "none", appStatus: "considering", urgency: "mid", memo: "",
+    employees: null, budget: null, schedule: "", orderStatus: "none", appStatus: "considering", owner: getOwner(), urgency: "mid", memo: "",
     checklist: {}, templateKey: "", answers: {}, coreChecks: {}, created_at: now, updated_at: now,
   };
 }
 
 export function upsertProject(p: SpendingProject): SpendingProject {
-  const list = loadProjects();
+  const list = loadAllRaw();
   const idx = list.findIndex((x) => x.id === p.id);
-  const saved = { ...p, updated_at: new Date().toISOString() };
+  // 持ち主が未設定なら現在の利用者を割り当てる
+  const saved = { ...p, owner: p.owner || getOwner(), updated_at: new Date().toISOString() };
   if (idx >= 0) list[idx] = saved;
   else list.unshift(saved);
   persist(list);
@@ -668,28 +699,31 @@ export function upsertProject(p: SpendingProject): SpendingProject {
 }
 
 export function deleteProject(id: string) {
-  persist(loadProjects().filter((p) => p.id !== id));
+  persist(loadAllRaw().filter((p) => p.id !== id));
   if (supabaseConfigured) {
     deleteSpendingProjectRow(id).catch((e) => console.warn("[projects] cloud delete failed:", e?.message ?? e));
   }
 }
 
-// すべての補助金チェックを削除して初期状態に戻す（ローカル＋クラウド）。
+// 現在の利用者の補助金チェックをすべて削除して初期状態に戻す（ローカル＋クラウド）。
 //   クラウド保存している場合、ローカルだけ消すと同期で戻るため、クラウドの行も削除する。
+//   他の利用者のデータは消さない。
 export async function deleteAllProjects(): Promise<{ removed: number; cloudFailed: number }> {
-  const list = loadProjects();
+  const mine = loadProjects(); // 現在の利用者ぶん
+  const mineIds = new Set(mine.map((p) => p.id));
+  const rest = loadAllRaw().filter((p) => !mineIds.has(p.id));
   if (typeof window !== "undefined") {
-    window.localStorage.removeItem(KEY);
+    window.localStorage.setItem(KEY, JSON.stringify(rest)); // 自分ぶんだけ除外
     window.localStorage.removeItem("project_alerts_dismissed_v1"); // 通知の「対応済み」も初期化
     window.dispatchEvent(new Event("projects-changed"));
     window.dispatchEvent(new Event("alerts-changed"));
   }
   let cloudFailed = 0;
-  if (supabaseConfigured && list.length > 0) {
-    const results = await Promise.allSettled(list.map((p) => deleteSpendingProjectRow(p.id)));
+  if (supabaseConfigured && mine.length > 0) {
+    const results = await Promise.allSettled(mine.map((p) => deleteSpendingProjectRow(p.id)));
     cloudFailed = results.filter((r) => r.status === "rejected").length;
   }
-  return { removed: list.length, cloudFailed };
+  return { removed: mine.length, cloudFailed };
 }
 
 // ---- Supabase 同期（任意。未設定なら何もしない） ----
@@ -700,7 +734,7 @@ function projectToRow(p: SpendingProject): SpendingProjectRow {
   return {
     id: p.id, name: p.name, purpose: p.purpose, uses: p.uses, store: p.store, location: p.location,
     entity: p.entity, industry: p.industry, employees: p.employees, budget: p.budget, schedule: p.schedule,
-    order_status: p.orderStatus, app_status: p.appStatus ?? "considering", urgency: p.urgency, memo: p.memo, checklist: p.checklist,
+    order_status: p.orderStatus, app_status: p.appStatus ?? "considering", owner: p.owner ?? "", urgency: p.urgency, memo: p.memo, checklist: p.checklist,
     template_key: p.templateKey ?? "", answers: p.answers ?? {}, core_checks: p.coreChecks ?? {},
     created_at: p.created_at, updated_at: p.updated_at,
   };
@@ -711,7 +745,7 @@ export function rowToProject(r: SpendingProjectRow): SpendingProject {
     id: r.id, name: r.name ?? "", purpose: r.purpose ?? "", uses: r.uses, store: r.store ?? "",
     location: r.location ?? "", entity: r.entity ?? "", industry: r.industry ?? "",
     employees: r.employees != null ? Number(r.employees) : null, budget: r.budget != null ? Number(r.budget) : null, schedule: r.schedule ?? "",
-    orderStatus: r.order_status ?? "none", appStatus: (r.app_status as any) ?? "considering", urgency: r.urgency ?? "mid", memo: r.memo ?? "",
+    orderStatus: r.order_status ?? "none", appStatus: (r.app_status as any) ?? "considering", owner: r.owner ?? "", urgency: r.urgency ?? "mid", memo: r.memo ?? "",
     checklist: r.checklist, templateKey: r.template_key ?? "", answers: r.answers, coreChecks: r.core_checks,
     created_at: r.created_at ?? new Date().toISOString(), updated_at: r.updated_at ?? new Date().toISOString(),
   });
@@ -736,8 +770,8 @@ let syncInFlight: Promise<SpendingProject[]> | null = null;
 //   - Supabase にしか無い案件はローカルへ取り込む
 //   未設定・失敗時はローカルをそのまま返す（止めない）。
 export async function syncProjectsFromSupabase(): Promise<SpendingProject[]> {
-  const local = loadProjects();
-  if (!supabaseConfigured || typeof window === "undefined") return local;
+  const local = loadAllRaw();
+  if (!supabaseConfigured || typeof window === "undefined") return loadProjects();
   if (syncInFlight) return syncInFlight;
   syncInFlight = (async () => {
     try {
@@ -756,10 +790,10 @@ export async function syncProjectsFromSupabase(): Promise<SpendingProject[]> {
       window.dispatchEvent(new Event("projects-changed"));
       // ローカル優先分を裏で push（移行・競合解決）
       await Promise.allSettled(toPush.map((p) => upsertSpendingProjectRow(projectToRow(p))));
-      return merged;
+      return loadProjects(); // 表示用は現在の利用者ぶんだけ返す
     } catch (e) {
       console.warn("[projects] sync failed (localStorage を継続使用):", (e as any)?.message ?? e);
-      return local;
+      return loadProjects();
     } finally {
       syncInFlight = null;
     }

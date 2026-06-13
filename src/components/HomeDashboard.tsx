@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
+import { OwnerSwitcher } from "@/components/OwnerSwitcher";
 import {
   loadProjects, syncProjectsFromSupabase, classifyForProject, projectTasks, orderAdvice, getTemplate, templateExamples, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, APP_STATUS_LABEL, APP_STATUS_ORDER,
   type SpendingProject, type ProjectMatch, type ProjectTask,
@@ -154,6 +155,7 @@ export function HomeDashboard() {
   if (loaded && projects.length === 0) {
     return (
       <div>
+        <OwnerSwitcher compact />
         <Title />
         <IntroSteps />
         <div className="rounded-xl border bg-white p-6">
@@ -188,6 +190,9 @@ export function HomeDashboard() {
 
   return (
     <div>
+      {/* 0. 利用者（このブラウザの使用者） */}
+      <OwnerSwitcher compact />
+
       {/* 1. 今の結論 */}
       <ConclusionBlock c={conclusion} />
 

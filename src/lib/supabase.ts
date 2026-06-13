@@ -52,6 +52,7 @@ export type SpendingProjectRow = {
   schedule?: string | null;
   order_status?: string | null;
   app_status?: string | null;
+  owner?: string | null;
   urgency?: string | null;
   memo?: string | null;
   checklist?: unknown;
