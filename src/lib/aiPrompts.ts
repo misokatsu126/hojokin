@@ -126,7 +126,14 @@ const bullets = (arr: string[]) => (arr.length ? arr.map((s) => `・${s}`).join(
 
 // ============ 各プロンプト生成 ============
 
+function isSuccession(p: SpendingProject): boolean {
+  if (p.templateKey === "succession") return true;
+  const t = `${p.name} ${p.purpose} ${p.uses.join(" ")}`;
+  return /事業承継|M&A|Ｍ＆Ａ|事業譲|引継|後継|第三者承継|親族内承継|PMI|株式譲渡|買収/.test(t);
+}
+
 export function subsidyCheckPrompt(p: SpendingProject, coreNames: string[], tasks: string[], missing: string[], o: PrivacyOpts): string {
+  const succession = isSuccession(p);
   return [
     "以下の補助金の相談について、対象になりそうな制度・注意点・次に確認すべきことを、断定せず整理してください。",
     "",
@@ -148,6 +155,18 @@ export function subsidyCheckPrompt(p: SpendingProject, coreNames: string[], task
       "見積書に入れておくべき項目",
       "申請時に注意すべき落とし穴",
     ]),
+    ...(succession ? [
+      "",
+      "【事業承継・M&Aで特に確認したいこと】",
+      numbered([
+        "国の「事業承継・M&A補助金」の対象になりそうか",
+        "自治体独自の事業承継支援があるか（制度の存在は断定せず、確認先も）",
+        "事業承継・引継ぎ支援センター／商工会議所・商工会への相談",
+        "専門家費用・仲介手数料・デューデリジェンス費用・PMI費用が対象になるか",
+        "株式譲渡か事業譲渡か／親族内承継か第三者承継か",
+        "発注・契約前か（交付決定前の契約の可否）／許認可の引継ぎ",
+      ]),
+    ] : []),
     "",
     COMMON_NOTE,
   ].join("\n");

@@ -77,13 +77,28 @@ export function ApplicationRoadmap({ project }: { project: SpendingProject }) {
 export function ConsultRouting({ project }: { project: SpendingProject }) {
   const region = (project.location || project.store || "").trim();
   const q = (text: string) => `https://www.google.com/search?q=${encodeURIComponent(`${region ? region + " " : ""}${text}`)}`;
-  const rows: { who: string; when: string; href: string; label: string }[] = [
-    { who: "商工会議所・商工会", when: "持続化補助金など。事前相談・確認が必要なことが多い", href: q("商工会議所"), label: "近くの窓口を探す" },
-    { who: "よろず支援拠点", when: "無料で何でも相談できる公的窓口。まず迷ったらここ", href: q("よろず支援拠点"), label: "近くの拠点を探す" },
-    { who: "認定経営革新等支援機関", when: "ものづくり・事業再構築などの事業計画づくり", href: "https://www.google.com/search?q=" + encodeURIComponent("認定経営革新等支援機関 検索"), label: "支援機関を探す" },
-    { who: "社労士・行政書士など", when: "雇用・賃上げ・許認可に関わる制度", href: q("社会保険労務士 補助金 助成金"), label: "専門家を探す" },
-    { who: "自治体の産業振興課", when: "地域独自の補助金や事前相談", href: q("産業振興課 補助金"), label: "自治体に問い合わせる" },
-  ];
+  // 事業承継・M&A の案件かどうか
+  const text = `${project.name} ${project.purpose} ${project.uses.join(" ")}`;
+  const isSuccession = project.templateKey === "succession" || /事業承継|M&A|Ｍ＆Ａ|事業譲|引継|後継|第三者承継|親族内承継|PMI|株式譲渡|買収/.test(text);
+  const rows: { who: string; when: string; href: string; label: string }[] = isSuccession
+    ? [
+        { who: "事業承継・引継ぎ支援センター", when: "公的な事業承継・第三者承継の相談（無料）", href: q("事業承継・引継ぎ支援センター"), label: "窓口を探す" },
+        { who: "商工会議所・商工会", when: "地域の事業承継相談・補助金確認", href: q("商工会議所 事業承継"), label: "近くの窓口を探す" },
+        { who: "自治体の産業振興課", when: "独自補助金・支援制度の確認", href: q("産業振興課 事業承継 補助金"), label: "自治体に問い合わせる" },
+        { who: "認定経営革新等支援機関", when: "事業計画・補助金申請の支援", href: "https://www.google.com/search?q=" + encodeURIComponent("認定経営革新等支援機関 検索"), label: "支援機関を探す" },
+        { who: "税理士", when: "株式譲渡・税務・財務の確認", href: q("税理士 事業承継"), label: "専門家を探す" },
+        { who: "中小企業診断士", when: "事業計画・PMI・経営改善", href: q("中小企業診断士 事業承継"), label: "専門家を探す" },
+        { who: "行政書士", when: "許認可の引継ぎ・契約書類の確認", href: q("行政書士 事業承継 許認可"), label: "専門家を探す" },
+        { who: "M&A仲介会社", when: "譲受・譲渡先の探索・マッチング", href: q("M&A 仲介"), label: "探す" },
+        { who: "金融機関", when: "買収資金・資金調達の相談", href: q("金融機関 事業承継 融資"), label: "相談先を探す" },
+      ]
+    : [
+        { who: "商工会議所・商工会", when: "持続化補助金など。事前相談・確認が必要なことが多い", href: q("商工会議所"), label: "近くの窓口を探す" },
+        { who: "よろず支援拠点", when: "無料で何でも相談できる公的窓口。まず迷ったらここ", href: q("よろず支援拠点"), label: "近くの拠点を探す" },
+        { who: "認定経営革新等支援機関", when: "ものづくり・事業再構築などの事業計画づくり", href: "https://www.google.com/search?q=" + encodeURIComponent("認定経営革新等支援機関 検索"), label: "支援機関を探す" },
+        { who: "社労士・行政書士など", when: "雇用・賃上げ・許認可に関わる制度", href: q("社会保険労務士 補助金 助成金"), label: "専門家を探す" },
+        { who: "自治体の産業振興課", when: "地域独自の補助金や事前相談", href: q("産業振興課 補助金"), label: "自治体に問い合わせる" },
+      ];
   return (
     <section className="mt-6">
       <h2 className="mb-1 text-lg font-bold text-ink">誰に相談する？</h2>

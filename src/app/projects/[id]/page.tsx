@@ -507,6 +507,20 @@ function CoreCard({ c, state, onSet }: { c: CoreProgramCheck; state?: "done" | "
         {c.requiredInfo.length > 0 && <p className="mt-1 text-xs text-gray-500">必要になりやすいもの：{c.requiredInfo.join("・")}</p>}
         {c.caution.length > 0 && <p className="mt-0.5 text-xs text-amber-700">注意：{c.caution.join("／")}</p>}
       </details>
+      {/* 地域で探す（自治体パターン等の複数検索リンク） */}
+      {c.searchLinks && c.searchLinks.length > 0 && (() => {
+        const generic = c.searchLinks!.some((l) => l.label.startsWith("自治体 ") || l.label.startsWith("都道府県 "));
+        return (
+          <div className="mt-2 rounded-md bg-slate-50 p-2">
+            <p className="text-[11px] font-semibold text-gray-600">{generic ? "探す（地域を入力するとお住まいの市区町村・都道府県で探せます）" : "地域で探す"}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {c.searchLinks!.map((l) => (
+                <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" className="rounded-full border bg-white px-2.5 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50">🔍 {l.label}</a>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       <div className="mt-2 flex flex-wrap gap-2 text-xs">
         <a href={coreOfficialHref(c)} target="_blank" rel="noopener noreferrer" className="rounded-md bg-emerald-600 px-3 py-1.5 font-medium text-white hover:opacity-90">{c.officialUrl ? "🔗 公式ページを見る ↗" : "🔍 公式情報を探す ↗"}</a>
         {guideline && <a href={guideline} target="_blank" rel="noopener noreferrer" className="rounded-md border border-emerald-300 px-3 py-1.5 text-emerald-700 hover:bg-emerald-50">📄 公募要領 ↗</a>}

@@ -21,6 +21,7 @@ export type CoreProgram = {
   officialUrl?: string; // 直リンク（公式ポータル等の安定URL）
   guidelineUrl?: string; // 公募要領のURL（officialUrl と別なら表示）
   officialSearchQuery?: string; // 自治体系は {region} を案件地域で置換
+  searchQueries?: string[]; // 複数の探索クエリ（{region}/{pref}/{city} を置換。地域なしは汎用語に）
   sourceAuthority: "master" | "official_seed" | "local_pattern";
   // 年度・名称変更対応
   fiscalYear: string;
@@ -51,6 +52,7 @@ export type CoreProgramCheck = {
   officialUrl?: string;
   guidelineUrl?: string;
   officialSearchQuery?: string;
+  searchLinks?: { label: string; url: string }[]; // 解決済みの探索リンク（複数）
   sourceAuthority: "master" | "official_seed" | "local_pattern";
   aliasNames: string[];
   fiscalYear: string;
@@ -136,12 +138,19 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
   {
     key: "shokei_ma", name: "事業承継・M&A補助金", aliasNames: ["事業承継補助金", "M&A補助金"], group: "national_subsidy", priority: "medium", confidenceLabel: "確認推奨",
     relatedReason: "M&A費用・専門家費用・引継ぎ後の設備/システム投資",
-    whatToCheck: ["承継形態（譲渡・譲受）", "専門家費用の対象", "対象期間"],
-    caution: ["承継形態の要件", "対象経費・期間の確認"],
-    requiredInfo: ["承継・M&Aの形態", "専門家の関与"],
+    whatToCheck: [
+      "承継形態（親族内承継／第三者承継）", "株式譲渡か事業譲渡か", "専門家費用が対象になるか",
+      "PMI費用が対象になるか", "設備投資の有無", "対象期間", "発注・契約前か",
+      "認定支援機関や専門家の関与が必要か", "公募回・締切", "交付決定前の契約が可能か",
+    ],
+    caution: ["承継形態・対象経費・対象期間の確認", "交付決定前の契約・発注はNGのことがある", "専門家・認定支援機関の関与が前提のことがある"],
+    requiredInfo: [
+      "見積書", "専門家契約書案", "事業計画", "財務資料", "承継スキームの概要",
+      "譲渡対象の概要", "許認可の確認資料", "株式譲渡／事業譲渡の関連資料",
+    ],
     officialUrl: JGRANTS, sourceAuthority: "master", fiscalYear: "2026", officialStatus: "active", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["succession"],
-    keywords: /M&A|Ｍ＆Ａ|事業承継|事業譲|買収|引継|後継|PMI/i,
+    keywords: /M&A|Ｍ＆Ａ|事業承継|事業譲|事業譲受|買収|引継|後継|PMI|株式譲渡|第三者承継|親族内承継|会社分割|デューデリ|仲介手数料/i,
   },
   {
     key: "seichou", name: "中小企業成長加速化補助金（大規模成長投資系）", aliasNames: ["大規模成長投資補助金", "成長加速化補助金"], group: "national_subsidy", priority: "low", confidenceLabel: "確認推奨",
@@ -256,14 +265,26 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     keywords: /新法人|新店舗|新規事業|創業|起業|開業|出店/i,
   },
   {
-    key: "local_shokei", name: "事業承継・引継ぎ支援（自治体・公的機関）", aliasNames: ["事業承継支援", "引継ぎ支援"], group: "local_pattern", priority: "medium", confidenceLabel: "確認推奨",
-    relatedReason: "事業承継・M&A・後継者探し・引継ぎ後の投資",
-    whatToCheck: ["事業承継・引継ぎ支援センターへの相談", "対象になる費用（専門家費等）", "自治体独自の承継補助の有無"],
-    caution: ["公的機関（事業承継・引継ぎ支援センター）の関与が前提のことがある", "対象経費・対象期間の確認"],
-    requiredInfo: ["承継の形態", "所在地"],
-    officialSearchQuery: "{region} 事業承継 補助金 支援", sourceAuthority: "local_pattern", fiscalYear: "—", officialStatus: "unknown", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    key: "local_shokei", name: "自治体の事業承継・M&A・引継ぎ支援", aliasNames: ["事業承継支援", "M&A・事業引継ぎ支援", "第三者承継支援", "親族内承継支援"], group: "local_pattern", priority: "medium", confidenceLabel: "確認推奨",
+    relatedReason: "事業承継・M&A・第三者承継・親族内承継・後継者探し・PMI・引継ぎ後の投資",
+    whatToCheck: [
+      "市区町村・都道府県の独自支援があるか", "事業承継・引継ぎ支援センターへの相談",
+      "商工会議所・商工会での相談・補助金確認", "対象になる費用（専門家費・仲介手数料等）",
+    ],
+    caution: [
+      "自治体独自の支援は地域により有無が異なります（あるとは限りません）",
+      "該当制度があるか公式情報で確認してください",
+      "公的機関（事業承継・引継ぎ支援センター）の関与が前提のことがあります",
+    ],
+    requiredInfo: ["承継の形態（親族内／第三者）", "所在地"],
+    officialSearchQuery: "{region} 事業承継 補助金 支援",
+    searchQueries: [
+      "{region} 事業承継 補助金", "{region} M&A 支援", "{region} 事業引継ぎ 支援", "{region} 後継者 支援",
+      "{region} 商工会議所 事業承継", "{pref} 事業承継 補助金", "{pref} 事業承継・引継ぎ支援センター",
+    ],
+    sourceAuthority: "local_pattern", fiscalYear: "—", officialStatus: "unknown", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["succession"],
-    keywords: /事業承継|事業譲|引継|後継|Ｍ＆Ａ|M&A|譲渡|買収/i,
+    keywords: /事業承継|事業譲|事業譲受|事業引継|引継|後継|Ｍ＆Ａ|M&A|譲渡|買収|第三者承継|親族内承継|PMI|株式譲渡|会社分割|デューデリ|仲介手数料|店舗承継/i,
   },
 ];
 
@@ -274,7 +295,17 @@ export function getCoreProgramChecks(project: SpendingProject): CoreProgramCheck
     project.name, project.purpose, project.uses.join(" "), project.industry,
     ...Object.values(project.answers ?? {}),
   ].filter(Boolean).join(" ");
-  const region = (project.location || project.store || "お住まいの自治体").trim();
+  const rawRegion = (project.location || project.store || "").trim();
+  const hasRegion = !!rawRegion;
+  const region = hasRegion ? rawRegion : "お住まいの自治体";
+  // 都道府県を取り出す（無ければ汎用語）
+  const prefMatch = rawRegion.match(/(東京都|北海道|京都府|大阪府|.{2,3}県)/);
+  const pref = prefMatch ? prefMatch[1] : "";
+  // 探索クエリを解決（地域があれば差し込み、無ければ汎用語）
+  const resolveSearch = (q: string): string => {
+    if (hasRegion) return q.replace(/\{region\}/g, rawRegion).replace(/\{pref\}/g, pref || rawRegion).replace(/\{city\}/g, rawRegion);
+    return q.replace(/\{region\}/g, "自治体").replace(/\{pref\}/g, "都道府県").replace(/\{city\}/g, "自治体");
+  };
   const skip = project.coreChecks ?? {};
 
   const out: CoreProgramCheck[] = [];
@@ -282,6 +313,10 @@ export function getCoreProgramChecks(project: SpendingProject): CoreProgramCheck
     const hit = (m.templates.length > 0 && m.templates.includes(tpl)) || m.keywords.test(text);
     if (!hit) continue;
     if (skip[m.key] === "skip") continue;
+    // 複数探索リンク（{pref} は都道府県が取れた時のみ）
+    const searchLinks = (m.searchQueries ?? [])
+      .map((q) => { const t = resolveSearch(q); return { label: t, url: `https://www.google.com/search?q=${encodeURIComponent(t)}` }; })
+      .filter((l, i, a) => a.findIndex((x) => x.label === l.label) === i);
     out.push({
       key: m.key, name: m.name, group: m.group, priority: m.priority, confidenceLabel: m.confidenceLabel,
       relatedReason: m.relatedReason,
@@ -289,7 +324,8 @@ export function getCoreProgramChecks(project: SpendingProject): CoreProgramCheck
       whatToCheck: m.whatToCheck, caution: m.caution, requiredInfo: m.requiredInfo,
       relatedTemplateKeys: m.templates, relatedUses: project.uses, relatedExpenses: [],
       officialUrl: m.officialUrl, guidelineUrl: m.guidelineUrl,
-      officialSearchQuery: m.officialSearchQuery ? m.officialSearchQuery.replace("{region}", region) : undefined,
+      officialSearchQuery: m.officialSearchQuery ? resolveSearch(m.officialSearchQuery) : undefined,
+      searchLinks: searchLinks.length ? searchLinks : undefined,
       sourceAuthority: m.sourceAuthority, aliasNames: m.aliasNames, fiscalYear: m.fiscalYear, officialStatus: m.officialStatus,
       applicationRound: m.applicationRound, deadline: m.deadline,
       rateText: PROGRAM_RATE[m.key]?.rate, maxText: PROGRAM_RATE[m.key]?.max,
