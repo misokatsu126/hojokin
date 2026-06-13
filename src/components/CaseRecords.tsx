@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   DOC_CATALOG, DOC_STATUS_LABEL, DEADLINE_CATALOG, CHECK_TARGET_LABEL, CHECK_METHOD_LABEL, CHECK_STATUS_LABEL,
   loadDocs, setDoc, docSummary, loadDeadlines, setDeadline, loadCheckLogs, addCheckLog, deleteCheckLog,
+  themeDocGroup, suggestDeadlinesFromApplication,
   type DocRecord, type DocStatus, type DeadlineRecord, type OfficialCheckLog,
 } from "@/lib/caseRecords";
 
@@ -27,11 +28,13 @@ const STATUS_TONE: Record<DocStatus, string> = {
 };
 
 // ---------- 必要書類・証憑ボックス ----------
-export function DocumentBox({ projectId }: { projectId: string }) {
+export function DocumentBox({ projectId, templateKey }: { projectId: string; templateKey?: string }) {
   const [docs, refresh] = useCaseData<Record<string, DocRecord>>(() => loadDocs(projectId), [projectId]);
   const [open, setOpen] = useState(false);
   const [editKind, setEditKind] = useState<string | null>(null);
   const sum = docSummary(projectId);
+  const theme = themeDocGroup(templateKey);
+  const phases = theme ? [...DOC_CATALOG, { key: "theme", title: theme.title, items: theme.items }] : DOC_CATALOG;
 
   return (
     <section className="mt-6 rounded-xl border bg-white p-4">
@@ -44,6 +47,10 @@ export function DocumentBox({ projectId }: { projectId: string }) {
             {p.title}：{p.ready}/{p.total} 準備済み
           </span>
         ))}
+        {theme && (() => {
+          const ready = theme.items.filter((it) => ["ready", "not_needed"].includes(docs[it.kind]?.status ?? "missing")).length;
+          return <span className={`rounded-full border px-2.5 py-1 ${ready === theme.items.length ? "border-green-300 bg-green-50 text-green-700" : "border-violet-200 text-violet-700"}`}>この支出で特に重要：{ready}/{theme.items.length}</span>;
+        })()}
       </div>
       {sum.missingImportant.length > 0 && (
         <ul className="mt-2 rounded-md bg-amber-50 p-2 text-[11px] text-amber-900">
@@ -59,7 +66,7 @@ export function DocumentBox({ projectId }: { projectId: string }) {
 
       {open && (
         <div className="mt-3 space-y-3">
-          {DOC_CATALOG.map((ph) => (
+          {phases.map((ph) => (
             <div key={ph.key}>
               <p className="mb-1 text-xs font-semibold text-gray-600">{ph.title}</p>
               <div className="space-y-1">
@@ -104,10 +111,23 @@ export function DocumentBox({ projectId }: { projectId: string }) {
 // ---------- 期限・スケジュール ----------
 export function DeadlineBox({ projectId }: { projectId: string }) {
   const [dl] = useCaseData<Record<string, DeadlineRecord>>(() => loadDeadlines(projectId), [projectId]);
+  const appDate = dl["application_deadline"]?.date;
+  const suggestion = appDate ? suggestDeadlinesFromApplication(appDate) : null;
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    if (!dl["estimate_deadline"]?.date) setDeadline(projectId, "estimate_deadline", { date: suggestion.estimate_deadline });
+    if (!dl["application_draft_deadline"]?.date) setDeadline(projectId, "application_draft_deadline", { date: suggestion.application_draft_deadline });
+  };
   return (
     <section className="mt-6 rounded-xl border bg-white p-4">
       <h2 className="text-lg font-bold text-ink">🗓 期限・スケジュール</h2>
       <p className="mt-1 text-xs text-amber-800">公募締切だけでなく、事前相談期限・様式発行依頼期限が先に来る場合があります。</p>
+      {suggestion && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-sky-50 p-2 text-[11px] text-sky-900">
+          公募締切から目安を提案：見積取得 {suggestion.estimate_deadline}／申請書作成 {suggestion.application_draft_deadline}
+          <button onClick={applySuggestion} className="rounded border border-sky-300 bg-white px-2 py-0.5 font-medium text-sky-800 hover:bg-sky-100">目安を入れる</button>
+        </div>
+      )}
       <div className="mt-2 space-y-1.5">
         {DEADLINE_CATALOG.map((d) => {
           const rec = dl[d.kind] ?? {};

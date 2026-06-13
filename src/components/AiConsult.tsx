@@ -38,8 +38,11 @@ const STATUS_LABEL: Record<ExternalAiResponse["status"], string> = {
   reference: "参考情報", needs_review: "要確認", converted_to_task: "タスク化",
 };
 
-export function AiConsult({ project, coreNames, tasks, missing }: { project: SpendingProject; coreNames: string[]; tasks: string[]; missing: string[] }) {
+const PRIMARY_KINDS: AiPromptKind[] = ["subsidy_check", "estimate_check", "consult_message"];
+
+export function AiConsult({ project, coreNames, tasks, missing, mode = "pro" }: { project: SpendingProject; coreNames: string[]; tasks: string[]; missing: string[]; mode?: "simple" | "pro" }) {
   const [privacy, setPrivacy] = useState<PrivacyOpts>(DEFAULT_PRIVACY);
+  const [showAllCards, setShowAllCards] = useState(false);
   const [active, setActive] = useState<{ kind: AiPromptKind; target?: ConsultTarget } | null>(null);
   const [copied, setCopied] = useState(false);
   const [pasteText, setPasteText] = useState("");
@@ -100,17 +103,28 @@ export function AiConsult({ project, coreNames, tasks, missing }: { project: Spe
         </div>
       </div>
 
-      {/* カード一覧 */}
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {CARDS.map((c) => (
-          <div key={c.kind} className={`rounded-lg border bg-white p-3 ${active?.kind === c.kind ? "border-violet-400" : ""}`}>
-            <p className="text-sm font-semibold text-ink">{c.name}</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-gray-600">{c.what}</p>
-            <p className="mt-0.5 text-[10px] text-gray-400">使うとき：{c.when}</p>
-            <button onClick={() => openCard(c.kind)} className="mt-2 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">プロンプトを作る</button>
-          </div>
-        ))}
-      </div>
+      {/* カード一覧（かんたん表示は主要3つ＋もっと見る） */}
+      {(() => {
+        const showAll = mode === "pro" || showAllCards;
+        const cards = showAll ? CARDS : CARDS.filter((c) => PRIMARY_KINDS.includes(c.kind));
+        return (
+          <>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {cards.map((c) => (
+                <div key={c.kind} className={`rounded-lg border bg-white p-3 ${active?.kind === c.kind ? "border-violet-400" : ""}`}>
+                  <p className="text-sm font-semibold text-ink">{c.name}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-gray-600">{c.what}</p>
+                  <p className="mt-0.5 text-[10px] text-gray-400">使うとき：{c.when}</p>
+                  <button onClick={() => openCard(c.kind)} className="mt-2 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">プロンプトを作る</button>
+                </div>
+              ))}
+            </div>
+            {mode === "simple" && !showAllCards && (
+              <button onClick={() => setShowAllCards(true)} className="mt-2 text-xs text-violet-700 hover:underline">もっと見る（公式要領を読ませる／申請書メモ／支払い前／実績報告）</button>
+            )}
+          </>
+        );
+      })()}
 
       {/* 生成パネル */}
       {active && card && (

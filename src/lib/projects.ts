@@ -14,6 +14,7 @@ import {
   supabaseConfigured, fetchSpendingProjectRows, upsertSpendingProjectRow, deleteSpendingProjectRow,
   type SpendingProjectRow,
 } from "./supabase";
+import { loadAcceptedTaskCandidates } from "./caseRecords";
 
 export type OrderStatus = "none" | "estimate" | "contract" | "ordered" | "paid";
 export type Urgency = "low" | "mid" | "high";
@@ -860,7 +861,7 @@ export type ProjectTask = {
   action: string;
   reason: string;
   priority: number; // 小さいほど優先
-  source: "basic" | "core_program" | "deadline" | "project_missing_info";
+  source: "basic" | "core_program" | "deadline" | "project_missing_info" | "ai_response";
   relatedProgramKeys?: string[];
   relatedProgramNames?: string[];
   isCompleted?: boolean;
@@ -961,6 +962,14 @@ export function getAllProjectTasks(project: SpendingProject, match?: ProjectMatc
       ...base, taskKey, action: e.action, reason,
       priority: TASK_PRIORITY[taskKey] ?? 50, source: e.source,
       relatedProgramKeys: [...e.keys], relatedProgramNames: names, isCompleted: false,
+    });
+  }
+  // AI回答から追加（accepted・未完了）した確認タスクを取り込む（公式確認前の参考情報）
+  for (const c of loadAcceptedTaskCandidates(project.id)) {
+    tasks.push({
+      ...base, taskKey: `ai:${c.id}`, action: c.title,
+      reason: "AI回答から追加した確認タスクです（公式確認前の参考情報）",
+      priority: 2.5, source: "ai_response", relatedProgramKeys: [], relatedProgramNames: [], isCompleted: false,
     });
   }
   return tasks.sort((a, b) => a.priority - b.priority);
