@@ -459,7 +459,8 @@ export function templateExamples(key: string | null | undefined): string[] {
 // 収集（discovery）の検索キーワードを支出テーマから自動生成する。
 //   ※ テンプレを足すだけで収集対象も自動拡張される（手設定に依存しない）。制度名の核も補う。
 const PROGRAM_KEYWORDS = [
-  "事業承継", "M&A", "賃上げ", "最低賃金", "業務改善", "省力化", "ものづくり", "持続化",
+  "事業承継", "M&A", "事業引継ぎ", "第三者承継", "親族内承継", "後継者", "PMI",
+  "賃上げ", "最低賃金", "業務改善", "省力化", "ものづくり", "持続化",
   "IT導入", "脱炭素", "再エネ", "太陽光", "BCP", "インバウンド", "多言語", "認証", "知財", "創業",
 ];
 export function templateCollectKeywords(): string[] {
@@ -873,6 +874,9 @@ const TASK_PRIORITY: Record<string, number> = {
   employees: 6, budget: 7, expense: 8, it_tool: 9, it_provider: 10,
   shokokai: 11, area_check: 12, purpose_check: 13, pro: 14, spec_check: 15,
   chinage: 16, koyou: 17, training_plan: 18,
+  // 事業承継・M&A 系
+  consult_shokei: 11.5, local_shokei_check: 12.5, succession_scheme: 19,
+  pro_fee: 20, pmi_fee: 21, dd_fee: 22, broker_fee: 23, license: 24,
 };
 // 定番制度の短縮名（理由の併記用）
 const PROGRAM_SHORT: Record<string, string> = {
@@ -928,6 +932,16 @@ export function getAllProjectTasks(project: SpendingProject, match?: ProjectMatc
   core("career_up", "pro", "社会保険労務士に相談してください", "");
   core("jinzai_kaihatsu", "training_plan", "研修内容・訓練時間・事前届出を確認してください", "");
   core("jinzai_kaihatsu", "pro", "社会保険労務士に相談してください", "");
+  // 事業承継・M&A 系
+  core("shokei_ma", "consult_shokei", "事業承継・引継ぎ支援センターに相談してください", "公的な事業承継・第三者承継の相談ができます");
+  core("local_shokei", "consult_shokei", "事業承継・引継ぎ支援センターに相談してください", "公的な事業承継・第三者承継の相談ができます");
+  core("local_shokei", "local_shokei_check", "自治体独自の事業承継支援を確認してください", "市区町村・都道府県に独自支援がある場合があります");
+  core("shokei_ma", "succession_scheme", "株式譲渡か事業譲渡か・親族内か第三者かを確認してください", "承継スキームで対象や要件が変わります");
+  core("shokei_ma", "pro_fee", "専門家費用が対象になるか確認してください", "仲介・専門家費用が対象になることがあります");
+  core("shokei_ma", "pmi_fee", "PMI費用が対象になるか確認してください", "統合（PMI）費用が対象になることがあります");
+  core("shokei_ma", "dd_fee", "デューデリジェンス費用が対象になるか確認してください", "調査（DD）費用が対象になることがあります");
+  core("shokei_ma", "broker_fee", "仲介手数料が対象になるか確認してください", "M&A仲介手数料の扱いを確認します");
+  core("shokei_ma", "license", "許認可の引継ぎが必要か確認してください", "業種により許認可の承継手続きが必要です");
 
   // taskKey で重複排除（複数制度に関係する場合は理由に併記）
   const byKey = new Map<string, { action: string; baseReason: string; source: ProjectTask["source"]; keys: Set<string>; names: Set<string> }>();
