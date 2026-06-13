@@ -674,6 +674,24 @@ export function deleteProject(id: string) {
   }
 }
 
+// すべての補助金チェックを削除して初期状態に戻す（ローカル＋クラウド）。
+//   クラウド保存している場合、ローカルだけ消すと同期で戻るため、クラウドの行も削除する。
+export async function deleteAllProjects(): Promise<{ removed: number; cloudFailed: number }> {
+  const list = loadProjects();
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(KEY);
+    window.localStorage.removeItem("project_alerts_dismissed_v1"); // 通知の「対応済み」も初期化
+    window.dispatchEvent(new Event("projects-changed"));
+    window.dispatchEvent(new Event("alerts-changed"));
+  }
+  let cloudFailed = 0;
+  if (supabaseConfigured && list.length > 0) {
+    const results = await Promise.allSettled(list.map((p) => deleteSpendingProjectRow(p.id)));
+    cloudFailed = results.filter((r) => r.status === "rejected").length;
+  }
+  return { removed: list.length, cloudFailed };
+}
+
 // ---- Supabase 同期（任意。未設定なら何もしない） ----
 //   ローカル(localStorage)を即時キャッシュにしつつ、共有保存先(Supabase)と突き合わせる。
 //   競合は updated_at の新しい方を採用（last-write-wins）。

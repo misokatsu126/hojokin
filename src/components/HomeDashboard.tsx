@@ -178,7 +178,7 @@ export function HomeDashboard() {
             <Link href="/projects/new" className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">支出を選んで始める</Link>
             <Link href="/projects/new" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">業種から選ぶ</Link>
             <Link href="/search" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">相談しながら探す</Link>
-            <Link href="/guide" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">使い方を見る</Link>
+            <Link href="/start" className="rounded-md border px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50">▶ スタートナビ</Link>
           </div>
         </div>
         <FooterLinks />
@@ -307,7 +307,10 @@ function Title() {
     <div className="mb-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h1 className="text-xl font-bold text-ink sm:text-2xl">あなたの補助金チェック</h1>
-        <Link href="/guide" className="shrink-0 rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">❓ はじめての方へ（使い方）</Link>
+        <div className="flex shrink-0 gap-1.5">
+          <Link href="/start" className="rounded-md border border-accent/40 bg-accent/5 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10">▶ スタートナビ</Link>
+          <Link href="/guide" className="rounded-md border px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">❓ 使い方</Link>
+        </div>
       </div>
       <p className="mt-1 text-sm leading-relaxed text-gray-600">
         これからの支出に使える補助金がないかを確認するツールです。補助金の多くは契約・注文の前に申請が必要なので、発注の前にチェックしましょう。
