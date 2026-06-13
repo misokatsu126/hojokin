@@ -6,6 +6,9 @@ import {
   buildPrompt, loadResponses, saveResponse, deleteResponse, DEFAULT_PRIVACY, COMMON_NOTE,
   CONSULT_TARGETS, type AiPromptKind, type PrivacyOpts, type ConsultTarget, type ExternalAiResponse,
 } from "@/lib/aiPrompts";
+import {
+  extractTaskCandidates, addTaskCandidates, loadTaskCandidates, setTaskCandidateStatus, type AiTaskCandidate,
+} from "@/lib/caseRecords";
 
 type Card = { kind: AiPromptKind; name: string; what: string; when: string };
 
@@ -40,13 +43,16 @@ export function AiConsult({ project, coreNames, tasks, missing }: { project: Spe
   const [active, setActive] = useState<{ kind: AiPromptKind; target?: ConsultTarget } | null>(null);
   const [copied, setCopied] = useState(false);
   const [pasteText, setPasteText] = useState("");
+  const [manualTask, setManualTask] = useState("");
   const [responses, setResponses] = useState<ExternalAiResponse[]>([]);
+  const [candidates, setCandidates] = useState<AiTaskCandidate[]>([]);
 
   useEffect(() => {
-    const refresh = () => setResponses(loadResponses(project.id));
+    const refresh = () => { setResponses(loadResponses(project.id)); setCandidates(loadTaskCandidates(project.id)); };
     refresh();
     window.addEventListener("ai-responses-changed", refresh);
-    return () => window.removeEventListener("ai-responses-changed", refresh);
+    window.addEventListener("case-records-changed", refresh);
+    return () => { window.removeEventListener("ai-responses-changed", refresh); window.removeEventListener("case-records-changed", refresh); };
   }, [project.id]);
 
   const card = active ? CARDS.find((c) => c.kind === active.kind)! : null;
@@ -151,7 +157,43 @@ export function AiConsult({ project, coreNames, tasks, missing }: { project: Spe
         <div className="mt-1.5 flex flex-wrap gap-2">
           <button onClick={() => savePaste("reference")} disabled={!pasteText.trim()} className="rounded-md border px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50">参考メモとして保存</button>
           <button onClick={() => savePaste("needs_review")} disabled={!pasteText.trim()} className="rounded-md border px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50">次の確認事項として保存</button>
+          <button onClick={() => { const t = extractTaskCandidates(pasteText); if (t.length) addTaskCandidates(project.id, t); }} disabled={!pasteText.trim()} className="rounded-md border border-violet-300 px-3 py-1.5 text-xs text-violet-700 hover:bg-violet-50 disabled:opacity-50">タスク候補を抽出する</button>
         </div>
+        {/* 手動でタスク追加 */}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <input value={manualTask} onChange={(e) => setManualTask(e.target.value)} placeholder="手動でタスクを追加（例：商工会議所に管轄を確認）" className="min-w-0 flex-1 rounded-md border px-2 py-1.5 text-xs" />
+          <button onClick={() => { if (manualTask.trim()) { addTaskCandidates(project.id, [manualTask.trim()]); setManualTask(""); } }} className="shrink-0 rounded-md border px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50">追加</button>
+        </div>
+        {/* タスク候補（未確定）＝必要なものだけ正式タスク化 */}
+        {candidates.some((c) => c.status === "candidate") && (
+          <div className="mt-2 rounded-md border border-violet-200 bg-violet-50/40 p-2">
+            <p className="text-[11px] text-violet-800">AI回答から見つかった確認候補です（公式確認前の参考情報）。必要なものだけ追加してください。</p>
+            <div className="mt-1 space-y-1">
+              {candidates.filter((c) => c.status === "candidate").map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-2 rounded bg-white px-2 py-1 text-xs">
+                  <span className="min-w-0 flex-1 text-gray-700">{c.title}</span>
+                  <span className="flex shrink-0 gap-1.5">
+                    <button onClick={() => setTaskCandidateStatus(c.id, "accepted")} className="rounded border border-green-300 px-2 py-0.5 text-[11px] text-green-700 hover:bg-green-50">追加する</button>
+                    <button onClick={() => setTaskCandidateStatus(c.id, "rejected")} className="rounded border px-2 py-0.5 text-[11px] text-gray-500 hover:bg-gray-50">却下</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {candidates.some((c) => c.status === "accepted") && (
+          <div className="mt-2">
+            <p className="text-[11px] font-semibold text-gray-600">追加した確認タスク</p>
+            <ul className="mt-1 space-y-0.5">
+              {candidates.filter((c) => c.status === "accepted").map((c) => (
+                <li key={c.id} className="flex items-center justify-between rounded bg-slate-50 px-2 py-1 text-xs text-gray-700">
+                  <span>☐ {c.title}</span>
+                  <button onClick={() => setTaskCandidateStatus(c.id, "rejected")} className="text-[10px] text-gray-400 hover:text-red-600">取消</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {responses.length > 0 && (
           <div className="mt-3 space-y-2">
             {responses.map((r) => (

@@ -66,7 +66,7 @@ export function ConsultWizard() {
   function createProject() {
     const base = emptyProject();
     const useShort = uses[0]?.replace(/(を.*|したい|を導入.*)$/u, "").trim();
-    const name = [region.trim(), useShort || uses[0] || "（名称未設定）"].filter(Boolean).join(" ");
+    const name = [region.trim(), useShort || uses[0] || "支出"].filter(Boolean).join(" ");
     const saved = upsertProject({
       ...base,
       name,

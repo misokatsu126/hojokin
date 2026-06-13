@@ -5,6 +5,7 @@ import Link from "next/link";
 import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import { OwnerSwitcher } from "@/components/OwnerSwitcher";
+import { nextManualDeadline } from "@/lib/caseRecords";
 import {
   loadProjects, syncProjectsFromSupabase, classifyForProject, projectTasks, orderAdvice, getTemplate, templateExamples, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, APP_STATUS_LABEL, APP_STATUS_ORDER,
   type SpendingProject, type ProjectMatch, type ProjectTask,
@@ -22,6 +23,7 @@ type Row = {
   tone: "red" | "amber" | "blue" | "green";
   nextActions: string[];
   done: number;
+  manualDl: { label: string; days: number } | null;
   rank: number; // 並び順（小さいほど上）
 };
 
@@ -41,9 +43,10 @@ export function HomeDashboard() {
     setProjects(loadProjects());
     const onChange = () => setProjects(loadProjects());
     window.addEventListener("projects-changed", onChange);
+    window.addEventListener("case-records-changed", onChange); // 期限の手入力をホームに反映
     syncProjectsFromSupabase().catch(() => {}); // クラウドと最新化（完了時 projects-changed で反映）
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoaded(true));
-    return () => window.removeEventListener("projects-changed", onChange);
+    return () => { window.removeEventListener("projects-changed", onChange); window.removeEventListener("case-records-changed", onChange); };
   }, []);
 
   const rows: Row[] = useMemo(() => {
@@ -75,9 +78,11 @@ export function HomeDashboard() {
       // 「次にやること」は実際の未完了タスクから作る（チェック完了で消える）。0件のときだけテンプレ補助
       const nextActions = tasks.length ? tasks.map((t) => t.action).slice(0, 3) : (tpl?.nextActions ?? ["公式ページで確認"]).slice(0, 3);
       const done = PROJECT_CHECKLIST.filter((c) => p.checklist?.[c.key]).length;
+      const md = nextManualDeadline(p.id);
+      const manualDl = md && md.days <= 30 ? { label: md.label, days: md.days } : null;
       const deadlineNear = (match.top?.r.lc.deadlineDays ?? 999) <= 14;
-      const rank = orderedRisk || preOrderRisk ? 0 : deadlineNear ? 1 : tasks.length ? 2 : 3;
-      return { p, match, tasks, tplLabel: tpl?.label ?? "", preOrderRisk, orderedRisk, headline, topTaskKey: tasks[0]?.taskKey ?? null, tone, nextActions, done, rank };
+      const rank = orderedRisk ? 0 : (manualDl && manualDl.days <= 14) ? 0.5 : preOrderRisk ? 1 : deadlineNear ? 1.5 : tasks.length ? 2 : 3;
+      return { p, match, tasks, tplLabel: tpl?.label ?? "", preOrderRisk, orderedRisk, headline, topTaskKey: tasks[0]?.taskKey ?? null, tone, nextActions, done, manualDl, rank };
     }).sort((a, b) => a.rank - b.rank);
   }, [projects, items]);
 
@@ -109,8 +114,17 @@ export function HomeDashboard() {
       const r = rows.find((x) => x.orderedRisk)!;
       return {
         tone: "red", title: "発注後の案件があります（要注意）",
-        text: `「${r.p.name || "（名称未設定）"}」は契約・注文のあとなので、その費用は補助金の対象外になることがあります。別の費用や次回の募集で使えないか確認しましょう。`,
+        text: `「${r.p.name || r.tplLabel || "支出案件"}」は契約・注文のあとなので、その費用は補助金の対象外になることがあります。別の費用や次回の募集で使えないか確認しましょう。`,
         cta: { href: `/projects/${r.p.id}`, label: "対象案件を確認する" },
+      };
+    }
+    const mdRow = rows.find((r) => r.manualDl && r.manualDl.days <= 14);
+    if (mdRow) {
+      const m = mdRow.manualDl!;
+      return {
+        tone: "amber", title: `期限が近い案件があります（${m.label}：あと${m.days}日）`,
+        text: `「${mdRow.p.name || mdRow.tplLabel || "支出案件"}」の${m.label}が近づいています。公募締切より先に来ることがあるので、早めに進めましょう。`,
+        cta: { href: `/projects/${mdRow.p.id}`, label: "急ぎの案件を確認する" },
       };
     }
     const deadlineRow = rows.find((r) => { const d = r.match.top?.r.lc.deadlineDays ?? 999; return d >= 0 && d <= 14; });
@@ -118,7 +132,7 @@ export function HomeDashboard() {
       const dd = deadlineRow.match.top?.r.lc.deadlineDays ?? 0;
       return {
         tone: "amber", title: "締切が近い補助金があります",
-        text: `「${deadlineRow.p.name || "（名称未設定）"}」に、あと${dd}日でしめ切られる候補があります。まず公式サイトで、締切と「対象になる費用」を確認しましょう。`,
+        text: `「${deadlineRow.p.name || deadlineRow.tplLabel || "支出案件"}」に、あと${dd}日でしめ切られる候補があります。まず公式サイトで、締切と「対象になる費用」を確認しましょう。`,
         cta: { href: `/projects/${deadlineRow.p.id}`, label: "急ぎの案件を確認する" },
       };
     }
@@ -126,7 +140,7 @@ export function HomeDashboard() {
     if (preRow) {
       return {
         tone: "amber", title: `発注の前に確認したい案件が${counts.preOrder}件あります`,
-        text: `まず急ぐのは「${preRow.p.name || "（名称未設定）"}」。契約・注文する前に、補助金が使えるか公式サイトで条件を確認しましょう。発注のあとだと対象外になることがあります。`,
+        text: `まず急ぐのは「${preRow.p.name || preRow.tplLabel || "優先度の高い支出案件"}」。契約・注文する前に、補助金が使えるか公式サイトで条件を確認しましょう。発注のあとだと対象外になることがあります。`,
         cta: { href: `/projects/${preRow.p.id}`, label: "発注前確認を進める" },
       };
     }

@@ -16,6 +16,18 @@ import type { VerifyResult } from "@/lib/verify";
 import { getCoreProgramChecks, coreOfficialHref, coreGuidelineHref, coreFreshness, OFFICIAL_STATUS_LABEL, OFFICIAL_STATUS_TONE, type CoreProgramCheck, type CoreGroup } from "@/lib/coreMaster";
 import { ApplicationRoadmap, ConsultRouting } from "@/components/ApplicationRoadmap";
 import { AiConsult } from "@/components/AiConsult";
+import { DocumentBox, DeadlineBox, OfficialCheckLogBox } from "@/components/CaseRecords";
+
+// 進行ステータス別の上部ガイダンス
+const STATUS_GUIDANCE: Record<string, { tone: string; text: string }> = {
+  considering: { tone: "border-amber-200 bg-amber-50 text-amber-900", text: "発注（契約・注文）の前に、補助金が使えるか確認しましょう。" },
+  preparing: { tone: "border-amber-200 bg-amber-50 text-amber-900", text: "申請準備中です。発注はまだしないでください。必要書類をそろえましょう。" },
+  applied: { tone: "border-sky-200 bg-sky-50 text-sky-900", text: "申請済みです。交付決定まで発注・契約しないでください。申請控えを保管し、事務局からの連絡を確認しましょう。交付決定日が出たら入力を。" },
+  approved: { tone: "border-sky-200 bg-sky-50 text-sky-900", text: "交付決定後は、発注・契約・納品・支払いの日付を順番に管理します。支払い前チェックと証憑をそろえましょう。" },
+  implementing: { tone: "border-sky-200 bg-sky-50 text-sky-900", text: "実施中です。見積・請求・振込明細の整合性（日付・金額・宛名）を確認しましょう。" },
+  reported: { tone: "border-blue-200 bg-blue-50 text-blue-900", text: "実績報告の段階です。導入前後の写真・成果物・支払い証憑をそろえ、実績報告期限を確認しましょう。" },
+  received: { tone: "border-green-200 bg-green-50 text-green-800", text: "入金まで完了です。書類は保管し、事業化報告の要否を確認。次の支出があれば新しく登録しましょう。" },
+};
 
 // 案件詳細での補助金カテゴリ表示順（最有力→条件確認→締切→見逃し→次回→新着）
 const DETAIL_ORDER: TriageKey[] = ["usable", "conditional", "deadline", "missed", "next_time", "new", "unusable"];
@@ -42,6 +54,7 @@ export default function ProjectDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [highlightTask, setHighlightTask] = useState<string | null>(null);
   const [showDiagnosis, setShowDiagnosis] = useState(false);
+  const [mode, setMode] = useState<"simple" | "pro">("simple");
 
   useEffect(() => {
     const applyLocal = () => {
@@ -157,7 +170,7 @@ export default function ProjectDetailPage() {
       {showDiagnosis && (
         <div className="mb-4 rounded-xl border-2 border-accent/40 bg-accent/5 p-5">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-ink">診断結果：{project.name || "（名称未設定）"}</h2>
+            <h2 className="text-lg font-bold text-ink">診断結果：{project.name || tpl?.label || "支出案件"}</h2>
             <button onClick={() => setShowDiagnosis(false)} className="text-xs text-gray-400 hover:text-gray-600">✕ 閉じる</button>
           </div>
           <div className={`rounded-lg border p-3 ${adv.tone}`}>
@@ -188,10 +201,24 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
+      {/* 表示モード切替（初期はかんたん表示） */}
+      <div className="mb-3 flex items-center justify-end gap-1 text-xs">
+        <span className="text-gray-400">表示：</span>
+        <div className="inline-flex rounded-md border p-0.5">
+          <button onClick={() => setMode("simple")} className={`rounded px-2.5 py-1 ${mode === "simple" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>かんたん</button>
+          <button onClick={() => setMode("pro")} className={`rounded px-2.5 py-1 ${mode === "pro" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>実務者</button>
+        </div>
+      </div>
+
+      {/* 進行ステータス別の上部ガイダンス */}
+      {(() => { const g = STATUS_GUIDANCE[project.appStatus ?? "considering"]; return g ? (
+        <div className={`mb-3 rounded-lg border p-3 text-sm ${g.tone}`}><span className="font-semibold">{APP_STATUS_LABEL[project.appStatus ?? "considering"]}：</span>{g.text}</div>
+      ) : null; })()}
+
       {/* ヘッダー */}
       <div className="rounded-xl border bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <h1 className="text-xl font-bold text-ink">{project.name}</h1>
+          <h1 className="text-xl font-bold text-ink">{project.name || tpl?.label || "支出案件"}</h1>
           <div className="flex gap-2">
             <Link href={`/projects/new?name=${encodeURIComponent(project.name)}`} className="hidden" />
             <button onClick={remove} className="rounded-md border px-3 py-1.5 text-xs text-red-500 hover:bg-red-50">削除</button>
@@ -294,6 +321,19 @@ export default function ProjectDetailPage() {
         missing={missingInfo(project).map((m) => m.label)}
       />
 
+      {/* 実務者表示：必要書類・証憑／期限／公式確認ログ */}
+      {mode === "pro" ? (
+        <>
+          <DocumentBox projectId={project.id} />
+          <DeadlineBox projectId={project.id} />
+          <OfficialCheckLogBox projectId={project.id} />
+        </>
+      ) : (
+        <button onClick={() => setMode("pro")} className="mt-4 w-full rounded-lg border border-dashed bg-white p-3 text-sm text-gray-600 hover:border-accent hover:bg-gray-50">
+          ＋ 実務者表示にする（必要書類・証憑／期限・スケジュール／公式確認ログ）
+        </button>
+      )}
+
       {/* 進行状況（いまどの段階か） */}
       <section className="mt-6">
         <h2 className="mb-1 text-lg font-bold text-ink">いまどの段階？</h2>
@@ -334,7 +374,7 @@ export default function ProjectDetailPage() {
       {conclusion && (
         <div className={`mt-3 rounded-lg p-3 text-sm font-semibold ${conclusion.tone}`}>
           結論：{conclusion.text}
-          {match && match.total > 0 && <span className="ml-1 text-xs font-normal opacity-80">（候補 {match.total} 件・見逃しリスク {match.missRisk}）</span>}
+          {match && match.total > 0 && <span className="ml-1 text-xs font-normal opacity-80">（候補 {match.total} 件・見逃し注意 {match.missRisk}）</span>}
         </div>
       )}
 
@@ -382,7 +422,8 @@ export default function ProjectDetailPage() {
         </div>
       </section>
 
-      {/* 検索・収集で見つかった候補（定番制度より下） */}
+      {/* 検索・収集で見つかった候補（実務者表示のみ。初心者画面を重くしない） */}
+      {mode === "pro" && (
       <section className="mt-6">
         <h2 className="mb-2 text-lg font-bold text-ink">検索・収集で見つかった候補</h2>
         {loading ? (
@@ -419,6 +460,7 @@ export default function ProjectDetailPage() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }
