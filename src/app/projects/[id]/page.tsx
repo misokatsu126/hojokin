@@ -17,7 +17,10 @@ import { getCoreProgramChecks, coreOfficialHref, coreGuidelineHref, coreFreshnes
 import { ApplicationRoadmap, ConsultRouting } from "@/components/ApplicationRoadmap";
 import { AiConsult } from "@/components/AiConsult";
 import { DocumentBox, DeadlineBox, OfficialCheckLogBox } from "@/components/CaseRecords";
-import { completeTaskCandidateByTaskKey, setCaseOwner, syncCaseRecord } from "@/lib/caseRecords";
+import {
+  completeTaskCandidateByTaskKey, setCaseOwner, syncCaseRecord,
+  loadDocs, loadDeadlines, DOC_CATALOG, DOC_STATUS_LABEL, DEADLINE_CATALOG, themeDocGroup, type DocStatus,
+} from "@/lib/caseRecords";
 
 // 進行ステータス別の上部ガイダンス
 const STATUS_GUIDANCE: Record<string, { tone: string; text: string }> = {
@@ -150,6 +153,36 @@ export default function ProjectDetailPage() {
     if (t.taskKey === "employees" || t.taskKey === "budget") { openEdit(t.taskKey); return; }
     setProject(upsertProject({ ...project, checklist: { ...project.checklist, [t.taskKey]: true } }));
   }
+  // 案件サマリーを印刷／PDF（窓口・業者に持参用）。別ウィンドウに整形して印刷する。
+  function printSummary() {
+    if (!project) return;
+    const esc = (s: string) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const docs = loadDocs(project.id);
+    const dls = loadDeadlines(project.id);
+    const themeG = themeDocGroup(project.templateKey);
+    const docPhases = themeG ? [...DOC_CATALOG, { key: "theme", title: themeG.title, items: themeG.items }] : DOC_CATALOG;
+    const li = (a: string[]) => a.map((x) => `<li>${esc(x)}</li>`).join("");
+    const docHtml = docPhases.map((ph) => `<h3>${esc(ph.title)}</h3><ul>${ph.items.map((it) => `<li>[${DOC_STATUS_LABEL[(docs[it.kind]?.status ?? "missing") as DocStatus]}] ${esc(it.label)}${docs[it.kind]?.memo ? "（" + esc(docs[it.kind]!.memo!) + "）" : ""}</li>`).join("")}</ul>`).join("");
+    const dlHtml = DEADLINE_CATALOG.filter((d) => dls[d.kind]?.date).map((d) => `<li>${esc(d.label)}：${esc(dls[d.kind]!.date!)}</li>`).join("") || "<li>（未入力）</li>";
+    const memo = generateConsultMemo(project, coreChecks.map((c) => c.name));
+    const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(project.name || "支出案件")} サマリー</title>
+<style>body{font-family:system-ui,sans-serif;line-height:1.6;color:#222;max-width:720px;margin:24px auto;padding:0 16px}h1{font-size:20px}h2{font-size:15px;border-bottom:2px solid #ddd;padding-bottom:4px;margin-top:24px}h3{font-size:13px;margin:10px 0 2px}ul{margin:4px 0;padding-left:20px}li{font-size:13px}.meta{color:#666;font-size:12px}.note{background:#fff8e1;padding:8px;border-radius:6px;font-size:12px}pre{white-space:pre-wrap;font-size:12px;background:#f5f5f5;padding:8px;border-radius:6px}@media print{body{margin:0}}</style></head>
+<body>
+<h1>${esc(project.name || tpl?.label || "支出案件")}</h1>
+<p class="meta">地域：${esc(project.location || "—")}／業種：${esc(project.industry || "—")}／予算：${project.budget != null ? esc(formatAmount(project.budget)) : "—"}／発注状況：${esc(ORDER_STATUS_LABEL[project.orderStatus])}</p>
+<h2>発注判断</h2><p>${esc(adv.title)}｜${esc(adv.text)}</p>
+<h2>今日やる申請準備</h2><ul>${li(tasks.map((t) => t.action)) || "<li>（なし）</li>"}</ul>
+<h2>まず確認すべき定番制度</h2><ul>${li(coreChecks.map((c) => `${c.name}（${c.confidenceLabel}）`)) || "<li>（なし）</li>"}</ul>
+<h2>必要書類・証憑</h2>${docHtml}
+<h2>期限・スケジュール</h2><ul>${dlHtml}</ul>
+<h2>相談用メモ</h2><pre>${esc(memo)}</pre>
+<p class="note">※ この内容は確認の整理用です。「使える」「採択される」を保証するものではありません。最終判断は公式要領・自治体窓口・商工会議所・専門家にご確認ください。</p>
+<script>window.onload=function(){window.print()}</script>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
   function remove() {
     if (!project) return;
     if (!confirm("この補助金チェックを削除しますか？")) return;
@@ -209,8 +242,9 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* 表示モード切替（初期はかんたん表示） */}
-      <div className="mb-3 flex items-center justify-end gap-1 text-xs">
+      {/* 表示モード切替（初期はかんたん表示）＋印刷 */}
+      <div className="mb-3 flex items-center justify-end gap-2 text-xs">
+        <button onClick={printSummary} className="rounded-md border px-2.5 py-1 text-gray-600 hover:bg-gray-50">🖨 印刷・PDF</button>
         <span className="text-gray-400">表示：</span>
         <div className="inline-flex rounded-md border p-0.5">
           <button onClick={() => setMode("simple")} className={`rounded px-2.5 py-1 ${mode === "simple" ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-100"}`}>かんたん</button>
@@ -312,6 +346,9 @@ export default function ProjectDetailPage() {
         <section className="mt-6">
           <h2 className="mb-1 text-lg font-bold text-ink">まず確認すべき定番制度</h2>
           <p className="mb-2 text-xs text-gray-500">中小企業・小規模事業者が一般的にまず確認する制度です。「使える」と断定するものではありません。条件が合えば使える可能性があります。年度・公募回は公式で確認してください。</p>
+          {(() => { const stale = coreChecks.filter((c) => coreFreshness(c).stale).length; return stale > 0 ? (
+            <p className="mb-2 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-800">⚠ このうち {stale} 件は年度更新・最新の公募回の確認をおすすめします（情報が古い可能性）。公式ページで最新をご確認ください。</p>
+          ) : null; })()}
           <div className="space-y-2">
             {coreChecks.map((c) => (
               <CoreCard key={c.key} c={c} state={project.coreChecks?.[c.key]} onSet={setCoreCheck} />
@@ -594,6 +631,12 @@ function CandidateCard({ item, r, v, catKey }: { item: DiscoveredItem; r: Triage
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-sm font-semibold text-ink">{item.title}</span>
         <span className={`rounded px-1.5 py-0.5 text-[11px] ${v.tone}`}>{v.label}</span>
+      </div>
+      {/* 出典・最終更新（情報の鮮度を明示） */}
+      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-gray-400">
+        {item.external_source && <span>出典：{item.external_source}</span>}
+        {(item.fetched_at || item.detected_at) && <span>取得：{formatDate(item.fetched_at ?? item.detected_at)}</span>}
+        <span>最新は公式で確認</span>
       </div>
       {/* 3行：結論・理由・次にやること */}
       <p className="mt-1 text-sm font-bold text-ink">結論：{r.conclusion}</p>
