@@ -12,6 +12,7 @@ import {
 } from "./supabase";
 import { htmlToText, scoreDiscoveredAgainstProfiles, buildNormalizedKey } from "./discovery";
 import { isSampleDiscovered } from "./sampleFilter";
+import { templateCollectKeywords } from "./projects";
 import { regionTextInTarget, type AudienceType } from "./constants";
 import type { SourceSite, DiscoveredItem } from "./types";
 
@@ -308,9 +309,10 @@ export async function runJgrantsSync(opts?: {
     settings = null;
   }
   // 既定キーワードは常に維持し、ユーザー登録ワードは「追加」する（登録しても収集が狭まらない）
+  // テーマから自動生成したキーワード＋手設定＋既定をまとめる（テンプレ追加で自動拡張）
   const keywords = opts?.keywords?.length
     ? opts.keywords
-    : Array.from(new Set([...JGRANTS_DEFAULT_KEYWORDS, ...(settings?.keywords ?? [])]));
+    : Array.from(new Set([...JGRANTS_DEFAULT_KEYWORDS, ...templateCollectKeywords(), ...(settings?.keywords ?? [])]));
   const baseRegions = [...JGRANTS_AREAS].filter((a) => a !== "全国");
   const effectiveRegions = Array.from(new Set([...baseRegions, ...(settings?.regions ?? [])]));
   const areas = ["全国", ...effectiveRegions];
@@ -319,7 +321,7 @@ export async function runJgrantsSync(opts?: {
     if (area.includes("全国")) return true;
     return effectiveRegions.some((r) => area.includes(r) || (r.length >= 2 && area.includes(r.slice(0, 2))));
   };
-  const maxListCalls = opts?.maxListCalls ?? 36;
+  const maxListCalls = opts?.maxListCalls ?? 60;
   const maxDetail = opts?.maxDetail ?? 20;
 
   const seen = new Set<string>();

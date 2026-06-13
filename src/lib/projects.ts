@@ -456,6 +456,21 @@ export function templateExamples(key: string | null | undefined): string[] {
   return (key && TEMPLATE_EXAMPLES[key]) || [];
 }
 
+// 収集（discovery）の検索キーワードを支出テーマから自動生成する。
+//   ※ テンプレを足すだけで収集対象も自動拡張される（手設定に依存しない）。制度名の核も補う。
+const PROGRAM_KEYWORDS = [
+  "事業承継", "M&A", "賃上げ", "最低賃金", "業務改善", "省力化", "ものづくり", "持続化",
+  "IT導入", "脱炭素", "再エネ", "太陽光", "BCP", "インバウンド", "多言語", "認証", "知財", "創業",
+];
+export function templateCollectKeywords(): string[] {
+  const set = new Set<string>();
+  for (const t of PROJECT_TEMPLATES) {
+    for (const tag of t.tags) if (tag.length >= 2) set.add(tag);
+  }
+  for (const k of PROGRAM_KEYWORDS) set.add(k);
+  return Array.from(set);
+}
+
 // 業種から選ぶ入口：業種ごとに「よくある支出テーマ」を出し分ける
 export const INDUSTRY_PRESETS: { label: string; keys: string[] }[] = [
   { label: "飲食店", keys: ["aircon", "renovation", "hygiene", "ai_pos", "signboard", "ad", "inbound", "product_dev", "labor_saving", "new_business"] },
