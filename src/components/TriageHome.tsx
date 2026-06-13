@@ -110,7 +110,7 @@ export function TriageHome() {
         </div>
         {accuracy.missing.length > 0 && (
           <div className="mt-2 text-xs text-gray-600">
-            <span className="font-medium text-amber-700">あと{accuracy.missing.length}つ入力すると見逃しリスクが下がります：</span>
+            <span className="font-medium text-amber-700">あと{accuracy.missing.length}つ入力すると見逃し注意を減らせます：</span>
             <span className="ml-1">{accuracy.missing.slice(0, 4).map((m) => m.label).join(" / ")}</span>
           </div>
         )}
@@ -131,7 +131,7 @@ export function TriageHome() {
           <p className="font-semibold text-ink">今すぐ使える可能性が高い補助金は、まだ見つかっていません。</p>
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed">
             <li>条件確認が必要な補助金や、一般的によく使われる定番補助金は下に表示しています。</li>
-            <li>事業情報を追加すると、見逃しリスクを下げられます。</li>
+            <li>事業情報を追加すると、見逃し注意を減らせます。</li>
           </ul>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link href="/discovery/sources" className="rounded-md bg-accent px-4 py-2 text-xs font-medium text-white hover:opacity-90">新しい制度を探す</Link>

@@ -92,7 +92,7 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <h2 className="text-base font-bold text-ink">{project.name || "（名称未設定）"}</h2>
+            <h2 className="text-base font-bold text-ink">{project.name || getTemplate(project.templateKey)?.label || "支出案件"}</h2>
             <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{APP_STATUS_LABEL[project.appStatus ?? "considering"]}</span>
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
@@ -109,7 +109,8 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
           if (st === "approved" || st === "implementing") return <span className="shrink-0 rounded bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">交付決定済み</span>;
           if (st === "reported") return <span className="shrink-0 rounded bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">入金待ち</span>;
           if (st === "received") return <span className="shrink-0 rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-800">完了</span>;
-          return <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] ${adv.wait ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{adv.wait ? "発注前：申請の可能性あり" : "発注後：対象外の可能性"}</span>;
+          if (project.orderStatus === "estimate") return <span className="shrink-0 rounded bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">見積のみ：まだ間に合う可能性</span>;
+          return <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] ${adv.wait ? "bg-sky-100 text-sky-800" : "bg-orange-100 text-orange-700"}`}>{adv.wait ? "発注前：確認チャンス" : "発注済み：対象外の可能性"}</span>;
         })()}
       </div>
 
