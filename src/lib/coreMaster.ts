@@ -255,6 +255,16 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     templates: ["newstore", "startup"],
     keywords: /新法人|新店舗|新規事業|創業|起業|開業|出店/i,
   },
+  {
+    key: "local_shokei", name: "事業承継・引継ぎ支援（自治体・公的機関）", aliasNames: ["事業承継支援", "引継ぎ支援"], group: "local_pattern", priority: "medium", confidenceLabel: "確認推奨",
+    relatedReason: "事業承継・M&A・後継者探し・引継ぎ後の投資",
+    whatToCheck: ["事業承継・引継ぎ支援センターへの相談", "対象になる費用（専門家費等）", "自治体独自の承継補助の有無"],
+    caution: ["公的機関（事業承継・引継ぎ支援センター）の関与が前提のことがある", "対象経費・対象期間の確認"],
+    requiredInfo: ["承継の形態", "所在地"],
+    officialSearchQuery: "{region} 事業承継 補助金 支援", sourceAuthority: "local_pattern", fiscalYear: "—", officialStatus: "unknown", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    templates: ["succession"],
+    keywords: /事業承継|事業譲|引継|後継|Ｍ＆Ａ|M&A|譲渡|買収/i,
+  },
 ];
 
 // 案件 → まず確認すべき定番制度
