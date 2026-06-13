@@ -255,14 +255,25 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
     keywords: /LP|HP|ホームページ|チラシ|SNS|展示会|EC|看板|広告|販路|PR|販促|海外|輸出|インバウンド|多言語/i,
   },
   {
-    key: "local_startup", name: "創業・新規出店補助金（自治体）", aliasNames: ["創業補助金"], group: "local_pattern", priority: "medium", confidenceLabel: "確認推奨",
-    relatedReason: "新法人・新店舗・新規事業",
-    whatToCheck: ["創業年数の要件", "認定創業支援等の要否", "事前相談"],
-    caution: ["創業年数の要件", "認定支援・事前相談が必要なことが多い"],
-    requiredInfo: ["創業時期", "所在地"],
-    officialSearchQuery: "{region} 創業 補助金", sourceAuthority: "local_pattern", fiscalYear: "—", officialStatus: "unknown", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
+    key: "local_startup", name: "自治体の創業・開業支援", aliasNames: ["創業補助金", "開業支援", "創業支援"], group: "local_pattern", priority: "medium", confidenceLabel: "確認推奨",
+    relatedReason: "創業・開業・起業・新規出店・独立・法人設立",
+    whatToCheck: [
+      "市区町村・都道府県の創業・開業補助があるか", "特定創業支援等事業の証明（登録免許税の軽減等）",
+      "商工会議所・商工会の創業相談・創業塾", "（補助金ではないが）日本政策金融公庫の創業融資・制度融資も選択肢",
+    ],
+    caution: [
+      "自治体独自の支援は地域により有無が異なります（あるとは限りません）",
+      "該当制度があるか公式情報で確認してください", "創業年数・事前相談・認定の要件があることが多い",
+    ],
+    requiredInfo: ["創業（予定）時期", "所在地", "事業計画の概要"],
+    officialSearchQuery: "{region} 創業 補助金",
+    searchQueries: [
+      "{region} 創業 補助金", "{region} 創業支援", "{region} 特定創業支援等事業",
+      "{region} 商工会議所 創業 相談", "{pref} 創業 補助金", "{region} 開業 支援",
+    ],
+    sourceAuthority: "local_pattern", fiscalYear: "—", officialStatus: "unknown", needsAnnualRefresh: true, lastOfficialCheckedAt: CHECKED,
     templates: ["newstore", "startup"],
-    keywords: /新法人|新店舗|新規事業|創業|起業|開業|出店/i,
+    keywords: /新法人|新店舗|新規事業|創業|起業|開業|開店|出店|独立|立ち上げ|スタートアップ|法人設立|個人事業|事業を始め|事業を立ち上げ|これから事業|開店したい/i,
   },
   {
     key: "local_shokei", name: "自治体の事業承継・M&A・引継ぎ支援", aliasNames: ["事業承継支援", "M&A・事業引継ぎ支援", "第三者承継支援", "親族内承継支援"], group: "local_pattern", priority: "medium", confidenceLabel: "確認推奨",
