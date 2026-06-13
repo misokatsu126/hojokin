@@ -17,6 +17,7 @@ import { getCoreProgramChecks, coreOfficialHref, coreGuidelineHref, coreFreshnes
 import { ApplicationRoadmap, ConsultRouting } from "@/components/ApplicationRoadmap";
 import { AiConsult } from "@/components/AiConsult";
 import { DocumentBox, DeadlineBox, OfficialCheckLogBox } from "@/components/CaseRecords";
+import { completeTaskCandidateByTaskKey } from "@/lib/caseRecords";
 
 // 進行ステータス別の上部ガイダンス
 const STATUS_GUIDANCE: Record<string, { tone: string; text: string }> = {
@@ -55,6 +56,7 @@ export default function ProjectDetailPage() {
   const [highlightTask, setHighlightTask] = useState<string | null>(null);
   const [showDiagnosis, setShowDiagnosis] = useState(false);
   const [mode, setMode] = useState<"simple" | "pro">("simple");
+  const [rev, setRev] = useState(0); // 証憑/AIタスク等の変更でタスク一覧を再計算するためのバージョン
 
   useEffect(() => {
     const applyLocal = () => {
@@ -69,17 +71,20 @@ export default function ProjectDetailPage() {
       setShowDiagnosis(q.get("created") === "1");
     }
     const onChange = () => applyLocal();
+    const onRecords = () => setRev((v) => v + 1);
     window.addEventListener("projects-changed", onChange);
+    window.addEventListener("case-records-changed", onRecords);
     // クラウド同期：別端末で作られた案件もここで取り込む。見つからない場合のみ同期後に判定。
     syncProjectsFromSupabase()
       .then(() => { if (!getProject(id) && !local) setNotFound(true); })
       .catch(() => { if (!local) setNotFound(true); });
     fetchDiscoveredItems().then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
-    return () => window.removeEventListener("projects-changed", onChange);
+    return () => { window.removeEventListener("projects-changed", onChange); window.removeEventListener("case-records-changed", onRecords); };
   }, [id]);
 
   const match = useMemo(() => (project ? classifyForProject(project, items) : null), [project, items]);
-  const tasks = useMemo(() => (project ? projectTasks(project, match ?? undefined) : []), [project, match]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tasks = useMemo(() => (project ? projectTasks(project, match ?? undefined) : []), [project, match, rev]);
   const coreChecks = useMemo(() => (project ? getCoreProgramChecks(project) : []), [project]);
 
   const [memo, setMemo] = useState<{ kind: "consult" | "estimate"; text: string } | null>(null);
@@ -139,6 +144,7 @@ export default function ProjectDetailPage() {
   // 「次にやること」の完了：チェック項目は true に、従業員数/予算は入力して消す
   function completeTask(t: ProjectTask) {
     if (!project) return;
+    if (t.taskKey.startsWith("ai:")) { completeTaskCandidateByTaskKey(t.taskKey); return; } // AI由来タスクは完了で消す
     if (t.taskKey === "employees" || t.taskKey === "budget") { openEdit(t.taskKey); return; }
     setProject(upsertProject({ ...project, checklist: { ...project.checklist, [t.taskKey]: true } }));
   }
@@ -253,7 +259,28 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* 足りない情報だけ聞く（最大3件・画面内で入力） */}
+      {/* 2. 今日やる申請準備（タスク・完了できる） */}
+      {tasks.length > 0 && (
+        <div className="mt-3 rounded-xl border bg-white p-4">
+          <h2 className="mb-2 text-sm font-bold text-ink">今日やる申請準備</h2>
+          <ol className="space-y-1.5">
+            {tasks.map((t) => (
+              <li key={t.taskKey} className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 ${highlightTask === t.taskKey ? "bg-amber-50 ring-1 ring-amber-300" : t.source === "ai_response" ? "bg-violet-50/40" : ""}`}>
+                <span className="min-w-0 text-sm">
+                  <span className="font-medium text-ink">{t.action}</span>
+                  <span className="ml-1 text-xs text-gray-400">（{t.reason}）</span>
+                </span>
+                <button onClick={() => completeTask(t)} className="shrink-0 rounded-md border border-green-300 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-50">完了</button>
+              </li>
+            ))}
+          </ol>
+          {tasks.some((t) => t.source === "ai_response") && (
+            <p className="mt-1.5 text-[11px] text-violet-700">紫＝AI回答から追加した確認タスクです。必要に応じて公式要領・窓口で確認してください。</p>
+          )}
+        </div>
+      )}
+
+      {/* 3. 足りない情報だけ聞く（最大3件・画面内で入力） */}
       {(missingInfo(project).length > 0 || (edit && ["budget", "employees", "location", "industry", "schedule"].includes(edit))) && (
         <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
           <p className="mb-1.5 text-sm font-semibold text-sky-900">判定を強くするために、あと{missingInfo(project).length}つだけ教えてください</p>
@@ -278,7 +305,29 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* 概算の補助額イメージ（断定しない） */}
+      {/* 4. まず確認すべき定番制度（検索に依存せず、案件タイプから必ず表示） */}
+      {coreChecks.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-1 text-lg font-bold text-ink">まず確認すべき定番制度</h2>
+          <p className="mb-2 text-xs text-gray-500">中小企業・小規模事業者が一般的にまず確認する制度です。「使える」と断定するものではありません。条件が合えば使える可能性があります。年度・公募回は公式で確認してください。</p>
+          <div className="space-y-2">
+            {coreChecks.map((c) => (
+              <CoreCard key={c.key} c={c} state={project.coreChecks?.[c.key]} onSet={setCoreCheck} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 5. 自分のAIに相談する（外部AI用プロンプト生成） */}
+      <AiConsult
+        project={project}
+        coreNames={coreChecks.map((c) => c.name)}
+        tasks={tasks.map((t) => t.action)}
+        missing={missingInfo(project).map((m) => m.label)}
+        mode={mode}
+      />
+
+      {/* 7. 概算の補助額イメージ（断定しない） */}
       {(() => {
         const est = estimateRange(project);
         return est ? (
@@ -313,24 +362,17 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* 自分のAIに相談する（外部AI用プロンプト生成） */}
-      <AiConsult
-        project={project}
-        coreNames={coreChecks.map((c) => c.name)}
-        tasks={tasks.map((t) => t.action)}
-        missing={missingInfo(project).map((m) => m.label)}
-      />
-
       {/* 実務者表示：必要書類・証憑／期限／公式確認ログ */}
       {mode === "pro" ? (
         <>
-          <DocumentBox projectId={project.id} />
+          <DocumentBox projectId={project.id} templateKey={project.templateKey} />
           <DeadlineBox projectId={project.id} />
           <OfficialCheckLogBox projectId={project.id} />
         </>
       ) : (
-        <button onClick={() => setMode("pro")} className="mt-4 w-full rounded-lg border border-dashed bg-white p-3 text-sm text-gray-600 hover:border-accent hover:bg-gray-50">
-          ＋ 実務者表示にする（必要書類・証憑／期限・スケジュール／公式確認ログ）
+        <button onClick={() => setMode("pro")} className="mt-4 w-full rounded-lg border border-dashed bg-white p-3 text-left hover:border-accent hover:bg-gray-50">
+          <span className="block text-sm font-semibold text-ink">実務者向けの管理を表示する</span>
+          <span className="mt-0.5 block text-xs text-gray-500">必要書類・証憑、期限、公式確認ログを管理できます。申請準備が進んできたら使ってください。</span>
         </button>
       )}
 
@@ -352,24 +394,6 @@ export default function ProjectDetailPage() {
       <ApplicationRoadmap project={project} />
       <ConsultRouting project={project} />
 
-      {/* 次にやること（完了できる） */}
-      {tasks.length > 0 && (
-        <div className="mt-3 rounded-xl border bg-white p-4">
-          <h2 className="mb-2 text-sm font-bold text-ink">次にやる申請準備</h2>
-          <ol className="space-y-1.5">
-            {tasks.map((t) => (
-              <li key={t.taskKey} className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 ${highlightTask === t.taskKey ? "bg-amber-50 ring-1 ring-amber-300" : ""}`}>
-                <span className="min-w-0 text-sm">
-                  <span className="font-medium text-ink">{t.action}</span>
-                  <span className="ml-1 text-xs text-gray-400">（{t.reason}）</span>
-                </span>
-                <button onClick={() => completeTask(t)} className="shrink-0 rounded-md border border-green-300 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-50">完了</button>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-
       {/* 2. この案件の結論 */}
       {conclusion && (
         <div className={`mt-3 rounded-lg p-3 text-sm font-semibold ${conclusion.tone}`}>
@@ -385,19 +409,6 @@ export default function ProjectDetailPage() {
           <p><span className="font-medium">関係しそうな補助金：</span>{tpl.genres.join("、")}</p>
           {tpl.killers.length > 0 && <p className="text-rose-700 sm:col-span-2"><span className="font-medium">ダメになりやすい条件：</span>{tpl.killers.join(" / ")}</p>}
         </div>
-      )}
-
-      {/* まず確認すべき定番制度（検索に依存せず、案件タイプから必ず表示） */}
-      {coreChecks.length > 0 && (
-        <section className="mt-6">
-          <h2 className="mb-1 text-lg font-bold text-ink">まず確認すべき定番制度</h2>
-          <p className="mb-2 text-xs text-gray-500">中小企業・小規模事業者が一般的にまず確認する制度です。「使える」と断定するものではありません。条件が合えば使える可能性があります。年度・公募回は公式で確認してください。</p>
-          <div className="space-y-2">
-            {coreChecks.map((c) => (
-              <CoreCard key={c.key} c={c} state={project.coreChecks?.[c.key]} onSet={setCoreCheck} />
-            ))}
-          </div>
-        </section>
       )}
 
       {/* 申請準備の進捗（チェックリスト） */}

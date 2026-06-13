@@ -41,17 +41,25 @@ export const DOC_CATALOG: DocPhase[] = [
 export type DeadlineCatalogItem = { kind: string; label: string; relativeHint?: string };
 export const DEADLINE_CATALOG: DeadlineCatalogItem[] = [
   { kind: "application_deadline", label: "公募締切" },
-  { kind: "pre_consult_deadline", label: "事前相談期限" },
-  { kind: "support_form_deadline", label: "様式発行依頼期限（商工会議所・商工会）" },
+  { kind: "pre_consult_deadline", label: "事前相談期限", relativeHint: "公募締切より前に必要な場合があります" },
+  { kind: "support_form_deadline", label: "様式発行依頼期限（商工会議所・商工会）", relativeHint: "持続化補助金などは公募締切より前に締切がある場合があります" },
   { kind: "gbiz_deadline", label: "GビズID取得目安", relativeHint: "できれば今すぐ" },
-  { kind: "estimate_deadline", label: "見積取得目安", relativeHint: "公募締切の2週間前" },
-  { kind: "application_draft_deadline", label: "申請書作成期限" },
-  { kind: "grant_decision_date", label: "交付決定日" },
+  { kind: "estimate_deadline", label: "見積取得目安", relativeHint: "公募締切の2週間前まで" },
+  { kind: "application_draft_deadline", label: "申請書作成目安", relativeHint: "公募締切の1週間前まで" },
+  { kind: "grant_decision_date", label: "交付決定日", relativeHint: "通知が出るまで発注しない" },
   { kind: "implementation_deadline", label: "事業実施期限" },
-  { kind: "payment_deadline", label: "支払期限" },
-  { kind: "report_deadline", label: "実績報告期限" },
-  { kind: "payment_received_date", label: "入金予定" },
+  { kind: "payment_deadline", label: "支払期限", relativeHint: "補助事業期間内に支払い完了が必要な場合があります" },
+  { kind: "report_deadline", label: "実績報告期限", relativeHint: "事業完了後に期限があります" },
+  { kind: "payment_received_date", label: "入金予定", relativeHint: "実績報告のあと（後払い）" },
 ];
+
+// 公募締切から、見積取得・申請書作成の目安日を提案する（-14日 / -7日）。
+export function suggestDeadlinesFromApplication(applicationDate: string): { estimate_deadline: string; application_draft_deadline: string } | null {
+  const d = new Date(applicationDate);
+  if (isNaN(d.getTime())) return null;
+  const minus = (days: number) => { const x = new Date(d); x.setDate(x.getDate() - days); return x.toISOString().slice(0, 10); };
+  return { estimate_deadline: minus(14), application_draft_deadline: minus(7) };
+}
 export type DeadlineRecord = { date?: string; memo?: string };
 
 // ---------- 公式確認ログ ----------
@@ -76,9 +84,41 @@ export const CHECK_STATUS_LABEL: Record<OfficialCheckLog["status"], string> = {
 // ---------- AI回答のタスク化 ----------
 export type AiTaskCandidate = {
   id: string; projectId: string; sourceResponseId?: string;
-  title: string; reason?: string; status: "candidate" | "accepted" | "rejected";
-  createdAt: string; acceptedAt?: string;
+  title: string; reason?: string; status: "candidate" | "accepted" | "rejected" | "done";
+  createdAt: string; acceptedAt?: string; doneAt?: string;
 };
+
+// 支出テーマ別の「この支出で特に重要な証憑」
+export const THEME_DOC_GROUPS: { keys: string[]; title: string; items: { kind: string; label: string }[] }[] = [
+  { keys: ["aircon", "energy", "machinery", "hygiene", "bcp", "vehicle", "decarbon"], title: "空調・省エネ・設備で特に重要", items: [
+    { kind: "t_model", label: "型番" }, { kind: "t_energy_perf", label: "省エネ性能資料" }, { kind: "t_machine_catalog", label: "機器カタログ" },
+    { kind: "t_before_const", label: "工事前写真" }, { kind: "t_after_const", label: "工事後写真" },
+    { kind: "t_removal_detail", label: "既存設備撤去費の明細" }, { kind: "t_construction_detail", label: "施工内容の明細" },
+  ] },
+  { keys: ["ad", "signboard", "website", "event", "export", "inbound"], title: "広告・LP・看板で特に重要", items: [
+    { kind: "t_creative", label: "制作物" }, { kind: "t_period", label: "掲載期間" }, { kind: "t_ad_report", label: "広告配信レポート" },
+    { kind: "t_public_url", label: "公開URL" }, { kind: "t_flyer_data", label: "チラシデータ" },
+    { kind: "t_sign_before", label: "看板施工前写真" }, { kind: "t_sign_after", label: "看板施工後写真" }, { kind: "t_deliverable_ss", label: "成果物スクリーンショット" },
+  ] },
+  { keys: ["ai_pos", "ec", "system", "ai", "labor_saving"], title: "IT・AI・POS・在庫管理で特に重要", items: [
+    { kind: "t_tool_name", label: "ツール名" }, { kind: "t_plan", label: "契約プラン" }, { kind: "t_tool_registered", label: "対象ツール登録の有無" },
+    { kind: "t_it_provider_check", label: "IT導入支援事業者の確認" }, { kind: "t_init_cost", label: "初期費用" }, { kind: "t_monthly_cost", label: "月額費用" },
+    { kind: "t_support_cost", label: "導入支援費" }, { kind: "t_admin_capture", label: "管理画面キャプチャ" }, { kind: "t_start_date", label: "利用開始日" },
+  ] },
+  { keys: ["hire", "training", "wage", "workstyle"], title: "採用・研修・賃上げで特に重要", items: [
+    { kind: "t_employment_contract", label: "雇用契約書" }, { kind: "t_work_rules", label: "就業規則" }, { kind: "t_wage_ledger", label: "賃金台帳" },
+    { kind: "t_attendance", label: "出勤簿" }, { kind: "t_curriculum", label: "研修カリキュラム" }, { kind: "t_training_hours", label: "研修時間記録" }, { kind: "t_attendee_list", label: "受講者名簿" },
+  ] },
+  { keys: ["succession"], title: "事業承継・M&Aで特に重要", items: [
+    { kind: "t_scheme", label: "承継スキーム概要" }, { kind: "t_expert_estimate", label: "専門家見積" }, { kind: "t_expert_contract", label: "専門家契約書" },
+    { kind: "t_transfer_docs", label: "株式譲渡／事業譲渡資料" }, { kind: "t_pmi_docs", label: "PMI費用資料" }, { kind: "t_dd_docs", label: "デューデリジェンス費用資料" },
+    { kind: "t_broker_docs", label: "仲介手数料資料" }, { kind: "t_license_docs", label: "許認可確認資料" },
+  ] },
+];
+export function themeDocGroup(templateKey?: string): { title: string; items: { kind: string; label: string }[] } | null {
+  if (!templateKey) return null;
+  return THEME_DOC_GROUPS.find((g) => g.keys.includes(templateKey)) ?? null;
+}
 
 // ============ localStorage ストア ============
 function read<T>(key: string, fallback: T): T {
@@ -168,6 +208,14 @@ export function deleteCheckLog(id: string) {
 export function loadTaskCandidates(projectId: string): AiTaskCandidate[] {
   return read<AiTaskCandidate[]>(TASK_KEY, []).filter((t) => t.projectId === projectId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
+// 正式タスク化された（accepted・未完了）もの。getAllProjectTasks がこれを取り込む。
+export function loadAcceptedTaskCandidates(projectId: string): AiTaskCandidate[] {
+  return loadTaskCandidates(projectId).filter((t) => t.status === "accepted");
+}
+export function completeTaskCandidateByTaskKey(taskKey: string) {
+  const id = taskKey.startsWith("ai:") ? taskKey.slice(3) : taskKey;
+  setTaskCandidateStatus(id, "done");
+}
 export function addTaskCandidates(projectId: string, titles: string[], sourceResponseId?: string): number {
   const all = read<AiTaskCandidate[]>(TASK_KEY, []);
   for (const title of titles) {
@@ -178,7 +226,7 @@ export function addTaskCandidates(projectId: string, titles: string[], sourceRes
 export function setTaskCandidateStatus(id: string, status: AiTaskCandidate["status"]) {
   const all = read<AiTaskCandidate[]>(TASK_KEY, []);
   const t = all.find((x) => x.id === id);
-  if (t) { t.status = status; if (status === "accepted") t.acceptedAt = new Date().toISOString(); }
+  if (t) { t.status = status; if (status === "accepted") t.acceptedAt = new Date().toISOString(); if (status === "done") t.doneAt = new Date().toISOString(); }
   write(TASK_KEY, all);
 }
 // AI回答テキストから「確認すること」候補を抽出（行・箇条書きベースのルール抽出。AIには投げない）。
