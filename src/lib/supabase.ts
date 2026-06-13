@@ -82,6 +82,19 @@ export async function deleteSpendingProjectRow(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ---------------- case_records（証憑・期限・公式確認ログ・AIタスクをまとめて1案件1行で保存） ----------------
+export type CaseRecordRow = { project_id: string; owner?: string | null; data: unknown; updated_at?: string | null };
+
+export async function fetchCaseRecord(projectId: string): Promise<CaseRecordRow | null> {
+  const { data, error } = await supabase.from("case_records").select("*").eq("project_id", projectId).maybeSingle();
+  if (error) throw error;
+  return (data as CaseRecordRow) ?? null;
+}
+export async function upsertCaseRecord(row: CaseRecordRow): Promise<void> {
+  const { error } = await supabase.from("case_records").upsert(row, { onConflict: "project_id" });
+  if (error) throw error;
+}
+
 
 // ---------------- grants ----------------
 export async function fetchGrants(): Promise<Grant[]> {
