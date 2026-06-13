@@ -20,8 +20,9 @@ const PRIMARY: NavItem[] = [
 // 参考・管理系（「その他」にまとめる）
 const SECONDARY: NavItem[] = [
   { href: "/guide", label: "使い方ガイド", icon: "❓", match: (p) => p.startsWith("/guide") },
+  { href: "/new", label: "新着の補助金", icon: "🆕", match: (p) => p === "/new" },
   { href: "/calendar", label: "締切カレンダー", icon: "🗓", match: (p) => p.startsWith("/calendar") },
-  { href: "/new-and-standard", label: "新着・定番", icon: "🆕", match: (p) => p.startsWith("/new-and-standard") },
+  { href: "/new-and-standard", label: "定番制度", icon: "⭐", match: (p) => p.startsWith("/new-and-standard") },
   { href: "/discovery", label: "管理者画面", icon: "🛠", match: (p) => p === "/discovery" || p.startsWith("/discovery/") || p.startsWith("/admin") || p.startsWith("/grants") },
 ];
 

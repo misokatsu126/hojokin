@@ -6,6 +6,8 @@ import { fetchDiscoveredItems } from "@/lib/supabase";
 import type { DiscoveredItem } from "@/lib/types";
 import { OwnerSwitcher } from "@/components/OwnerSwitcher";
 import { nextManualDeadline } from "@/lib/caseRecords";
+import { isSampleDiscovered } from "@/lib/sampleFilter";
+import { daysUntil } from "@/lib/utils";
 import {
   loadProjects, syncProjectsFromSupabase, classifyForProject, projectTasks, orderAdvice, getTemplate, templateExamples, PROJECT_TEMPLATE_GROUPS, PROJECT_CHECKLIST, APP_STATUS_LABEL, APP_STATUS_ORDER,
   type SpendingProject, type ProjectMatch, type ProjectTask,
@@ -159,6 +161,13 @@ export function HomeDashboard() {
     };
   }, [rows, counts, allTopTasks, anyOrdered]);
 
+  // 本日の新着件数（小さく導線。詳細は /new）
+  const newToday = useMemo(() => items.filter((i) => {
+    if (isSampleDiscovered(i) || i.status === "rejected" || i.status === "ignored" || i.status === "imported") return false;
+    const d = daysUntil(i.fetched_at ?? i.detected_at ?? null);
+    return d != null && d >= 0;
+  }).length, [items]);
+
   // 進行状況の内訳（検討中→入金）
   const statusCounts = useMemo(() => {
     const m: Partial<Record<string, number>> = {};
@@ -296,6 +305,13 @@ export function HomeDashboard() {
             ))}
           </div>
         </div>
+      )}
+
+      {newToday > 0 && (
+        <Link href="/new" className="mb-6 flex items-center justify-between rounded-lg border bg-white px-4 py-2.5 text-sm transition hover:border-accent">
+          <span className="text-gray-700">🆕 本日 <span className="font-bold text-ink">{newToday}</span> 件の新着が見つかりました</span>
+          <span className="text-xs font-medium text-accent">新着を見る →</span>
+        </Link>
       )}
 
       <FooterLinks />
