@@ -3,6 +3,7 @@
 //   ※「使える」と断定しない。あくまで「確認推奨」。年度・名称変更に備えメタ情報も持つ。
 
 import type { SpendingProject } from "./projects";
+import { expandIntent } from "./synonyms";
 
 export type CoreConfidence = "確認推奨" | "条件確認" | "次回狙い";
 export type CoreGroup = "national_subsidy" | "labor_grant" | "local_pattern";
@@ -302,10 +303,11 @@ export const CORE_PROGRAM_MASTER: CoreProgram[] = [
 // 案件 → まず確認すべき定番制度
 export function getCoreProgramChecks(project: SpendingProject): CoreProgramCheck[] {
   const tpl = project.templateKey ?? "";
-  const text = [
+  // 自然文の言い回しを標準語へ展開してから判定（「会社を作りたい」→創業 等）
+  const text = expandIntent([
     project.name, project.purpose, project.uses.join(" "), project.industry,
     ...Object.values(project.answers ?? {}),
-  ].filter(Boolean).join(" ");
+  ].filter(Boolean).join(" "));
   const rawRegion = (project.location || project.store || "").trim();
   const hasRegion = !!rawRegion;
   const region = hasRegion ? rawRegion : "お住まいの自治体";
