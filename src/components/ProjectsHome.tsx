@@ -144,7 +144,10 @@ function ProjectCard({ project, items, loading }: { project: SpendingProject; it
         {!adv.wait && <p className="mt-0.5 text-[11px] text-amber-700">注意：すでに発注済みだと対象外の可能性があります</p>}
       </div>
 
-      <div className="mt-2 text-right text-xs font-medium text-accent">この補助金チェックの詳細を見る →</div>
+      <div className="mt-2 flex items-center justify-between text-xs">
+        <span className="text-gray-400">🤖 自分のAIに相談する文章も作れます</span>
+        <span className="font-medium text-accent">詳細を見る →</span>
+      </div>
     </Link>
   );
 }

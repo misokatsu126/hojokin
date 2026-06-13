@@ -67,6 +67,25 @@ export default function GuidePage() {
         </ul>
       </div>
 
+      {/* 自分のAIに相談する */}
+      <div className="mb-4 rounded-xl border-2 border-violet-200 bg-violet-50/40 p-5">
+        <h2 className="text-base font-bold text-violet-900">🤖 自分のAIに相談する</h2>
+        <p className="mt-1 text-sm leading-relaxed text-gray-700">
+          このサイトでは、ChatGPT・Claude・Geminiなどに貼って使える<strong>相談文</strong>を作れます。
+          補助金名を知らなくても、支出・発注状況・定番制度の候補・今日やる申請準備を整理したうえで、AIに聞ける形にします。
+        </p>
+        <ul className="mt-2 space-y-1 text-sm text-gray-700">
+          <li>・自分のAIに貼って相談できます（このサイトでAIの利用料はかかりません）</li>
+          <li>・「補助金について聞く／公式要領を読ませる／見積書をチェック／申請書の素材を作る／相談文を作る／支払い前の確認／実績報告の準備」ができます</li>
+          <li>・AIに貼る前に、個人名・住所・金額など<strong>伏せたい情報は伏せられます</strong></li>
+          <li>・AIの回答を<strong>貼り戻して参考メモ</strong>として残せます（確定情報にはしません）</li>
+        </ul>
+        <p className="mt-2 rounded-md bg-white/70 px-3 py-2 text-xs text-amber-800">
+          AIの回答は申請可否・採択を保証しません。最終判断は必ず公式要領・自治体窓口・商工会議所・専門家に確認してください。
+        </p>
+        <p className="mt-2 text-xs text-gray-500">使う場所：各「補助金チェック」の詳細ページ →「🤖 自分のAIに相談する」</p>
+      </div>
+
       {/* 5. まず確認すべき定番制度 */}
       <Card title="⑤ まず確認すべき定番制度" collapsible>
         <p className="text-sm text-gray-700">検索で見つかった制度だけでなく、中小企業・小規模事業者が一般的に確認すべき定番制度も登録した支出ごとに表示します。</p>
